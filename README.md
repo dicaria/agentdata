@@ -1,5 +1,9 @@
 # agentdata
 
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
+[![Commands](https://img.shields.io/badge/81_commands-7_domains-teal)](docs/domains/api.md)
+
 One Python client for public-domain company intelligence: registries, sanctions,
 procurement, judgments, filings, and research outputs across 10+ countries and
 regions — through one consistent interface.
@@ -19,7 +23,7 @@ regions — through one consistent interface.
 
 Most commands are enrichment: they need no configuration, no keys, no account.
 Corpus commands are marked in the docs and require credentials issued by
-dicaria under a separate service agreement.
+dicaria under a separate service agreement — contact **contact@dicaria.com**.
 
 ## Install
 
@@ -116,3 +120,14 @@ agentdata procurement pncp_contracts --data-inicial 20260901 --data-final 202609
   [LICENSE](LICENSE).
 - The **data** returned by the SDK is governed by the terms of each upstream
   source; the SDK grants no data rights. See [TERMS.md](TERMS.md).
+
+## Contact
+
+- Questions, bug reports, and data-coverage requests:
+  [GitHub issues](https://github.com/dicaria/agentdata/issues) or
+  **contact@dicaria.com** (see [CONTRIBUTING.md](CONTRIBUTING.md))
+- Hosted-corpus credentials and service inquiries: **contact@dicaria.com**
+- Security reports: **contact@dicaria.com** — please don't open a public
+  issue; see [SECURITY.md](SECURITY.md)
+- Conduct issues: **contact@dicaria.com** (see
+  [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md))

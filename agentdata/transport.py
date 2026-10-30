@@ -306,12 +306,19 @@ def multipart_json_field(field: str, obj) -> tuple[bytes, str]:
     return head + payload + tail, f"multipart/form-data; boundary={boundary}"
 
 
-def http_json(url: str, timeout: float, body: dict | None = None, multipart=None, urlencoded=None):
+def http_json(url: str, timeout: float, body: dict | None = None, multipart=None, urlencoded=None,
+              extra_headers: dict | None = None):
     """urllib channel -> {'ok', 'status', 'retry_after', 'json'} (a non-JSON body is left for the status code to judge).
     body not None -> POST JSON; multipart=(bytes, content_type) -> extension (4) form-channel POST;
     urlencoded=bytes -> extension (7) form-urlencoded channel POST (body = standard form encoding)
-    (a read-semantics POST only takes part in call_provider retries when the op declares idempotent)."""
+    (a read-semantics POST only takes part in call_provider retries when the op declares idempotent).
+    extra_headers -> extension (8) per-request header overrides (merged over the default UA/Accept: UA-fingerprint-gate
+    sites override User-Agent, the ASP.NET anti-forgery pairing carries Cookie/RequestVerificationToken — first used
+    by the UNGM collection, 0.3.12); the response's set_cookie list comes back in full (the pairing bootstrap needs
+    the session cookie; urllib channel only)."""
     headers = {"User-Agent": _ua(), "Accept": "application/json"}
+    if extra_headers:
+        headers.update(extra_headers)
     data = None
     if body is not None:
         data = json.dumps(body, ensure_ascii=False).encode("utf-8")
@@ -326,8 +333,10 @@ def http_json(url: str, timeout: float, body: dict | None = None, multipart=None
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             status, raw, ra = resp.status, resp.read(), resp.headers.get("Retry-After")
+            sc = resp.headers.get_all("Set-Cookie") or []
     except urllib.error.HTTPError as e:  # 4xx/5xx land here (the body is still read)
         status, raw, ra = e.code, e.read(), e.headers.get("Retry-After")
+        sc = e.headers.get_all("Set-Cookie") or []
         e.close()
     try:
         doc = json.loads(raw.decode("utf-8", "replace"))
@@ -337,7 +346,8 @@ def http_json(url: str, timeout: float, body: dict | None = None, multipart=None
     # the full text is brought back: accept:'text' ops (HTML surfaces, e.g. TGA eBS Domino SearchView) pass through on this channel and the provider parses them itself
     return {"ok": 200 <= status < 300, "status": status, "retry_after": ra, "json": doc,
             "text": raw.decode("utf-8", "replace"),
-            "body_head": raw[:160].decode("utf-8", "replace")}
+            "body_head": raw[:160].decode("utf-8", "replace"),
+            "set_cookie": sc}
 
 
 def curl_json(url: str, timeout: float):
@@ -364,13 +374,24 @@ def curl_json(url: str, timeout: float):
             "body_head": body[:160]}
 
 
-def _send(url: str, transport: str, timeout: float, body: dict | None = None, multipart=None, urlencoded=None):
+def _send(url: str, transport: str, timeout: float, body: dict | None = None, multipart=None,
+          urlencoded=None, extra_headers: dict | None = None):
+    # extra_headers (ext 8) rides the urllib channel only and is passed as a kwarg only when declared
+    # (absent = zero disturbance to the existing four-argument/http_json patch signature — same
+    # discipline as multipart/urlencoded); the curl subprocess has no per-request header surface
+    # (intercepted before call_provider)
+    kw = {"extra_headers": extra_headers} if extra_headers else {}
     if body is not None:  # POST only via the urllib channel (call_provider already intercepts curl+POST)
-        return http_json(url, timeout, body)
+        return http_json(url, timeout, body, **kw)
     if multipart is not None:  # extension (4) form channel (urllib only as well; curl+POST is intercepted)
-        return http_json(url, timeout, multipart=multipart)
+        return http_json(url, timeout, multipart=multipart, **kw)
     if urlencoded is not None:  # extension (7) form-urlencoded channel (urllib only as well)
-        return http_json(url, timeout, urlencoded=urlencoded)
+        return http_json(url, timeout, urlencoded=urlencoded, **kw)
+    if extra_headers:  # ext 8 is mutually exclusive with the curl channel (no header surface; silently dropping headers = a wrong-fingerprint request); urllib passes straight through to http_json
+        if transport == "curl":
+            from .errors import SdkError
+            raise SdkError("usage_error", detail="extra_headers is urllib-channel only (the curl subprocess has no per-request header surface)")
+        return http_json(url, timeout, extra_headers=extra_headers)
     return curl_json(url, timeout) if transport == "curl" else http_json(url, timeout)
 
 
@@ -379,7 +400,8 @@ def cache_key_for(op: str, params: dict) -> str:
     return json.dumps([op] + sorted(params.items()), ensure_ascii=False)
 
 
-def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = False):
+def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = False,
+                  extra_headers: dict | None = None):
     """-> {'ok', 'data', 'from_cache', 'fetched_at', 'provider'}; a cache hit does zero network work; a pass-through is stored under the op TTL."""
     params = {k: v for k, v in (params or {}).items() if v is not None}
     opdef = provider["ops"].get(op)
@@ -448,9 +470,15 @@ def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = F
             try:
                 # multipart is passed as the fifth argument only on the form-channel path, urlencoded as
                 # the sixth — every other path keeps the four-argument call shape (the golden vectors
-                # patch the four-argument _send signature)
+                # patch the four-argument _send signature); extra_headers (ext 8) rides the seventh
+                # argument only when declared (absent = zero disturbance — same discipline as above)
                 with _host_slot(host, conc):  # (5) host concurrency cap
-                    if multipart is not None:
+                    if extra_headers:
+                        if opdef.get("transport", "urllib") == "curl":
+                            raise SdkError("usage_error", provider=provider["id"],
+                                           detail="extra_headers is urllib-channel only for now (the curl subprocess has no per-request header surface)")
+                        r = _send(url, "urllib", opdef.get("timeout", 20.0), body, multipart, urlenc, extra_headers)
+                    elif multipart is not None:
                         r = _send(url, opdef.get("transport", "urllib"), opdef.get("timeout", 20.0), None, multipart)
                     elif urlenc is not None:
                         r = _send(url, opdef.get("transport", "urllib"), opdef.get("timeout", 20.0), None, None, urlenc)
@@ -468,8 +496,12 @@ def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = F
                 clean_round_trip = True
                 if not no_cache and cache is not None:
                     cache.set(provider["id"], cache_key, payload, ttl)
+                # set_cookie rides the cache-miss response only (ext 8: session collection such as the ASP.NET
+                # anti-forgery bootstrap; the cache-hit path carries no key — the caller judges "session not fresh"
+                # from its absence and re-bootstraps itself)
                 return {"ok": True, "data": payload, "from_cache": False,
-                        "fetched_at": now_iso(), "provider": provider["id"]}
+                        "fetched_at": now_iso(), "provider": provider["id"],
+                        "set_cookie": r.get("set_cookie") or []}
             if r["ok"]:
                 # 2xx but not JSON — the typical AWS WAF bot challenge (202 + x-amzn-waf-action HTML).
                 # The gating holds on both the client stack and the egress IP (measured 2026-10-16:

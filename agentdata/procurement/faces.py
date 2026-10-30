@@ -4,7 +4,7 @@ Mixes into the root _Domain (assembled via MRO, see client.py); discipline: no _
 depend only on root internals (_flat_env/_c/_request…), method names globally unique across
 domains (a collision would shadow another domain's face).
 """
-from . import ny_open_data, pncp, secop, wb_proc
+from . import ny_open_data, pncp, secop, ungm, wb_proc
 from ..errors import SdkError
 
 
@@ -157,6 +157,78 @@ class ProcurementFaces:
                "url": "https://data.ny.gov/resource/twsw-2mqa.json"}
               for x in rows[:3] if x.get("vendor_name")]
         return self._flat_env(tool="ny_mta_procurements",
+                              input={"where": where, "limit": limit, "offset": offset, "order": order},
+                              reason=reason, result=res, evidence=ev, provider_id="ny_open_data",
+                              metas=[r["_meta"]],
+                              query={"source": "raw", "upstream": r["params"]})
+
+    def ungm_contract_awards(self, supplier=None, *, title=None, reference=None,
+                             award_from=None, award_to=None, countries=None, agencies=None,
+                             unspscs=None, page_index=1, page_size=15, sort_field="AwardDate",
+                             sort_ascending=False, execution=None, no_cache=None):
+        """procurement ungm_contract_awards：联合国全球市场授标搜索（www.ungm.org/Public/ContractAward
+        PublicSearch；Supplier/Title/Reference/AwardFrom/AwardTo/Countries/Agencies/UNSPSCs
+        上游原名，page_index/page_size 翻页）。全库 ~5 万条——UN 机构买方宇宙（UNDP/UNFPA/ILO/
+        UNOPS…）×全球供方（vendor 名+供应商国家）；行=id（授标键）+六槽。反伪造配对会话
+        15 分钟自动复用，400 即重采；浏览器 UA 门控在 provider 层已内建。"""
+        self._pr_only("ungm_contract_awards")
+        r = ungm.awards_raw(supplier, title=title, reference=reference, award_from=award_from,
+                            award_to=award_to, countries=countries, agencies=agencies,
+                            unspscs=unspscs, page_index=page_index, page_size=page_size,
+                            sort_field=sort_field, sort_ascending=sort_ascending,
+                            cache=self._c._cache,
+                            no_cache=no_cache if no_cache is not None else self._c.no_cache)
+        res = {k: v for k, v in r.items() if k != "_meta"}
+        rows = res["rows"]
+        n_vendor = sum(1 for x in rows if x.get("vendor"))
+        if rows:
+            reason = (f"UNGM 授标搜索：全量 {res['total']:,} 条命中，第 {page_index} 页返回 {len(rows)} 行"
+                      f"（{n_vendor} 行带供方名）——UN 机构买方 × 全球供方"
+                      + (f"，supplier=「{supplier}」" if supplier else "")
+                      + f"（样例 {rows[0].get('agency') or '—'} × {rows[0].get('vendor') or '—'}，"
+                        f"{rows[0].get('award_date') or '—'} 授标）")
+        else:
+            reason = (f"UNGM 授标搜索：0 行——过滤无命中或页号越界均为合法答案"
+                      f"（total={res['total']}）")
+        ev = [{"quote": f"{x['id']} — {x.get('agency') or '—'} × {x.get('vendor') or '—'} — "
+                        f"{x.get('supplier_country') or '—'}（{x.get('award_date') or '—'}）",
+               "url": f"https://www.ungm.org/Public/ContractAward/{x['id']}"}
+              for x in rows[:3] if x.get("id")]
+        return self._flat_env(tool="ungm_contract_awards",
+                              input={"supplier": supplier, "title": title, "reference": reference,
+                                     "award_from": award_from, "award_to": award_to,
+                                     "countries": countries, "agencies": agencies,
+                                     "unspscs": unspscs, "page_index": page_index,
+                                     "page_size": page_size, "sort_field": sort_field,
+                                     "sort_ascending": sort_ascending},
+                              reason=reason, result=res, evidence=ev, provider_id="ungm",
+                              metas=[r["_meta"]],
+                              query={"source": "raw", "upstream": r["params"]})
+
+    def ny_ogs_payments(self, where=None, *, limit=20, offset=0, order=None,
+                        execution=None, no_cache=None):
+        """procurement ny_ogs_payments：纽约州总务署 D&C 付款（data.ny.gov Socrata rb9h-9fit；
+        where→$where 裸 SoQL 原名通道、limit/offset/order 同名镜像）。全库 6.9 万行——买方恒
+        OGS，行=contractnumber×vendor×paymentamount+fiscalyear/quarter/county（无地址列，
+        name walk 单键标识）；与 ABO/MTA 双面拼齐纽约州三买方宇宙。"""
+        self._pr_only("ny_ogs_payments")
+        r = ny_open_data.ogs_dc_payments_raw(where, limit=limit, offset=offset, order=order,
+                                             cache=self._c._cache,
+                                             no_cache=no_cache if no_cache is not None else self._c.no_cache)
+        res = {k: v for k, v in r.items() if k != "_meta"}
+        rows = res["rows"]
+        if rows:
+            reason = (f"NY OGS D&C 付款：返回 {len(rows)} 行（offset={offset} 起；Socrata 无 total 回显）"
+                      f"——买方恒 OGS，contractnumber×vendor×paymentamount 三柱"
+                      f"（样例 {rows[0].get('vendor') or '—'} — {rows[0].get('paymentamount') or '—'} USD，"
+                      f"{rows[0].get('fiscalyear') or '—'} Q{rows[0].get('quarter') or '—'}）")
+        else:
+            reason = "NY OGS：0 行——where 过滤无命中或 offset 越界，均为合法答案（非错误）"
+        ev = [{"quote": f"OGS × {x.get('vendor') or '—'} — {x.get('paymentamount') or '—'} USD"
+                        f"（{x.get('contractnumber') or '—'}，{x.get('fiscalyear') or '—'} Q{x.get('quarter') or '—'}）",
+               "url": "https://data.ny.gov/resource/rb9h-9fit.json"}
+              for x in rows[:3] if x.get("vendor")]
+        return self._flat_env(tool="ny_ogs_payments",
                               input={"where": where, "limit": limit, "offset": offset, "order": order},
                               reason=reason, result=res, evidence=ev, provider_id="ny_open_data",
                               metas=[r["_meta"]],

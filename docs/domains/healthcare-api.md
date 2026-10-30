@@ -6,7 +6,7 @@
 > Domain type: **multi-regime (api.md §7)** — the CN / US / cross sides differ markedly in record_kind sets, field sets, compliance frameworks, and primary user questions; the `side` parameter is a §7.2 contract **designed ahead of wiring — engine/SDK not yet connected** (passages marked 〔planned〕 in this document are in exactly that state).
 > Status: 2026-10-19 edition aligned with the implementation — P1 has landed (domain-spec / engine / agentdata SDK in service, staging-scan form); `side` and the multi-regime sub-resource endpoints are contract-first, and until wired every related passage is marked 〔planned〕.
 > Split relationship: healthcare.md is the master record (internal source of truth); healthcare-api.md is the external edition (single-page API reference for consumers); healthcare-storage-api-design.md is the storage design draft (parallel to this document).
-> Online service channels: this domain's hosted data travels two channels — the **corpus face** (SDK `search`/`read`; contract in §1-§8 + api.md §8; PAT credentials issued by dicaria) and the **hub REST read faces** (§10; production base `https://hub.omnimay.com`; subject-token credentials, callable today by token holders). §10 is the parameter-level direct-call reference.
+> Online service channels: this domain's hosted data travels two channels — the **corpus face** (SDK `search`/`read`; contract in §1-§8 + api.md §8; PAT credentials issued by dicaria — contact@dicaria.com) and the **hub REST read faces** (§10; production base `https://hub.omnimay.com`; subject-token credentials, callable today by token holders). §10 is the parameter-level direct-call reference.
 
 ---
 

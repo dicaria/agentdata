@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agentdata"
 # keep in sync with agentdata/__init__.py __version__ (0.1.10 split-brain lesson; 0.2.1/0.2.2 missed this spot; a trailing comment on the version line breaks site/docs-app gen/openapi.mjs whole-line regex — keep the version line a bare value)
-version = "0.3.10"
+version = "0.3.12"
 description = "AgentData domain API SDK — corpus (hosted) + third-party enrichment (local, keyless); stdlib-only"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
-authors = [{ name = "dicaria" }]
+authors = [{ name = "dicaria", email = "contact@dicaria.com" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",

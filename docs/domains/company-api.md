@@ -3,7 +3,7 @@
 > **Audience**: external integrators / downstream consumers. This document is the external reference for the company domain's query interface — contract and data reality only, no pipeline internals.
 > The internal design source of truth remains company.md (§9 controlled fields / §10 use cases / §12 CLI) and [api.md](api.md) (cross-domain contract); where this document conflicts with them, the internal source of truth prevails and the conflict is treated as a defect of this document.
 > Transport forms: P1 = CLI (every command in this document runs as-is); P2 = HTTP `/v1/company/*` (request/response semantics unchanged, see api.md §8).
-> Status: live since 2026-10-14; this document states the delivered contract. Hosted-corpus credentials are issued by dicaria under a separate service agreement.
+> Status: live since 2026-10-14; this document states the delivered contract. Hosted-corpus credentials are issued by dicaria under a separate service agreement — contact@dicaria.com.
 
 ---
 

@@ -1,5 +1,6 @@
-# Third-Party Source Rate-Limit Research Ledger v1.1 (56 providers / 81 faces)
+# Third-Party Source Rate-Limit Research Ledger v1.2 (57 providers / 83 faces)
 
+> v1.1→v1.2 (2026-10-30): 0.3.12 collection round — +1 provider (ungm) +2 faces (ungm_contract_awards, ny_ogs_payments); the ny_open_data row extends to the OGS third face (same Socrata anonymous tier).
 > v1.0→v1.1 (2026-10-30): aligned to the 0.3.10 81-face roster — +17 providers/+31 faces (openFDA family, EU registries, esg four, uk_cma, the procurement domain); openFDA family A-tier verified on the primary page.
 
 > Position: **the source of truth for upstream rate-limit facts** — each source's official limits, window types, evidence and verification dates, plus the ledger of deviations from our own declared settings.
@@ -110,8 +111,9 @@
 |---|---|---|---|---|
 | pncp (contracts) | 1/2 | none published (the 500-row page cap = the effective throttle; non-upstream params rejected 400) | C (admission probes, design volume §6) | polite tier |
 | secop (contracts) | 1/2 | Socrata anonymous tier; domain-configured figures not published | B (Socrata platform, [datos.gov.co](https://www.datos.gov.co/)) | polite tier |
-| ny_open_data (abo_contracts/mta_procurements) | 1/2 | Socrata anonymous tier; same as above ($limit cap 1-500 self-imposed) | B (Socrata platform, [data.ny.gov](https://data.ny.gov/)) | polite tier |
+| ny_open_data (abo_contracts/mta_procurements/ogs_dc_payments) | 1/2 | Socrata anonymous tier; same as above ($limit cap 1-500 self-imposed) | B (Socrata platform, [data.ny.gov](https://data.ny.gov/)) | polite tier |
 | wb_proc (procnotices) | 1/2 | none published (rows 1-100 politeness cap self-imposed) | C (design volume §6) | polite tier |
+| ungm (contract_awards) | 0.5/1 | none published (browser UA mandatory behind a UA fingerprint gate; ASP.NET anti-forgery session pairing; PageSize 1-100 politeness cap self-imposed — the browser itself uses 15) | C (admission probes 2026-10-30) | polite tier |
 
 ## 4. Three-Type Layered Conclusions
 
