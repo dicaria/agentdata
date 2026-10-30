@@ -6,8 +6,7 @@
 > Domain type: **multi-regime (api.md §7)** — the CN / US / cross sides differ markedly in record_kind sets, field sets, compliance frameworks, and primary user questions; the `side` parameter is a §7.2 contract **designed ahead of wiring — engine/SDK not yet connected** (passages marked 〔planned〕 in this document are in exactly that state).
 > Status: 2026-10-19 edition aligned with the implementation — P1 has landed (domain-spec / engine / agentdata SDK in service, staging-scan form); `side` and the multi-regime sub-resource endpoints are contract-first, and until wired every related passage is marked 〔planned〕.
 > Split relationship: healthcare.md is the master record (internal source of truth); healthcare-api.md is the external edition (single-page API reference for consumers); healthcare-storage-api-design.md is the storage design draft (parallel to this document).
-> Online service layer: **omnihub v2.3 is live** (eight storage tables + HTTP v1 + 29 MCP tools, see §9) — same data source as this document's contract track, separate paradigm track; §9 registers the as-built state truthfully.
-> Direct hub REST calls: **production base URL https://hub.omnimay.com with 26 readable faces directly callable** (parameter-level reference in §10) — callers holding a subject token can call directly today per §10; the SDK three-verb path is not yet connected to the medical production store (§10 header status note, to prevent misreading).
+> Online service channels: this domain's hosted data travels two channels — the **corpus face** (SDK `search`/`read`; contract in §1-§8 + api.md §8; PAT credentials issued by dicaria) and the **hub REST read faces** (§10; production base `https://hub.omnimay.com`; subject-token credentials, callable today by token holders). §10 is the parameter-level direct-call reference.
 
 ---
 
@@ -45,42 +44,41 @@ healthcare is a **multi-regime domain** — the CN / US / cross sides each carry
 
 ```bash
 # ① US approved-companies roster (UC-H1)
-node harvest/shared/domain-export.mjs healthcare search \
+agentdata healthcare search \
   --filter 'qtype=fda_drug_ndc' --filter 'approval_year>=2023' \
-  --facets qtype --level tier1 --fmt csv -o usndc.csv
+  --facets qtype --level tier1
 
-# ② Centralized-procurement wins + nested DSL (UC-H4; --filter-json is the sole authoritative entry)
-node harvest/shared/domain-export.mjs healthcare search --filter-json q.json --limit 200
-  # q.json = {record_kind:"procurement", project:{any:["第12批"]},
-  #           product_name:"复方氨基酸", plan_month:{gte:"2025-01"}}
+# ② Centralized-procurement wins (UC-H4; the nested-DSL form goes through the HTTP body / Client.search(filters=…))
+agentdata healthcare search --record-kind procurement \
+  --filter 'project=第12批' --filter 'product_name=复方氨基酸' \
+  --filter 'plan_month>=2025-01' --limit 200
 
 # ③ Medical institution roster (UC-H5; institutions listed separately, never mixed into company rosters)
-node harvest/shared/domain-export.mjs healthcare search \
+agentdata healthcare search \
   --filter 'subject_kind=institution' --filter 'qtype=cn_hospital_grade' \
-  --level tier1 --fmt csv -o hospitals.csv
+  --level tier1
 
-# ④ Subject profile (UC-H7 dual-signal entry)
-node harvest/shared/domain-export.mjs healthcare read --target company:<id> --level tier2
+# ④ Subject profile (UC-H7 dual-signal entry; Client.read(target=…) carries the company:<id> form)
+agentdata healthcare read --id <subject_id> --level tier2
 
 # ⑤ Batch list screening (first pass over a going-global list; six states returned per row)
-node harvest/shared/domain-export.mjs healthcare search --mode screen --input targets.jsonl \
-  --level tier1 --fmt jsonl -o screen.jsonl
+agentdata healthcare search --mode screen --input targets.jsonl --level tier1
 ```
 
 **Multi-regime `side` parameter** 〔planned — api.md §7.2 contract-first, engine/SDK not yet wired; passing `--side` today fails with unknown parameter〕. Until it is wired, jurisdiction is expressed at the field layer:
 
 ```bash
 # Current equivalent: jurisdiction carried via qtype prefix (cn_* / us_*) + the row-level country field
-node harvest/shared/domain-export.mjs healthcare search \
+agentdata healthcare search \
   --filter 'qtype=cn_drug_trade_license' --filter 'status=有效' --limit 100
 
-node harvest/shared/domain-export.mjs healthcare search \
+agentdata healthcare search \
   --filter 'qtype=us_ob_product' --facets company_registration_country --limit 50
 
 # Once the contract is wired (shape below, not runnable yet): --side cn|us|cross; cross follows the "declare the alignment ceiling honestly" rule and every row carries a side annotation
 ```
 
-What a returned row looks like (`--fmt jsonl`; the quartet is mandatory: **company + reason + evidence + provenance**):
+What a returned row looks like (the quartet is mandatory: **company + reason + evidence + provenance**):
 
 ```json
 {"domain":"healthcare","level":"tier1","cursor":"qualification:1","record_kind":"qualification",
@@ -286,110 +284,23 @@ healthcare-specific errors 〔planned — to land with the side wiring / red-lin
 
 ---
 
-## 9. Online service layer (omnihub v2.3, live)
+## 9. Hosted channels (as-built)
 
-> **Positioning statement**: §1-§8 are this repository's lead-discovery retrieval contract (P1 CLI / P2 HTTP design draft); this section records **another service track already live** — the omnihub-side v2.3 healthcare domain (storage + HTTP + MCP). The two tracks share **the same data source** (this repository's lake source files → the omnihub import face) but run **separate interface paradigms**: the omnihub faces are resource-style read faces (GET + query-parameter filters + cursor pagination) plus an async import face, and do not implement the three verbs / Filter DSL / T-layer aggregation; they target agent/MCP consumption scenarios. Whether the two tracks converge is a later decision; this document only registers the as-built state truthfully.
+> **Positioning statement**: §1-§8 are the retrieval contract for this domain's corpus (SDK `search`/`read` + the HTTP search/read of api.md §8). Two hosted channels serve the data; both are live:
 
-### 9.1 Topology and authentication
-
-| Layer | As-built (2026-10-16) |
-|---|---|
-| Service | omnihub (healthcare sub-domain mounted in-process; released to the test environment) |
-| HTTP face | `/v1/{cn,us}/*` read faces + `/v1/import/*` import faces (§9.3/§9.4); subject JWT auth (caller subject token) |
-| MCP face | test environment `https://mcp.test.omnimay.com/mcp` (streamable-HTTP, OAuth browser authorization), 29 healthcare tools (§9.5), tools/list totals 112 (incl. other domains such as company/dealcenter) |
-| Legacy-name compat | `/v1/drug/*` → 301 permanent redirect to `/v1/cn/drug/*` (query string preserved; withdrawn after a six-month window) |
-
-### 9.2 Eight storage tables (DDL summary, omnihub_db)
-
-**Common column group** (every table except import_job):
-
-| Column | Type | Notes |
+| Channel | What it serves | Contract |
 |---|---|---|
-| `uuid` | BINARY(16) PK | row identity (presented as hex externally by MCP/HTTP) |
-| `source_id` + `source_row_key` | VARCHAR(64)/VARCHAR(255), **UNIQUE(source_id, source_row_key)** | idempotent dual key: re-importing the same key counts as duplicated, no rewrite |
-| `raw_payload` / `raw_provenance` | JSON | full source-site fields + provenance (batch/file/anchor) — the "evidence is traceable" storage layer |
-| `valid_from` / `valid_to` / `status` | DATE/DATE/VARCHAR(32) | row lifecycle |
-| `created_at` / `updated_at` | DATETIME | |
+| **Corpus face** | lead-discovery retrieval: search / read (T1-T3) / screen across the cn/us field partitions of §2 | this document §1-§8 + api.md §8 (endpoints, envelope, PAT auth, error codes) |
+| **Hub REST** | resource-style read faces over the medical production store (drug/device approvals, pricing/procurement, risk events, institutions, clinical trials, monthly aggregates), cn/us symmetric | §10 (parameter-level direct-call reference, base `https://hub.omnimay.com`) |
 
-Table by table (only typed columns specific to each table are listed; indexes in parentheses):
-
-| Table | Semantics | Typed specific columns | Indexes |
-|---|---|---|---|
-| `healthcare_institution` | Medical institution subject (single table; license/rating current values typed, change history in raw) | `country_code` CHAR(2) · `name` VARCHAR(512) · `institution_kind` VARCHAR(32) · `region` · `license_no` · `rating_level` · `address` | (institution_kind, region) |
-| `fact_approval_row` | Regulatory issuance facts, **3-in-1** (drug approval + device registration certificate + device trade license) | `country_code` · `license_no` · `product_kind` VARCHAR(16) (drug/device) · `qtype` (approval/clearance…) · `holder_uuid` BINARY(16)? · `applicant_name` · `product_name` · `approve_date` · `expire_date` · `license_status` | (country_code, product_kind, qtype); license_no |
-| `fact_pricing_row` | Pricing and procurement facts, **3-in-1** (drug price + device price + procurement win) | `country_code` · `qtype` five kinds (nrdl/neml/procurement/medicare/…) · `product_ref`/`product_name` · `subject_uuid`?↔`subject_name` (dual-column anchor in pairs) · `project_name` (procurement batch; UC-H4's three axes all land as columns) · `region` · `price` NUMERIC(20,4) · `currency` CHAR(3) | (country_code, qtype); subject_uuid; project_name |
-| `fact_trial_row` | Clinical trial study level (locations stored as a JSON array, no separate table; facility alignment writes back locations[*].facility_uuid) | `country_code` · `nct_id` · `title` VARCHAR(1024) · `phase` · `trial_status` (trial business status, a separate column from the row-lifecycle status) · `sponsor_uuid`?↔`sponsor_name` · `conditions` JSON (array of raw indication text) · `start_date` · `locations` JSON | (country_code, trial_status); nct_id; **MySQL 8.0.17+ multi-valued index** (locations->'$[*].facility_uuid' CAST ARRAY, guard-rebuilt at database creation) |
-| `risk_event_row` | Negative events, **single table** | `country_code` · `qtype` seven kinds (recall / administrative_penalty / disqualified / judgement / adverse_event_summary / sanctions / inspection) · `scope` VARCHAR(16) · `event_date` · `subject_uuid`?↔`subject_name` · `product_ref`↔`product_name` · `severity` · `region` | (country_code, qtype, event_date) |
-| `subject_identifier` | Subject external-identifier historical snapshots (NPI/USCC/registration-number cross-year trajectory; L1 merge anchor) | `country_code` · `subject_uuid`? · `id_type` · `id_value` | (id_type, id_value); subject_uuid |
-| `edge_row` | Relationship assertion edges, **2-in-1** (subject↔subject + product↔subject) | `country_code` · `left_uuid`? · `object_type` VARCHAR(16) · `right_uuid`? · `rel_type` VARCHAR(64) (clinical_trial_sponsor / research_funding / payment…; payment detail kept only in raw) | (left_uuid, rel_type); (right_uuid, rel_type) |
-| `import_job` | Async import job ledger (**no uk_src_row**, id BIGINT auto-increment PK) | `status` (queued/running/done/failed) · `source_id` · `sub` · `country_code` · `payload` (raw NDJSON, resumable on restart; no separate queue table) · `total_lines`/`accepted`/`duplicated`/`rejected` · `error_summary` JSON | (status, id) |
-
-### 9.3 HTTP v1 read faces (cn/us built symmetrically, `/v1/{c}` prefix)
-
-> For the parameter-level reference for direct production calls (base URL/auth/per-endpoint parameter tables/envelope/error codes/known limits), see §10.
-
-| Endpoint | operation_id | Filter parameters (besides cursor/limit, default 20) |
-|---|---|---|
-| `GET /v1/{c}/drug/approvals` (+`/{uuid}`) | `{c}.healthcare.drug.approvals.list/get` | qtype · license_no (exact) · holder_uuid (hex) · applicant_name (contains) · product_name (contains) |
-| `GET /v1/{c}/device/approvals` (+`/{uuid}`) | `{c}.healthcare.device.approvals.list/get` | same as above (product_kind=device fixed) |
-| `GET /v1/{c}/pricing/rows` (+`/{uuid}`) | `{c}.healthcare.pricing.list/get` | qtype · region · product_name · subject_name (contains) · project_name (equality) · subject_uuid (hex) |
-| `GET /v1/{c}/risk/events` (+`/{uuid}`) | `{c}.healthcare.risk.events.list/get` | qtype · subject_uuid · subject_name · product_name · date_from/date_to |
-| `GET /v1/{c}/hospital/institutions` (+`/{uuid}`) | `{c}.healthcare.hospital.list/get` | kind (hospital/pharmacy) · region · name (contains) |
-| `GET /v1/{c}/clinical-trials/studies` (+`/{uuid}`) | `{c}.healthcare.trials.list/get` | trial_status · nct_id · sponsor_uuid · sponsor_name · condition (contains, matched against the conditions JSON array) |
-| `GET /v1/{c}/aggregate/timelines` | `{c}.healthcare.aggregate.timelines` | **only** date_from/date_to (no limit/filters); counts aggregated by month × table × qtype — doubles as a data-freshness inspection face |
-
-Unified response envelope: `{"items":[…], "limit":N, "next_cursor":"…|null"}`; rows carry all typed columns + `raw` (the raw_payload verbatim).
-
-### 9.4 Import contract (write face)
-
-```
-POST /v1/import/batch?source=<source id>&sub=<optional subset>   synchronous: body=NDJSON, one {"source_row_key":"…","raw_payload":{…}} per line
-                                                      returns accepted/duplicated/rejected counts + per-line receipts
-POST /v1/import/jobs?source=&sub=                     async: same body; 201 → {"job_id":N,"status":"queued"}
-GET  /v1/import/jobs/{job_id}                         poll for the terminal state (done/failed + four counts + error_summary)
-```
-
-- **Server-side typed extraction**: `config/field_mappings/<source (/ → __)>.json` gives, per column, a candidate list of `$`-paths + type coercion (decimal/date); raw_payload lands in the store verbatim. Example (cn/smpaa): `product_name←$.item/$.品名`, `subject_name←$.winner/$.中选企业`, `price←$.amount (decimal)`, `valid_from←$.publish_date (date)`.
-- **Routing source of truth** `config/import-routes.json` (source → table/qtype/country; sub sub-routes divert and sub enters the source_row_key prefix):
-
-| source | Table | qtype / notes |
-|---|---|---|
-| `cn/cde` | fact_approval_row | approval (drug); sub `cde-clin` → fact_trial_row |
-| `cn/nhsa` | fact_pricing_row | nrdl (2025-edition medical-insurance drug list) |
-| `cn/neml` | fact_pricing_row | neml (essential-medicines list; **no typed price** — the list itself carries no price semantics) |
-| `cn/smpaa` | fact_pricing_row | procurement (centralized-procurement win) |
-| `cn/nmpa-approval` | fact_approval_row | approval (drug) |
-| `us/clinicaltrials` | fact_trial_row | — |
-| `us/fda-inspections` | risk_event_row | inspection |
-| `us/cms` | fact_pricing_row | medicare; sub `pdc-quality` → healthcare_institution |
-| `us/nih-reporter` | edge_row | rel_type=research_funding |
-| `us/nppes` | healthcare_institution | — |
-| `us/openfda` | risk_event_row | main route recall; sub: core/recall=recall, enforcement=administrative_penalty, extra/drug-event=adverse_event_summary, maude-summary=adverse_event_summary (scope=device) |
-| `us/openpayments` | edge_row | rel_type=payment (detail kept only in raw, red line) |
-| `us/orangebook` | fact_approval_row | clearance (drug) |
-| `us/purplebook` | fact_approval_row | clearance (drug) |
-
-- **Hard red-line gates** (code layer): the openfda `label`/`maude` subs are rejected wholesale (labeling filing obligations, healthcare.md §11-2); pricing-face rows with dac:/fa: prefixes are excluded at the storage layer.
-- **Idempotency**: UNIQUE(source_id, source_row_key) — re-importing the same key counts as duplicated; the `sub` prefix (e.g. `enforcement:d216rd-…`) participates in the key.
-
-### 9.5 MCP tool face (29 tools, registered in the test environment)
-
-**24 country faces** (cn/us symmetric, `{c}.healthcare.` prefix): drug/device approvals × list/get, pricing × list/get, risk.events × list/get, hospital × list/get, trials × list/get, aggregate.timelines — all 13 for us; **11 for cn** (cn's drug.approvals.\* is deliberately unregistered, covered by the legacy-name pair, see below). **3 import faces**: `import.healthcare.batch` / `import.healthcare.jobs.create` (MCP adapter single-item form) / `import.healthcare.jobs.get`. **2 legacy-name pairs**: `drug.approval.search` / `drug.approval.get` — equivalent coverage of the CN drug-approval read faces (avoiding a same-name semantic fork with `cn.healthcare.drug.approvals.*`); the current search parameter surface = qtype/license_no/product_name/cursor/limit (**applicant_name not registered** — company-based queries need paginated local filtering or the HTTP face; known gap).
-
-### 9.6 Data state and known boundaries (2026-10-16)
-
-- **All real data, the test generation zeroed out**: Σ ~2,146 rows = 1,596 pre-existing (trial 100 / pricing 535 / institution 200 / risk 191 / approval 370 / edge 200) + 550 from the five new lake-source files added 10-16 (pricing 330: nhsa/neml/smpaa 110 each; approval 220: nmpa-approval/orangebook 110 each). source_row_key generations: `d215:N` (migration generation) / `d216rd-*` (lake-source generation).
-- **The empty CN institution face is by design**: the source list has no CN institution source; the US institution face (nppes+cms) has a real 200 rows.
-- Medical-insurance (nrdl) / essential-medicines (neml) list rows carry no price column value — the lists carry no price semantics; the centralized-procurement (procurement) price is joined from the win-results table × appendix-2 demand-quantity table on "product name + company prefix".
-- `subject_uuid` alignment is not fully backfilled (the name column lands first); cross-side alignment still follows the §8 ceiling position.
-- The delta versus this repository's staging (2.84M rows) = a publish/ingest cadence difference: the omnihub side is precision-fed source by source per use case, not a full mirror.
+The two channels share the same data lineage but run separate interface paradigms: the hub faces are resource-style GET + query-parameter filters + cursor pagination and do not implement the three verbs / Filter DSL / T-layer aggregation. Whether the two channels converge is a later decision.
 
 ---
 
 ## 10. Direct hub REST call reference (26 production read faces, parameter level)
 
-> **Positioning**: a **parameter-level reference for direct production calls** to the read faces of the omnihub service track registered in §9 (v2.3) — base URL, auth, per-endpoint query parameters, response envelope, error shapes, known limits. §9.3 is the endpoint summary table; this section is the expanded version; where the two disagree, this section prevails (it is the product of a line-by-line check against source-code anchors).
-> **Truth source**: the omnihub `origin/develop` (=bdf0b92, the d216 live face) source code — routes/parameters/envelope/auth always follow the source; every `file:line` anchor in this section was re-checked read-only against that version's git objects.
+> **Positioning**: a **parameter-level reference for direct production calls** to the hosted hub channel's read faces (§9) — base URL, auth, per-endpoint query parameters, response envelope, error shapes, known limits. §10.1 is the face list; this section is the parameter-level expansion; where the two disagree, this section prevails (verified face by face against the live service).
+> **Truth source**: the live hub service — routes/parameters/envelope/auth always follow the service's actual behavior; every table in this section was verified against the production faces.
 > **Production-contact statement**: writing this section added zero new production requests; the recorded live probes are only 3 read-only GETs (`/health` 200 ×1, uncredentialed read-face 401 shapes ×2, probes on record 2026-10-21). Any example response body below not marked "verified live on record" is derived from source-code semantics (not replayed against production).
 > **Credential discipline**: examples always use the environment variable `$HUB_SUBJECT_TOKEN` as a placeholder; token acquisition/storage belongs to the caller; this document carries no real credentials.
 
@@ -397,124 +308,124 @@ GET  /v1/import/jobs/{job_id}                         poll for the terminal stat
 
 ### 10.1 Read-face list (26 faces) and base URL
 
-Base URL (production): `https://hub.omnimay.com`. The cn/us faces are generated by the same route factory (country.py:26-30) and are **fully isomorphic in parameters/envelope/errors/auth shape**; the only differences: the path prefix (`/v1/cn` or `/v1/us`), the row filter `country_code` (`CN`/`US`, country.py:20,29), and the `country_code` values in response rows.
+Base URL (production): `https://hub.omnimay.com`. The cn/us faces are fully isomorphic in parameters/envelope/errors/auth shape; the only differences: the path prefix (`/v1/cn` or `/v1/us`), the row filter `country_code` (`CN`/`US`), and the `country_code` values in response rows.
 
-| # | Domain | list endpoint (one each for cn/us) | get endpoint (one each for cn/us) | Source anchor |
-|---|---|---|---|---|
-| 1-4 | Drug approvals | `GET /v1/{c}/drug/approvals` | `GET /v1/{c}/drug/approvals/{uuid}` | country.py:36-82 |
-| 5-8 | Device approvals | `GET /v1/{c}/device/approvals` | `GET /v1/{c}/device/approvals/{uuid}` | same as above (product_kind=device) |
-| 9-12 | Risk events | `GET /v1/{c}/risk/events` | `GET /v1/{c}/risk/events/{uuid}` | country.py:88-118 |
-| 13-16 | Medical institutions | `GET /v1/{c}/hospital/institutions` | `GET /v1/{c}/hospital/institutions/{uuid}` | country.py:124-143 |
-| 17-20 | Clinical trials | `GET /v1/{c}/clinical-trials/studies` | `GET /v1/{c}/clinical-trials/studies/{uuid}` | country.py:149-179 |
-| 21-24 | Pricing/procurement | `GET /v1/{c}/pricing/rows` | `GET /v1/{c}/pricing/rows/{uuid}` | country.py:186-224 |
-| 25-26 | Monthly aggregates | `GET /v1/{c}/aggregate/timelines` (no get) | — | country.py:230-237 |
+| # | Domain | list endpoint (one each for cn/us) | get endpoint (one each for cn/us) |
+|---|---|---|---|
+| 1-4 | Drug approvals | `GET /v1/{c}/drug/approvals` | `GET /v1/{c}/drug/approvals/{uuid}` |
+| 5-8 | Device approvals (product_kind=device) | `GET /v1/{c}/device/approvals` | `GET /v1/{c}/device/approvals/{uuid}` |
+| 9-12 | Risk events | `GET /v1/{c}/risk/events` | `GET /v1/{c}/risk/events/{uuid}` |
+| 13-16 | Medical institutions | `GET /v1/{c}/hospital/institutions` | `GET /v1/{c}/hospital/institutions/{uuid}` |
+| 17-20 | Clinical trials | `GET /v1/{c}/clinical-trials/studies` | `GET /v1/{c}/clinical-trials/studies/{uuid}` |
+| 21-24 | Pricing/procurement | `GET /v1/{c}/pricing/rows` | `GET /v1/{c}/pricing/rows/{uuid}` |
+| 25-26 | Monthly aggregates | `GET /v1/{c}/aggregate/timelines` (no get) | — |
 
 (`{c}` ∈ `cn`/`us`; each row ×2 countries = 26 faces.)
 
 **Faces excluded from this section**:
 
-- The three `/v1/import/*` import endpoints (synchronous batch / async jobs / job status, §9.4) are **operations import faces** and carry no external read-face semantics. Note: the `import_face_public` temporary public switch **acts only on the import faces** (app.py:135-136); the cn/us read faces are structurally unaffected by that flag (app.py:127-133 assembly comments make this explicit), and their 401 shape is undisturbed by it.
-- Legacy-name compat: `GET /v1/drug/*` → **301** → `/v1/cn/drug/*` (query string preserved; redirects.py:16-21; six-month transition window), same auth as the read faces (app.py:241-253). New integrations must go straight to `/v1/cn/`; do not rely on the legacy name.
-- `GET /health` (composite root path, not under `/v1`): unauthenticated health check (app.py:220); the verified on-record response is `{"status":"ok","components":{...,"healthcare":"ok"}}`.
+- The three `/v1/import/*` import endpoints (synchronous batch / async jobs / job status) are **operations import faces** and carry no external read-face semantics. Note: any temporary public-exposure switch on the import faces **acts only on the import faces**; the cn/us read faces are structurally unaffected by that flag, and their 401 shape is undisturbed by it.
+- Legacy-name compat: `GET /v1/drug/*` → **301** → `/v1/cn/drug/*` (query string preserved; six-month transition window), same auth as the read faces. New integrations must go straight to `/v1/cn/`; do not rely on the legacy name.
+- `GET /health` (composite root path, not under `/v1`): unauthenticated health check; the verified on-record response is `{"status":"ok","components":{...,"healthcare":"ok"}}`.
 
 ### 10.2 Authentication (common to all 26 faces)
 
-The cn/us read faces are assembled wrapped in `CompanyAuthMiddleware` (app.py:118-145 `_healthcare_face_app`; mounted at `/v1/cn`, `/v1/us`, app.py:266-286), sharing the same settings and signature-verification key as the company domain — **a single source of truth for auth semantics** (deps.py:1-5).
+The cn/us read faces share one auth assembly and one signature-verification configuration — a single source of truth for auth semantics.
 
 **Usage**: every request carries `Authorization: Bearer <subject JWT>`.
 
-**Token requirements** (company/auth.py:185-253 validation chain):
+**Token requirements**:
 
-| Item | Requirement | Source anchor |
-|---|---|---|
-| Algorithm | RS256 (deployments may configure ES256/EdDSA) | company/config.py:61 |
-| Required claims | `iss`/`aud`/`sub`/`iat`/`exp`/`jti` — all six present; any one missing is a 401 | auth.py:206 |
-| Issuer/audience | `iss`, `aud` (=company-domain audience) compared against deployment-side configuration | auth.py:203-204 |
-| Clock drift | ±60s leeway (**this is drift tolerance, not token duration**) | auth.py:39,205 |
-| Token duration | `exp-iat ≤ subject_max_ttl_seconds`: **default 300s, configurable cap 3600s** | company/config.py:62 `Field(default=300, ge=1, le=3600)` |
-| Subject shape | `<namespace>:<org>:<user>` (user subject; namespace is deployment-configured) | auth.py:35 |
-| Length | `sub`/`jti` ≤128 characters | auth.py:38,227-230 |
-| Duplicate claim names | rejected (401) | auth.py:198 |
-| service subjects | `service:`-prefixed subjects **always 403** (the company domain has no machine contract face; deny-by-default) | auth.py:158-161,278-284 |
+| Item | Requirement |
+|---|---|
+| Algorithm | RS256 |
+| Required claims | `iss`/`aud`/`sub`/`iat`/`exp`/`jti` — all six present; any one missing is a 401 |
+| Issuer/audience | `iss`, `aud` (compared against the deployment's configured audience) |
+| Clock drift | ±60s leeway (**this is drift tolerance, not token duration**) |
+| Token duration | `exp - iat` ≤ the configured maximum TTL: **default 300s, configurable cap 3600s** |
+| Subject shape | `<namespace>:<org>:<user>` (user subject; namespace is deployment-configured) |
+| Length | `sub`/`jti` ≤128 characters |
+| Duplicate claim names | rejected (401) |
+| service subjects | `service:`-prefixed subjects **always 403** (deny-by-default) |
 
-**Rate limiting**: read methods (GET/HEAD) are not subject to the rate limiter — only write methods (POST/PATCH/PUT) go through the per-subject token bucket + body cap (auth.py:164-181); all 26 faces in this section are GET.
+**Rate limiting**: read methods (GET/HEAD) are not subject to the rate limiter — only write methods (POST/PATCH/PUT) go through the per-subject token bucket + body cap; all 26 faces in this section are GET.
 
-**Token acquisition**: belongs to the caller side (the omnimay ecosystem OAuth exchange chain); this section constrains only the hub-side validation semantics and makes no promises about the issuance flow.
+**Token acquisition**: tokens are issued by dicaria under the service agreement; this section constrains only the hub-side validation semantics and makes no promises about the issuance flow.
 
 **401/403 shapes** (the caller's troubleshooting baseline):
 
-- 401: `{"error":"unauthorized","message":"A valid Bearer token is required."}` — missing/bad/expired Bearer, missing claims, over TTL, duplicate claim names (**verified live on record with uncredentialed direct calls**, 2 cases); carries the response header `www-authenticate: Bearer realm="company"` (auth.py:268-275).
-- 403: `{"error":"forbidden","message":"Service subjects are not accepted."}` — `service:`-prefixed subjects (source-code semantics, auth.py:278-284).
+- 401: `{"error":"unauthorized","message":"A valid Bearer token is required."}` — missing/bad/expired Bearer, missing claims, over TTL, duplicate claim names (**verified live on record with uncredentialed direct calls**, 2 cases); carries the response header `www-authenticate: Bearer realm="company"`.
+- 403: `{"error":"forbidden","message":"Service subjects are not accepted."}` — `service:`-prefixed subjects.
 
 ### 10.3 Pagination and response envelope (common to the six-domain lists)
 
-- **Envelope**: `{"items": [...], "limit": <int>, "next_cursor": <string|null>}` (repo `_envelope`:139-146; serialization `_wrap` read_service.py:114-120). `limit` echoes the request value; `next_cursor=null` means the last page.
-- **Ordering**: `(created_at DESC, uuid DESC)` dual-key keyset descending (repo:133) — **descending by ingestion time, not by business date**.
-- **limit**: int, 1..100, **default 20** (country.py:22,52 etc.); out of range (0 or >100) → 422 (see §10.6).
-- **cursor**: an opaque string = base64url(json `{"v":1,"c":<created_at iso>,"u":<uuid hex>}`) (repo:42-47); to page, pass the `cursor` parameter back verbatim — no parsing needed. A malformed string/version mismatch/empty string → 400 `CURSOR_INVALID` (repo:50-60; errors.py:42-45). A cursor pointing at a deleted row is harmless (strict less-than comparison, repo:63-71).
-- **get endpoints have no envelope**: they return the single row object directly (country.py:70-79 etc.).
-- **timelines has no pagination**: just `{"items":[...]}` (read_service.py:170-171); undeclared parameters (incl. limit/cursor) are silently ignored (see §10.12).
+- **Envelope**: `{"items": [...], "limit": <int>, "next_cursor": <string|null>}`. `limit` echoes the request value; `next_cursor=null` means the last page.
+- **Ordering**: `(created_at DESC, uuid DESC)` dual-key keyset descending — **descending by ingestion time, not by business date**.
+- **limit**: int, 1..100, **default 20**; out of range (0 or >100) → 422 (see §10.6).
+- **cursor**: an opaque string = base64url(json `{"v":1,"c":<created_at iso>,"u":<uuid hex>}`); to page, pass the `cursor` parameter back verbatim — no parsing needed. A malformed string/version mismatch/empty string → 400 `CURSOR_INVALID`. A cursor pointing at a deleted row is harmless (strict less-than comparison).
+- **get endpoints have no envelope**: they return the single row object directly.
+- **timelines has no pagination**: just `{"items":[...]}`; undeclared parameters (incl. limit/cursor) are silently ignored (see §10.12).
 
 ### 10.4 Common row-object skeleton (six domains)
 
-Every row (items elements in lists and get response bodies are isomorphic) always carries the following skeleton fields in addition to domain-specific fields (read_service.serialize_row:78-105):
+Every row (items elements in lists and get response bodies are isomorphic) always carries the following skeleton fields in addition to domain-specific fields:
 
 | Field | Type | Notes |
 |---|---|---|
 | `uuid` | string (32-hex) | row primary key; the get path segment and the cursor `u` segment |
-| `source_id` | string | data-source identifier (e.g. `us/orangebook`, `cn/smpaa`; source list in the §9.4 routing table) |
+| `source_id` | string | data-source identifier (e.g. `us/orangebook`, `cn/smpaa`) |
 | `source_row_key` | string | within-source row key (combined with source_id as the ingestion idempotency key) |
 | `country_code` | string | `"CN"`/`"US"` (jurisdiction-side country, **not the subject's registration country**) |
 | `status` | string | row lifecycle status (each source's raw value, not a business state machine — business status is in each domain's specific columns) |
 | `valid_from`/`valid_to` | string|null | ISO dates (`YYYY-MM-DD`) |
 | `created_at`/`updated_at` | string|null | ISO timestamps |
-| `raw` | object | source-payload projection: recursively strips person-name/contact keys (red line ⑤); where a source-level whitelist exists, only whitelisted keys pass through (red line ⑥, redlines.py:116-137). The OpenPayments source is strictly whitelisted (only nine keys: record_id/program_year/payment_amount/total_amount_of_payment_usdollars/number_of_payments_included_in_total/date_of_payment/form_of_payment_or_nature_of_payment/teaching_hospital_name/applicable_manufacturer_name); all other sources default to raw passthrough with PII stripped only (import_router.py:144-154) |
+| `raw` | object | source-payload projection: recursively strips person-name/contact keys (PII red line); where a source-level whitelist exists, only whitelisted keys pass through. The OpenPayments source is strictly whitelisted (only nine keys: record_id/program_year/payment_amount/total_amount_of_payment_usdollars/number_of_payments_included_in_total/date_of_payment/form_of_payment_or_nature_of_payment/teaching_hospital_name/applicable_manufacturer_name); all other sources default to raw passthrough with PII stripped only |
 
-### 10.5 Controlled vocabularies (data-side value domains, vocab.py)
+### 10.5 Controlled vocabularies (data-side value domains)
 
-| Vocabulary | Value domain | Source anchor |
-|---|---|---|
-| APPROVAL_QTYPES (approval qtype) | `approval` / `clearance` / `listing` | vocab.py:35 |
-| PRICING_QTYPES (pricing qtype) | `hangwang` / `nrdl` / `neml` / `procurement` / `medicare` | vocab.py:39 |
-| RISK_QTYPES (risk qtype, seven kinds) | `recall` / `administrative_penalty` / `disqualified` / `judgement` / `adverse_event_summary` / `sanctions` / `inspection` | vocab.py:22-32 |
-| Institution kind (served set) | `hospital` / `clinic` / `pharmacy` / `laboratory` / `regulator` / `other` (`individual` never served as a category, red line ②) | vocab.py:13-15 + redlines.py:46 |
-| Risk scope | `drug` / `device` / `subject` | vocab.py:42 |
-| severity | `high` / `medium` / `low` | vocab.py:68 |
+| Vocabulary | Value domain |
+|---|---|
+| APPROVAL_QTYPES (approval qtype) | `approval` / `clearance` / `listing` |
+| PRICING_QTYPES (pricing qtype) | `hangwang` / `nrdl` / `neml` / `procurement` / `medicare` |
+| RISK_QTYPES (risk qtype, seven kinds) | `recall` / `administrative_penalty` / `disqualified` / `judgement` / `adverse_event_summary` / `sanctions` / `inspection` |
+| Institution kind (served set) | `hospital` / `clinic` / `pharmacy` / `laboratory` / `regulator` / `other` (`individual` never served as a category, red line ②) |
+| Risk scope | `drug` / `device` / `subject` |
+| severity | `high` / `medium` / `low` |
 
-> **Query-side semantics (important)**: the vocabularies are **data-side value domains** (write-boundary validation); read-face queries do **not** vocabulary-validate `qtype`/`kind` etc. — they execute as plain equality filters (the repo list clauses); an out-of-domain value returns an **empty set**, not a 422. Business-side code should discipline itself to the value domains above.
+> **Query-side semantics (important)**: the vocabularies are **data-side value domains** (write-boundary validation); read-face queries do **not** vocabulary-validate `qtype`/`kind` etc. — they execute as plain equality filters; an out-of-domain value returns an **empty set**, not a 422. Business-side code should discipline itself to the value domains above.
 
 ### 10.6 Error-code master table (shape common to all 26 faces)
 
-The HealthcareError family's response body is uniformly `{"code","message","hints":[],"details":{}}` (errors.py:27-33; exception_handlers.py:20-24).
+Every error that carries a `code` field shares the response body shape `{"code","message","hints":[],"details":{}}`.
 
 | HTTP | code / shape | Trigger | Response-body shape |
 |---|---|---|---|
-| 401 | `{"error":"unauthorized","message":"A valid Bearer token is required."}` | missing/bad/expired Bearer, missing claims, over TTL, duplicate claim names | **verified live on record**; carries the response header `www-authenticate: Bearer realm="company"` (auth.py:268-275) |
-| 403 | `{"error":"forbidden","message":"Service subjects are not accepted."}` | `service:`-prefixed subject | source-code semantics (auth.py:278-284) |
-| 404 | `HEALTHCARE_NOT_FOUND` | get: uuid does not exist / path uuid not hex / uuid belongs to the other country's face / (institutions) individual-category rows / (pricing) us/cms `dac:`/`fa:` red-line rows | `{"code":"HEALTHCARE_NOT_FOUND","message":"<资源> 不存在: <uuid>","hints":[],"details":{}}`; per face `<资源>` is approval/risk event/institution/study/pricing row (country.py:73,117,142,178,223) |
-| 400 | `CURSOR_INVALID` | cursor malformed string / version mismatch / empty string / cursor uuid segment not hex | `{"code":"CURSOR_INVALID","message":"cursor 无效或已过期"（或"cursor uuid 段无效"）,"hints":[],"details":{}}` (repo:50-70) |
-| 400 | `PARAM_INVALID` (raised directly) | a query-side hex-uuid parameter is not hex (holder_uuid/subject_uuid/sponsor_uuid) | `{"code":"PARAM_INVALID","message":"<参数名> 须为 32 位 hex uuid","hints":[],"details":{}}` (repo:81-87). Note: hex but not 32 characters does not error — it returns an empty set as no match |
-| 422 | `PARAM_INVALID` (validator) | a **declared parameter** fails validation: limit outside 1..100, a date parameter not an ISO date | `{"code":"PARAM_INVALID","message":"请求参数校验失败","hints":[],"details":{"errors":[{"loc":["query","limit"],"type":"...","msg":"..."}]}}` (exception_handlers.py:26-43) |
-| 422 | `PRODUCT_KIND_MISMATCH` | approvals get only: the uuid exists but does not belong to that product_kind face (a drug row hit on the device face or vice versa) | `{"code":"PRODUCT_KIND_MISMATCH","message":"approval uuid 存在但不属于该 product_kind 面: <uuid>","hints":[],"details":{}}` (country.py:74-78; errors.py:54-59). The client can retry on the other face |
-| 500 | nested error shape | unclassified server-side exception | `{"error":{"code":"INTERNAL_ERROR","message":"internal error"}}` (exception_handlers.py:45-51 — note the envelope shape differs from the other codes) |
+| 401 | `{"error":"unauthorized","message":"A valid Bearer token is required."}` | missing/bad/expired Bearer, missing claims, over TTL, duplicate claim names | **verified live on record**; carries the response header `www-authenticate: Bearer realm="company"` |
+| 403 | `{"error":"forbidden","message":"Service subjects are not accepted."}` | `service:`-prefixed subject | not live-verified; body as shown |
+| 404 | `HEALTHCARE_NOT_FOUND` | get: uuid does not exist / path uuid not hex / uuid belongs to the other country's face / (institutions) individual-category rows / (pricing) us/cms `dac:`/`fa:` red-line rows | `{"code":"HEALTHCARE_NOT_FOUND","message":"<资源> 不存在: <uuid>","hints":[],"details":{}}`; per face `<资源>` is approval/risk event/institution/study/pricing row |
+| 400 | `CURSOR_INVALID` | cursor malformed string / version mismatch / empty string / cursor uuid segment not hex | `{"code":"CURSOR_INVALID","message":"cursor 无效或已过期"（或"cursor uuid 段无效"）,"hints":[],"details":{}}` |
+| 400 | `PARAM_INVALID` (raised directly) | a query-side hex-uuid parameter is not hex (holder_uuid/subject_uuid/sponsor_uuid) | `{"code":"PARAM_INVALID","message":"<参数名> 须为 32 位 hex uuid","hints":[],"details":{}}`. Note: hex but not 32 characters does not error — it returns an empty set as no match |
+| 422 | `PARAM_INVALID` (validator) | a **declared parameter** fails validation: limit outside 1..100, a date parameter not an ISO date | `{"code":"PARAM_INVALID","message":"请求参数校验失败","hints":[],"details":{"errors":[{"loc":["query","limit"],"type":"...","msg":"..."}]}}` |
+| 422 | `PRODUCT_KIND_MISMATCH` | approvals get only: the uuid exists but does not belong to that product_kind face (a drug row hit on the device face or vice versa) | `{"code":"PRODUCT_KIND_MISMATCH","message":"approval uuid 存在但不属于该 product_kind 面: <uuid>","hints":[],"details":{}}`. The client can retry on the other face |
+| 500 | nested error shape | unclassified server-side exception | `{"error":{"code":"INTERNAL_ERROR","message":"internal error"}}` (note the envelope shape differs from the other codes) |
 
 ### 10.7 Drug/device approvals `/v1/{c}/{drug|device}/approvals`
 
-Same table `fact_approval_row`, with the face fixed by `product_kind` (drug/device); source anchors country.py:36-82 (routes), repo list_approvals:188-219 (filter clauses).
+Same table `fact_approval_row`, with the face fixed by `product_kind` (drug/device).
 
-**list endpoint** (`GET /v1/{c}/drug/approvals`, `GET /v1/{c}/device/approvals`; operation_id `{c}.healthcare.{drug|device}.approvals.list`) query parameters (country.py:44-52):
+**list endpoint** (`GET /v1/{c}/drug/approvals`, `GET /v1/{c}/device/approvals`; operation_id `{c}.healthcare.{drug|device}.approvals.list`) query parameters:
 
 | Parameter | Type | Default | Semantics / controlled vocabulary |
 |---|---|---|---|
 | `qtype` | string | none | equality filter; value domain = APPROVAL_QTYPES (approval/clearance/listing, §10.5; out-of-domain value = empty set) |
-| `license_no` | string | none | approval/registration number **exact equality** (repo:208-209) |
-| `holder_uuid` | string (32-hex) | none | holder-subject uuid equality; non-hex → 400 PARAM_INVALID (repo:81-87,210-213) |
-| `applicant_name` | string | none | holder raw text **contains** (repo:214-215; `%`/`_` taken literally, wildcard injection prevented) |
-| `product_name` | string | none | product name raw text **contains** (repo:216-217) |
+| `license_no` | string | none | approval/registration number **exact equality** |
+| `holder_uuid` | string (32-hex) | none | holder-subject uuid equality; non-hex → 400 PARAM_INVALID |
+| `applicant_name` | string | none | holder raw text **contains** (`%`/`_` taken literally, wildcard injection prevented) |
+| `product_name` | string | none | product name raw text **contains** |
 | `cursor` | string | none | §10.3 common cursor |
 | `limit` | int 1..100 | 20 | §10.3 common pagination |
 
-Response row fields = §10.4 skeleton + the following specific columns (read_service.py:28-38):
+Response row fields = §10.4 skeleton + the following specific columns:
 
 | Field | Type | Notes |
 |---|---|---|
@@ -536,13 +447,13 @@ curl -sS "https://hub.omnimay.com/v1/cn/drug/approvals?qtype=approval&limit=20" 
   -H "Authorization: Bearer $HUB_SUBJECT_TOKEN"
 ```
 
-**get endpoint** (`GET /v1/{c}/{drug|device}/approvals/{uuid}`; operation_id `{c}.healthcare.{drug|device}.approvals.get`; country.py:66-79): no query parameters (extra parameters silently ignored); **no envelope** — returns the single row object directly (fields as above); 404 `HEALTHCARE_NOT_FOUND` (message=`approval 不存在: <uuid>`; a non-hex uuid / a uuid belonging to the other country's face is likewise 404) + the 422 cross-face code. Example: `curl -sS "https://hub.omnimay.com/v1/us/drug/approvals/<uuid32hex>" -H "Authorization: Bearer $HUB_SUBJECT_TOKEN"`.
+**get endpoint** (`GET /v1/{c}/{drug|device}/approvals/{uuid}`; operation_id `{c}.healthcare.{drug|device}.approvals.get`): no query parameters (extra parameters silently ignored); **no envelope** — returns the single row object directly (fields as above); 404 `HEALTHCARE_NOT_FOUND` (message=`approval 不存在: <uuid>`; a non-hex uuid / a uuid belonging to the other country's face is likewise 404) + the 422 cross-face code. Example: `curl -sS "https://hub.omnimay.com/v1/us/drug/approvals/<uuid32hex>" -H "Authorization: Bearer $HUB_SUBJECT_TOKEN"`.
 
 ### 10.8 Risk events `/v1/{c}/risk/events`
 
-Table `risk_event_row` (seven qtypes in one table); source anchors country.py:88-118, repo list_risks:313-344 (date clauses :339-342).
+Table `risk_event_row` (seven qtypes in one table).
 
-**list endpoint** (operation_id `{c}.healthcare.risk.events.list`) query parameters (country.py:92-99):
+**list endpoint** (operation_id `{c}.healthcare.risk.events.list`) query parameters:
 
 | Parameter | Type | Default | Semantics / controlled vocabulary |
 |---|---|---|---|
@@ -550,13 +461,13 @@ Table `risk_event_row` (seven qtypes in one table); source anchors country.py:88
 | `subject_uuid` | string (32-hex) | none | involved-subject uuid equality; non-hex → 400 |
 | `subject_name` | string | none | involved subject raw text contains |
 | `product_name` | string | none | involved product raw text contains |
-| `date_from` | date (`YYYY-MM-DD`) | none | `event_date >= date_from` (closed interval, repo:339-340) |
-| `date_to` | date (`YYYY-MM-DD`) | none | `event_date <= date_to` (closed interval, repo:341-342) |
+| `date_from` | date (`YYYY-MM-DD`) | none | `event_date >= date_from` (closed interval) |
+| `date_to` | date (`YYYY-MM-DD`) | none | `event_date <= date_to` (closed interval) |
 | `cursor`/`limit` | — | — | §10.3 common |
 
 > date_from/date_to are the **only date-interval parameters among the 26 faces** (no other domain has any date filtering, see §10.14).
 
-Response row fields = skeleton + specific columns (read_service.py:61-71):
+Response row fields = skeleton + specific columns:
 
 | Field | Type | Notes |
 |---|---|---|
@@ -582,13 +493,13 @@ curl -sS "https://hub.omnimay.com/v1/us/risk/events?qtype=recall&date_from=2024-
   -H "Authorization: Bearer $HUB_SUBJECT_TOKEN"
 ```
 
-**get endpoint** (`GET /v1/{c}/risk/events/{uuid}`; country.py:113-118): no query parameters; single row object without envelope; 404 (message=`risk event 不存在: <uuid>`).
+**get endpoint** (`GET /v1/{c}/risk/events/{uuid}`): no query parameters; single row object without envelope; 404 (message=`risk event 不存在: <uuid>`).
 
 ### 10.9 Medical institutions `/v1/{c}/hospital/institutions`
 
-Table `healthcare_institution`; source anchors country.py:124-143, repo list_institutions:148-168. **Red line ②**: `individual` (NPPES Type-1 individual practitioners) is never served as a category — the list filter and the get 404 use the same criterion (repo:74-78 `_served_institution_clause`).
+Table `healthcare_institution`. **Red line ②**: `individual` (NPPES Type-1 individual practitioners) is never served as a category — the list filter and the get 404 use the same criterion.
 
-**list endpoint** (operation_id `{c}.healthcare.hospital.list`) query parameters (country.py:128-132):
+**list endpoint** (operation_id `{c}.healthcare.hospital.list`) query parameters:
 
 | Parameter | Type | Default | Semantics / controlled vocabulary |
 |---|---|---|---|
@@ -597,7 +508,7 @@ Table `healthcare_institution`; source anchors country.py:124-143, repo list_ins
 | `name` | string | none | institution name contains |
 | `cursor`/`limit` | — | — | §10.3 common |
 
-Response row fields = skeleton + specific columns (read_service.py:20-27):
+Response row fields = skeleton + specific columns:
 
 | Field | Type | Notes |
 |---|---|---|
@@ -615,13 +526,13 @@ curl -sS "https://hub.omnimay.com/v1/us/hospital/institutions?kind=hospital&regi
   -H "Authorization: Bearer $HUB_SUBJECT_TOKEN"
 ```
 
-**get endpoint** (`GET /v1/{c}/hospital/institutions/{uuid}`; country.py:138-143): no query parameters; single row object without envelope; 404 (message=`institution 不存在: <uuid>`; individual-category rows take the same shape).
+**get endpoint** (`GET /v1/{c}/hospital/institutions/{uuid}`): no query parameters; single row object without envelope; 404 (message=`institution 不存在: <uuid>`; individual-category rows take the same shape).
 
 ### 10.10 Clinical trials `/v1/{c}/clinical-trials/studies`
 
-Table `fact_trial_row` (study level); source anchors country.py:149-179, repo list_trials:277-306.
+Table `fact_trial_row` (study level).
 
-**list endpoint** (operation_id `{c}.healthcare.trials.list`) query parameters (country.py:153-161):
+**list endpoint** (operation_id `{c}.healthcare.trials.list`) query parameters:
 
 | Parameter | Type | Default | Semantics / controlled vocabulary |
 |---|---|---|---|
@@ -629,12 +540,12 @@ Table `fact_trial_row` (study level); source anchors country.py:149-179, repo li
 | `nct_id` | string | none | NCT id exact equality (e.g. `NCT01234567`) |
 | `sponsor_uuid` | string (32-hex) | none | sponsor uuid equality; non-hex → 400 |
 | `sponsor_name` | string | none | sponsor raw text contains |
-| `condition` | string | none | indication contains — **substring match against the conditions JSON column text** (repo:302-304; not a controlled-vocabulary match — controlled terms (e.g. MeSH) are not guaranteed to hit) |
+| `condition` | string | none | indication contains — **substring match against the conditions JSON column text** (not a controlled-vocabulary match — controlled terms (e.g. MeSH) are not guaranteed to hit) |
 | `cursor`/`limit` | — | — | §10.3 common |
 
 > No `phase` parameter (known limitation, §10.14).
 
-Response row fields = skeleton + specific columns (read_service.py:50-60):
+Response row fields = skeleton + specific columns:
 
 | Field | Type | Notes |
 |---|---|---|
@@ -655,13 +566,13 @@ curl -sS "https://hub.omnimay.com/v1/us/clinical-trials/studies?condition=diabet
   -H "Authorization: Bearer $HUB_SUBJECT_TOKEN"
 ```
 
-**get endpoint** (`GET /v1/{c}/clinical-trials/studies/{uuid}`; country.py:174-179): no query parameters; single row object without envelope; 404 (message=`study 不存在: <uuid>`).
+**get endpoint** (`GET /v1/{c}/clinical-trials/studies/{uuid}`): no query parameters; single row object without envelope; 404 (message=`study 不存在: <uuid>`).
 
 ### 10.11 Pricing/procurement `/v1/{c}/pricing/rows`
 
-Table `fact_pricing_row` (five qtypes; UC-H4's three procurement-axis filters); source anchors country.py:186-224, repo list_pricing:226-257. **Red line ③**: `dac:`/`fa:`-prefixed rows of the `us/cms` source are never served (repo:96-105 `_served_pricing_clause`; list + get share the criterion).
+Table `fact_pricing_row` (five qtypes, three procurement-axis filters). **Red line ③**: `dac:`/`fa:`-prefixed rows of the `us/cms` source are never served (list + get share the criterion).
 
-**list endpoint** (operation_id `{c}.healthcare.pricing.list`) query parameters (country.py:190-205):
+**list endpoint** (operation_id `{c}.healthcare.pricing.list`) query parameters:
 
 | Parameter | Type | Default | Semantics / controlled vocabulary |
 |---|---|---|---|
@@ -675,7 +586,7 @@ Table `fact_pricing_row` (five qtypes; UC-H4's three procurement-axis filters); 
 
 > No date parameters at all (`valid_from`/`valid_to` readable but not filterable, see §10.14).
 
-Response row fields = skeleton + specific columns (read_service.py:39-49):
+Response row fields = skeleton + specific columns:
 
 | Field | Type | Notes |
 |---|---|---|
@@ -686,7 +597,7 @@ Response row fields = skeleton + specific columns (read_service.py:39-49):
 | `subject_name` | string|null | winning/pricing company raw text |
 | `project_name` | string|null | procurement batch |
 | `region` | string|null | region raw text |
-| `price` | string|null | **a string** (Decimal→str to avoid JSON floating-point distortion, read_service.py:92-93; empty-price list-type rows such as neml are null) |
+| `price` | string|null | **a string** (string-encoded to avoid JSON floating-point distortion; empty-price list-type rows such as neml are null) |
 | `currency` | string|null | three-letter currency |
 
 Error codes: §10.6 common. Example:
@@ -696,13 +607,13 @@ curl -sS "https://hub.omnimay.com/v1/cn/pricing/rows?qtype=hangwang&project_name
   -H "Authorization: Bearer $HUB_SUBJECT_TOKEN"
 ```
 
-**get endpoint** (`GET /v1/{c}/pricing/rows/{uuid}`; country.py:219-224): no query parameters; single row object without envelope; 404 (message=`pricing row 不存在: <uuid>`; red-line-③ excluded rows take the same shape).
+**get endpoint** (`GET /v1/{c}/pricing/rows/{uuid}`): no query parameters; single row object without envelope; 404 (message=`pricing row 不存在: <uuid>`; red-line-③ excluded rows take the same shape).
 
 ### 10.12 Monthly aggregates `/v1/{c}/aggregate/timelines`
 
-Monthly counts over the four fact tables by their primary date column; source anchors country.py:230-237, repo timelines:376-421 (date-column mapping :369-374).
+Monthly counts over the four fact tables by their primary date column.
 
-**Endpoint** (operation_id `{c}.healthcare.aggregate.timelines`) query parameters (country.py:234-235, **only these two**):
+**Endpoint** (operation_id `{c}.healthcare.aggregate.timelines`) query parameters (**only these two**):
 
 | Parameter | Type | Default | Semantics |
 |---|---|---|---|
@@ -711,7 +622,7 @@ Monthly counts over the four fact tables by their primary date column; source an
 
 > **Undeclared parameters are silently ignored**: this endpoint declares no `limit`/`cursor`/any filter parameter — passing them neither errors nor takes effect (FastAPI silently ignores undeclared query parameters; a 422 occurs only when a declared parameter fails validation, e.g. the six faces' `limit>100`).
 
-Response (no pagination envelope, items only; read_service.py:170-171):
+Response (no pagination envelope, items only):
 
 ```json
 {
@@ -724,12 +635,12 @@ Response (no pagination envelope, items only; read_service.py:170-171):
 
 | Field | Notes |
 |---|---|
-| `month` | `"YYYY-MM"` (MySQL date_format / SQLite strftime same shape, repo:487-492) |
+| `month` | `"YYYY-MM"` (MySQL date_format / SQLite strftime same shape) |
 | `table` | one of the four fact tables: `fact_approval_row`/`fact_pricing_row`/`fact_trial_row`/`risk_event_row` |
 | `qtype` | count for that month, table and qtype; `fact_trial_row` has no qtype column and is **always null** (a single monthly row) |
 | `count` | row count |
 
-Counting basis: each table's primary date column = approvals→`approve_date`, pricing→`valid_from`, trials→`start_date`, risk→`event_date`; **when the primary date column is empty, fall back to the ingestion date** (the date value of `created_at`, repo:392); ordering by (month, table, qtype) (repo:420). The country is fixed by the path prefix. Error codes: §10.6 common (invalid date format → 422). Example:
+Counting basis: each table's primary date column = approvals→`approve_date`, pricing→`valid_from`, trials→`start_date`, risk→`event_date`; **when the primary date column is empty, fall back to the ingestion date** (the date value of `created_at`); ordering by (month, table, qtype). The country is fixed by the path prefix. Error codes: §10.6 common (invalid date format → 422). Example:
 
 ```bash
 curl -sS "https://hub.omnimay.com/v1/cn/aggregate/timelines?date_from=2024-01-01&date_to=2024-12-31" \
@@ -738,7 +649,7 @@ curl -sS "https://hub.omnimay.com/v1/cn/aggregate/timelines?date_from=2024-01-01
 
 ### 10.13 Coverage matrix for the 26 faces (per-endpoint declaration that all seven elements are present)
 
-The seven elements = path / method / query-parameter table (incl. type/default/controlled vocabulary) / response envelope and per-endpoint fields / error shapes / auth requirements / examples. For cn/us isomorphic endpoints the seven elements are carried by their section (factory-isomorphic, §10.1); the matrix checks each endpoint as follows:
+The seven elements = path / method / query-parameter table (incl. type/default/controlled vocabulary) / response envelope and per-endpoint fields / error shapes / auth requirements / examples. For cn/us isomorphic endpoints the seven elements are carried by their section (§10.1); the matrix checks each endpoint as follows:
 
 | # | Endpoint | Path | Method | Parameter table | Envelope/fields | Error shape | Auth | Example | Section |
 |---|---|---|---|---|---|---|---|---|---|
@@ -771,7 +682,7 @@ The seven elements = path / method / query-parameter table (incl. type/default/c
 
 ### 10.14 Known limitations (filter gaps presented as-is)
 
-The gaps below are the hub's state presented truthfully (**no omnihub changes, no client-side fallbacks, zero invented parameters**). Integrators should work around them per the table; never append any "not filterable" dimension from the table to the URL (undeclared parameters are silently ignored and yield unfiltered full results — see §10.12).
+The gaps below are the hub's state presented truthfully (**no server-side changes, no client-side fallbacks, zero invented parameters**). Integrators should work around them per the table; never append any "not filterable" dimension from the table to the URL (undeclared parameters are silently ignored and yield unfiltered full results — see §10.12).
 
 | Category | Gap | Caller workaround |
 |---|---|---|
@@ -785,42 +696,7 @@ The gaps below are the hub's state presented truthfully (**no omnihub changes, n
 | Source dimension | `source_id` is not filterable (multiple sources merged under one qtype, e.g. clearance=orangebook+purplebook) | filter yourself on the row-level `source_id` field |
 | Institution profile | institution `taxonomy`/`ownership` have no parameters (visible in raw, not filterable) | read raw and filter yourself |
 | Trial phase | `phase` has no parameter (rows readable, not filterable) | filter after retrieval |
-| Subject dimensions | no person/product subject rows (red lines ②④ by design); no subjects read endpoint, no strong-key (npi/uscc) lookup endpoint | reach subject dimensions via the fact faces' `*_uuid`/`*_name` anchors |
+| Subject dimensions | no person/product subject rows (person-level rows are never served, by design); no subjects read endpoint, no strong-key (npi/uscc) lookup endpoint | reach subject dimensions via the fact faces' `*_uuid`/`*_name` anchors |
 | Edge data | `edge_row` (OpenPayments payments / NIH funding) has **no read face** (import write channel only) | annual-aggregate-type needs are currently unservable |
 | Provenance projection | `raw_provenance` (batch/file anchors/sha256) does not enter read responses; `observed_at` can only be approximated by `updated_at` | evidence-traceability needs to be assessed separately |
 | Registration country | no "subject registration country" filter (country = jurisdiction-side country ≠ registration country) | judge yourself after reading rows |
-
-### 10.15 Source-code anchor index (for per-endpoint verification)
-
-| Fact | Source anchor (omnihub@origin/develop bdf0b92, git objects read-only) |
-|---|---|
-| 26-face routes/parameters/defaults | src/healthcare/transport/http/country.py:20-239 |
-| cn/us face assembly and auth wrapping | src/healthcare/transport/http/cn.py / us.py (7 lines each); src/omnihub/app.py:118-145,266-286 |
-| Filter clauses (six domains) | src/healthcare/repositories/healthcare_repository.py:148-344 |
-| Cursor/keyset/envelope | same file:42-60 (`_CURSOR_VERSION=1` at :39),63-71,133,139-146 |
-| timelines aggregation | same file:369-374 (date-column mapping),376-421 (aggregation body),487-492 (monthly expression) |
-| Row serialization/raw projection | src/healthcare/services/read_service.py:19-120 |
-| Red lines ②③ / PII / whitelist | src/healthcare/domain/redlines.py (SERVED_INSTITUTION_KINDS:46/CMS_BANNED_*:47-48/PERSON_PII_*:53-100/project_raw_for_api:116-137) |
-| Controlled vocabularies | src/healthcare/domain/vocab.py (per-table anchors in §10.5) |
-| Error codes / HTTP mapping | src/healthcare/domain/errors.py:8-91 (file is 91 lines long); exception_handlers.py:20-51 |
-| Auth (incl. service 403 / TTL) | src/company/auth.py:35-39,158-161,185-253,268-284; src/company/config.py:57-62 |
-| OpenPayments whitelist nine keys | src/healthcare/config/field_mappings/us__openpayments.json (raw_projection_whitelist) |
-| Legacy-name 301 | src/healthcare/transport/http/redirects.py:16-21 |
-
----
-
-## Changelog
-
-- **2026-10-23 (5)**: **§6.1 adds `related kind=artg_register` / `mis_manufacturers` (Wave 6, the Australian TGA eBS public faces)** — the ARTG drug/device register's 97,988 product rows × **the Sponsor company edge** (the Australian marketing accountability entity) + the MIS manufacturer licence register's 444 licences. Upstream `ebs.tga.gov.au/ebs/ANZTPAR/PublicWeb.nsf` keyless (a Domino .nsf site cluster); the search face SearchView is an **HTML surface** (first case of the core's new `accept:'text'` channel — a 2xx HTML body is the expected payload, not a WAF challenge; the provider layer parses it itself); a Query quoted phrase = exact (Sun Pharma ANZ verified 100/100), a bare term = AND across all fields; the sort-icon td at the head of each row is not a data column and must be stripped; Count=100/page, Start=skip continues. The MIS face JSON view (`?ReadViewEntries&outputformat=json`) — the state column's real name is **SiteState** (the portal's ColTitles is a false front). Host split: ebs fully reachable, www.tga.gov.au dead from this egress (gating is per host, not per domain). The enumeration face (raw bulk line) Count≤15000 (100k → 500 OOM). §6.2 bilingual use cases gained two rows. Design card: healthcare-thirdparty-api-design.md §4.10.
-- **2026-10-23 (4)**: **§6.1 adds `related kind=drug_shortages` (Wave 5, the openFDA drug-shortage face)** — manufacturer/drug name/status → FDA shortage record rows (a supply-risk event stream, closing the pipeline × safety × supply trio); upstream `api.fda.gov/drug/shortages.json` keyless, the search face's three segments AND-combinable (manufacturer `openfda.manufacturer_name.exact:"…"` normalized-layer exact phrase — a bare token scatters / drug name `generic_name:"…"` phrase / `status:` verified enum Current|Resolved|To Be Discontinued); **zero hits = HTTP 404 `No matches found!` is a valid answer** (openFDA convention; the op's `notFound:[404]` is converted to an empty set at this layer, not cached); limit cap 100, `sort=update_date:desc`; both company-edge columns kept (`company_name` the registered manufacturer vs `manufacturers` the normalized manufacturer). **The openFDA deferral ruling does not apply** (the 2026-10-16 deferral covers only the locally ingested FAERS/MAUDE faces — shortages is not harvested locally, a positive example of "open when an incremental need touches it"). §6.2 bilingual use cases gained a row (Fresenius Kabi Current 146 records, real-machine values). Design card: healthcare-thirdparty-api-design.md §4.9.
-- **2026-10-23 (3)**: **§6.1 adds `resolve kind=mesh_term` (Wave 3, the MeSH controlled-vocabulary face)** — drug/disease name → MeSH descriptor master record (UI + preferred term + synonym pool + qualifiers/seealso anchors); upstream id.nlm.nih.gov RDF lookup API keyless; the search parameter verified live as **label** (passing term/descriptor both just gets 400 "label must not be empty" — this round's real-machine pitfall is on record), match closed set contains|exact|startswith; each term resolves in a fixed two hops (lookup + preferred-record details); the vocabulary ships annually → 30-day TTL; zero hits = an honest answer (brand-name → generic-name retry hint). Both stacks landed the same day (Python 0.1.12); §6.2 bilingual use cases gained a row (aspirin→D001241 real-machine values).
-
-- **2026-10-21 (3)**: **adds §10 "Direct hub REST call reference" (d217, AC2)** — a parameter-level reference for direct production calls to the omnihub service-track (§9) read faces: base URL `https://hub.omnimay.com`, 26 read faces (six-domain list/get + timelines) with per-face query-parameter tables, auth (subject Bearer six claims/RS256/TTL default 300s cap 3600s/service subjects 403), the pagination envelope (limit 1..100 default 20/dual-key keyset/cursor shape), the row skeleton (uuid/source_id/country_code/raw PII stripping and whitelist projection), controlled vocabularies (approvals/pricing/risk seven kinds/institution kind), the error-code master table (401/403/404/400 CURSOR_INVALID/400+422 PARAM_INVALID/422 PRODUCT_KIND_MISMATCH/500), the per-endpoint coverage matrix and 14 known-limitation rows (no _or/_not, no multi-value, no count endpoint, no facets, dates only on the risk face, price not filterable, etc.) + the source-code anchor index (omnihub@bdf0b92 verified per file:line); the chapter opens with the **SDK three-verb-not-yet-connected status statement** (to prevent misreading, and to leave an anchor for future integration) — callers holding a subject token can call directly today per §10. The header note and §9.3 gained §10 pointers; `docs/domains/api.md` unchanged (the hub REST resource-style read faces and the three-verb contract run on separate tracks, no conflict).
-- **2026-10-20 (2)**: **§6.1 adds `resolve kind=device_eu` (Wave 2, the EUDAMED EU-counterpart face)** — EU DI → EUDAMED public device catalogue master record (manufacturer SRN + authorised-representative SRN edges, risk class, market status; keyless, execution=local, TTL 7 days); the endpoint is SPA same-origin REST (undocumented), stability registered under two-point observation (2026-10-17 recipe-book probe + 2026-10-20 recheck) with an exit mechanism attached; the upstream `primaryDi` unindexed cold path ~50s (op timeout 90s/retries 0) entered the boundary column as-is; **empty pages are not cached as authoritative** (a transient server-side miss that poisoned the 7-day TTL — real harm on 2026-10-20 → the provider discards the entry and refetches once on an empty read; landed in both stacks); §6.2 bilingual use cases gained the row in sync (DI 00889024163300 → Zimmer/Biomet SRN edge real-machine values).
-- **2026-10-20**: **adds §6.2 enrichment use cases (English truth source + Chinese derived translation — per the 2026-10-20 "English truth source for API/docs faces, Chinese derived" ruling, new domain-page content goes bilingual first)** — six capabilities, each with user question/verified example/boundary; the examples are all real-machine values from the design doc's verification records (atorvastatin→RxCUI 83367, ATC C10AA05, AFF 37,108, RECRUITING totalCount 247, NUCARE setid 5d5977a5); the GUDID egress WAF environment fact and the trials zero-hit rerun hint (0 ≠ no trials) entered the boundary column. Complements the §5 corpus-face use cases (UC-H1~H9); consumes no UC numbers.
-- **2026-10-19**: **aligned with the implementation (user ruling: documentation follows the implementation)** — the header status note now reads "P1 has landed (domain-spec/engine/agentdata SDK in service)"; `side` is marked 〔planned〕 throughout (api.md §7.2 contract-first, engine/SDK not wired — §2 gained a runnable-today equivalent example: jurisdiction carried via the qtype prefix + the row-level country field); the multi-regime sub-resource endpoints `/healthcare/{cn,us}/holder/*`, `GET /company/{id}/facts`, and the three specific error codes (side_required/side_value_conflict/personal_data_redacted) are marked 〔planned〕; §4.1 aligned with the spec — `hospital_ownership`→`ownership`, `announced_month`→`plan_month`, a `province` row added, `source/source_observed_at` marked 〔planned〕, `device_class`/`medical_specialty`/`establishment_type`/`facility_address_country` moved to §4.2 pending enablement; the facets recommendation now follows the spec's facets_fields; §4.3 screen now reflects the current five states (six after P0) + the identifiers.type closed set aligned with the spec; §1.1 staging total refreshed to 7,577,069 (2026-10-15, the old per-source snapshot superseded after the 5.18M UDI batch entered); §2/§5 example qtypes switched to the current closed value set (fda_drug_ndc/us_ob_product/cn_drug_trade_license/cn_hospital_grade), and the returned sample dropped the side key; §5 gained a row-count snapshot-period note.
-- **2026-10-16 (2)**: **§6.1 rewritten to follow the public-chapter upgrade (converged over two codex adversarial rounds)** — the mechanism source of truth promoted to [api.md](api.md) §9 (domain-capability axis / execution dichotomy / row shape / error codes / declarative caching), and this section became **this domain's capability register** (provider/execution/TTL per row; all providers keyless and local — **rate limiting is the user's own**, the SDK lock default = the highest politeness tier, downward-adjustable only); the enrichment row provenance switched to the new shape `source={provider, execution, from_cache, observed_at|fetched_at}` (dropping `backend:"cache"` per the api.md §9.3 ruling); the error codes expanded to four with their HTTP mappings fixed (`thirdparty_upstream_unavailable` 502 / `thirdparty_rate_limited` **503** not 429 / `capability_unavailable` 503 / `resolve_kind_unknown` 400); `request_id` emitted with the CLI; the §7 error section gained the third-party-code pointer.
-- **2026-10-16 (3)**: **adds §9 online service layer (the omnihub v2.3 live face)** — eight-table storage DDL summary (common column group + per-table typed columns/indexes/MySQL multi-valued index note), the HTTP v1 read-face seven-endpoint table (cn/us symmetric + filter parameters), the import contract (batch/jobs dual forms + field_mappings server-side extraction + the import-routes fourteen-source routing table + hard red-line gates), the MCP 29-tool face (24 country + 3 import + 2 legacy-name pairs; cn drug.approvals deliberately unregistered, search missing applicant_name a known gap), the data state (real Σ≈2,146, test generation zeroed, empty CN institutions = by design); §9 opens with the two-track positioning statement (lead-discovery retrieval contract vs the omnihub resource-style service track, same data source, separate paradigms, convergence to be decided later).
-- **2026-10-16**: **establishes the third-party real-time-query external section §6.1** — `resolve` (drug name→RxCUI **P0** / device DI→GUDID P1) + `evidence` (Europe PMC literature evidence **P0**), two domain-level extension endpoints entering the external contract; zero-credential statement (not BYOK, users need bring no key); cache TTLs marked honestly (immutable keys permanent / device DI 7 days / `from_cache:true`); error codes expanded by three (`thirdparty_upstream_unavailable` / `thirdparty_rate_limited` / `resolve_kind_unknown`); the on-trigger family (WHO GHO / Canada DPD / Japan e-Stat) enters the table in the same shape when opened. Internal design source of truth healthcare-thirdparty-api-design.md v3 (same-day three-round endpoint live tests: GUDID v2 200 / DPD 200 / GHO 200 / e-Stat auth gate consistent).
-- **2026-10-15**: **cross-reference section numbers aligned to the post-split master structure** (fixing reference drift from the MR!30 split, 14 places): `§13-§15`→`§10-§12`, `§14.4 red line`→`§11-4 red line`, `§15.1/§15.2-x/§15.3-x`→`§12.1/§12.2-x/§12.3-x`; one straggler in the master's §1.6 fixed in sync (`§11 external interfaces`→`§9 external API reference`). Historical changelog entries keep the old numbers (established convention).
-- **2026-10-14 (24)**: **establishes the external-edition API reference healthcare-api.md** — consumer-facing content extracted from healthcare.md §9-§12 into its own document: controlled filter fields (§4) / the use-case matrix (§5) / external interfaces and the T-layer contract (§6); §1 gained the multi-regime partition statement (CN / US / cross three-side compliance frameworks + primary user questions, api.md §7); §2 quick start gained the `--side` mandatory example and the multi-regime-exclusive sub-resources (`/healthcare/cn/holder/procurement` UC-H4 / `/healthcare/us/holder/payment` UC-H9) — the asymmetry deliberate, read ignores side and aggregates across sides via target.id; §7 error codes gained the healthcare-specific ones (`side_required` / `side_value_conflict` / `personal_data_redacted`); §8 gained the db-zero-healthcare-rows and side-boundary honesty statements. healthcare.md master trimmed §9-§12 in sync, with a pointer to healthcare-api.md and this changelog entry added (twenty-three → twenty-four shifted).
