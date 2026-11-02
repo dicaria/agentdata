@@ -1,5 +1,10 @@
-# Third-Party Source Rate-Limit Research Ledger v1.5 (62 providers / 90 faces)
+# Third-Party Source Rate-Limit Research Ledger v1.6 (66 providers / 97 faces)
 
+> **Edition**: this copy is versioned with the SDK release that carries it — it
+> records the upstream rate-limit facts and the polite settings that release
+> enforces.
+
+> v1.5→v1.6 (2026-11-02): 0.3.19 healthcare CA+EU product-safety round — +4 providers (ca_dpd, ca_mdall, rasff, safety_gate) +7 faces (ca_dpd_companies, ca_dpd_drug_products, ca_mdall_companies, ca_mdall_licence, rasff_notifications, safety_gate_alerts, safety_gate_report); built on main's v1.5 (the naming-alignment sweep landed first while this batch was in flight — same yield-and-follow sequence as v1.4→v1.5).
 > v1.4→v1.5 (2026-10-30): naming-alignment sweep, no number changes — v1.4 (the 0.3.16 SIC/MHRA round) landed first, so this sweep follows it as v1.5 per the in-review-face-batch-keeps-its-number rule. Five provider labels re-keyed to the code provider ids the 0.3.13 ISO renames left behind (tga→au_tga, gtr→gb_gtr, pncp→br_pncp, secop→co_secop, kev→cisa-kev; the v1.3 catch-up fixed uk_cma→gb_cma and missed these); the §3 heading count caught up to the actual row count (56→60 at the pre-merge base, 62 after the v1.4 round); the procurement section count 4→5; the datos.gov.co Socrata family (co_rues, co_sic, co_secop) recorded as one shared origin — per-IP anonymous-tier note on all three rows; §5-6 gains a host-bucket precision clause (the default host bucket at 5rps = 300/min also sits above the openFDA keyless 240/min line, so the group entry is the correct fix).
 > v1.3→v1.4 (2026-10-30): 0.3.16 legal/healthcare round — +2 providers (co_sic, gb_mhra) +3 faces (co_sic_sanctions, gb_mhra_alerts, gb_mhra_alert); the §3 header count also caught up (56→62 — missed by the v1.2/v1.3 rounds).
 > v1.2→v1.3 (2026-10-30): 0.3.14 company CO/KR round — +2 providers (co_rues, kr_hometax) +2 faces; plus two catch-ups from earlier waves: the 0.3.13 rename missed here (uk_cma→gb_cma) and the 0.3.8 TNA provider row (gb_tna_caselaw; official 1000 req / rolling 5 min) — the ledger is now flush with the 87-face roster.
@@ -29,9 +34,9 @@
 - **B** = official documentation read, states a soft policy / no numbers (a throttling mechanism exists but no figures)
 - **C** = primary page not verified; presumed unpublished based on the nature of the service (upgraded when the six-step audit passes)
 
-## 3. Master Table of 62 Sources (by domain)
+## 3. Master Table of 66 Sources (by domain)
 
-### healthcare (14)
+### healthcare (18)
 
 | provider (face) | Self-set rps/burst | Upstream official limit | Evidence | Verdict |
 |---|---|---|---|---|
@@ -45,6 +50,10 @@
 | shortages (fda_drug_shortages) | 2/5 | static JSON fetched in one shot; no rate-limit surface | B | n/a (TTL 1d backstop) |
 | au_tga (artg/manufacturers) | 1/2 | none published | C (government portal, no figures on record) | polite tier |
 | gb_mhra (alerts/alert) | 1/2 | none published (gov.uk search/content API — no quota figure for the search endpoint; same host as gb_cma, same politeness tier) | B (live probe 2026-10-30, tmp/probe-uk-mhra/; 1,462-alert register measured) | polite tier |
+| ca_dpd (companies/drug_products) | 1/2 | none published (the Read Me page documents the data model, not a quota; one-shot registers — the full-shot faces amortize to one request per TTL window) | B (live probe 2026-11-02, tmp/probe-ca-eu-faces/; 5,253-row company register + status=3 → 4,116 measured) | polite tier |
+| ca_mdall (companies/licence) | 1/2 | none published; **same host as ca_dpd — the two providers share one host bucket** (the politeness tier is deliberately conservative to cover the pair) | B (live probe 2026-11-02, same corpus; 7,682-row register + LIMH dossier shapes verified) | polite tier |
+| rasff (notifications) | 1/2 | none published for the window backend (the portal publishes no quota; the two-step handshake means each search costs 1 shell GET per 15-min session + 1 POST) | B (live probe 2026-11-02, same corpus; 33,256-notification corpus / 11,086 pages measured) | polite tier |
+| safety_gate (alerts/report) | 1/2 | none published (static XML downloads off the notifications portal CDN; the weekly index is one request per TTL window) | B (live probe 2026-11-02, same corpus; 1,120 weekly reports, detail 10000329 = 67 notifications) | polite tier |
 | fda_recalls (drug/device/food) | 2/5 | **keyless 240 req/min + 1,000/day per IP; key 240/min + 120k/day** | A [openFDA Authentication](https://open.fda.gov/apis/authentication/) 2026-10-30 primary-page verification | minute window compliant (5+120=125≤240); the keyless 1,000/day cap is window-quota type — **bucket blind to it** (§4-2); provider docstring already self-notes the family total ~4 rps |
 | fda_drugs (approvals/catalog/orange_book) | 2/5 | openFDA family limit — **one shared bucket per IP across all endpoints** | A (same source as above) | same as above; api.fda.gov hosts five providers (incl. shortages) at 2rps each = 10rps sustained potential > 240/min family line → intra-family stacking (§5-6, the 0.2.8 `rate.group` pattern) |
 | fda_devices (510k/pma/registrations/classification) | 2/5 | same as above | A (same source as above) | same as above |

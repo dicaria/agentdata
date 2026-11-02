@@ -111,7 +111,7 @@ def build_parser():
 _FLAT_DISPATCH = {}
 for _m in _CLI.values():
     _FLAT_DISPATCH.update(_m.FLAT)
-assert len(_FLAT_DISPATCH) == 90, f"flat dispatch {len(_FLAT_DISPATCH)} != 90 (90 faces; 0.3.2 esg +2 + 0.3.3 European registries +5 + 0.3.4 FR recherche +1 + 0.3.5 esg port-state +5 + 0.3.6 World Bank/NY +3 + 0.3.8 legal TNA caselaw +2 + 0.3.12 UNGM/NY OGS collection +2 + 0.3.14 CO RUES/KR hometax +2 + 0.3.16 legal co_sic +1 + healthcare gb_mhra +2; the csl_screening alias was removed in 0.3.0)"
+assert len(_FLAT_DISPATCH) == 97, f"flat dispatch {len(_FLAT_DISPATCH)} != 97 (97 faces; 0.3.2 esg +2 + 0.3.3 European registries +5 + 0.3.4 FR recherche +1 + 0.3.5 esg port-state +5 + 0.3.6 World Bank/NY +3 + 0.3.8 legal TNA caselaw +2 + 0.3.12 UNGM/NY OGS collection +2 + 0.3.14 CO RUES/KR hometax +2 + 0.3.16 legal co_sic +1 + healthcare gb_mhra +2 + 0.3.19 healthcare CA DPD/MDALL +4 + rasff/safety_gate +3; the csl_screening alias was removed in 0.3.0)"
 # 0.3.10 jurisdiction chapter: face -> jurisdiction (default = the issuing authority's jurisdiction; institutions covering global phenomena = GLOBAL; vocabulary = ISO-3166 alpha-2 + EU + GLOBAL).
 # The per-domain source of truth is each domain cli.py's COUNTRY (same face set as FLAT); the root only merges them; the success envelope carries a jurisdiction chapter (search/read are hosted mixed-jurisdiction corpus services — unstamped)
 _JURISDICTION = {f: cc for _m in _CLI.values() for f, cc in _m.COUNTRY.items()}

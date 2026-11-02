@@ -614,3 +614,198 @@ class HealthcareFaces:
         )
 
     # ---------- 0.2.0 flat panel commands (the company main face: source-qualified name + upstream param names + our defaults) ----------
+
+    # ---------- 0.3.19 CA + EU product-safety faces (ca_dpd / ca_mdall / rasff / safety_gate; born flat, probed 2026-11-02) ----------
+
+    def ca_dpd_companies(self, *, limit=200, skip=0, execution=None, no_cache=None):
+        """healthcare ca_dpd_companies: the Health Canada DPD company register, one full shot
+        (5,253 DIN owners measured 2026-11-02; company_code is the DPD join key; limit/skip is a
+        local post-slice over the single cached register — the upstream has no paging)."""
+        self._hc_only("ca_dpd_companies")
+        r = healthcare.ca_dpd.companies_raw(limit=limit, skip=skip,
+                                           cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="ca_dpd_companies",
+            input={"limit": result["count"], "skip": skip},
+            reason=(f"DPD company register: {result['total']} companies in the one-shot register, "
+                    f"{result['count']} returned (this slice) — DIN OWNER / import-type rows with the "
+                    "full postal address; join into ca_dpd_drug_products via company_name"),
+            result=result,
+            evidence=[{"quote": f"{row['company_code']} {row['company_name'] or '—'} ({row['company_type'] or '—'}) "
+                                f"— {(row['address'] or {}).get('city_name') or '—'}",
+                       "url": "https://health-products.canada.ca/api/drug/company/?lang=en&type=json"}
+                      for row in result["rows"][:5]],
+            provider_id="ca_dpd", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def ca_dpd_drug_products(self, *, status, limit=200, skip=0, execution=None, no_cache=None):
+        """healthcare ca_dpd_drug_products: DPD drug products by market status — status is the Read Me
+        closed set 1|2|3|4|6 (1=Approved 2=Marketed 3=Cancelled Pre-Market 4=Cancelled Post-Market
+        6=Dormant), REQUIRED: an unknown value is silently ignored upstream and dumps the whole 15MB
+        register. Rows carry DIN + brand + company_name inline; limit/skip is a local post-slice."""
+        self._hc_only("ca_dpd_drug_products")
+        r = healthcare.ca_dpd.drug_products_raw(status, limit=limit, skip=skip,
+                                                cache=self._c._cache,
+                                                no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="ca_dpd_drug_products",
+            input={"status": result["status"], "limit": result["count"], "skip": skip},
+            reason=(f"DPD drug products (status {result['status']} = {result['status_label']}): "
+                    f"{result['total']} products in the register, {result['count']} returned — "
+                    "DIN + brand + company rows; company_code is not echoed on this face (join via company_name)"),
+            result=result,
+            evidence=[{"quote": f"{row['din']} {row['brand_name'] or '—'} = {row['company_name'] or '—'} ({row['class_name'] or '—'})",
+                       "url": f"https://health-products.canada.ca/api/drug/drugproduct/?status={result['status']}&lang=en&type=json"}
+                      for row in result["rows"][:5]],
+            provider_id="ca_dpd", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def ca_mdall_companies(self, *, limit=200, skip=0, execution=None, no_cache=None):
+        """healthcare ca_mdall_companies: the Health Canada MDALL company register, one full shot
+        (7,682 medical-device companies measured 2026-11-02 — a two-country register, US manufacturers
+        carry country_cd US; company_id is the MDALL join key; limit/skip is a local post-slice)."""
+        self._hc_only("ca_mdall_companies")
+        r = healthcare.ca_mdall.companies_raw(limit=limit, skip=skip,
+                                              cache=self._c._cache,
+                                              no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="ca_mdall_companies",
+            input={"limit": result["count"], "skip": skip},
+            reason=(f"MDALL company register: {result['total']} companies in the one-shot register, "
+                    f"{result['count']} returned (this slice) — active/inactive device makers and "
+                    "importers with postal addresses; the licence edge lives in ca_mdall_licence"),
+            result=result,
+            evidence=[{"quote": f"{row['company_id']} {row['company_name'] or '—'} ({row['company_status'] or '—'}) "
+                                f"— {(row['address'] or {}).get('city') or '—'}, {(row['address'] or {}).get('country_cd') or '—'}",
+                       "url": "https://health-products.canada.ca/api/medical-devices/company/?lang=en&type=json"}
+                      for row in result["rows"][:5]],
+            provider_id="ca_mdall", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def ca_mdall_licence(self, *, licence_id, licence_type="active", lang="eng",
+                         execution=None, no_cache=None):
+        """healthcare ca_mdall_licence: the MDALL single-licence dossier (the LIMH information page —
+        a stateless GET, the PRG dance is not needed). licence_id = the numeric MDALL licence number;
+        licence_type active|archived are SEPARATE upstream indexes (an inactive licence must be asked
+        for under archived); the dossier carries the manufacturer block + Company ID + device class +
+        the device-identifier family)."""
+        self._hc_only("ca_mdall_licence")
+        r = healthcare.ca_mdall.licence_raw(licence_id, licence_type=licence_type, lang=lang,
+                                            cache=self._c._cache,
+                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        mfg = result.get("manufacturer") or {}
+        lic_url = (f"https://health-products.canada.ca/mdall-limh/information"
+                   f"?licenceId={result['licence_id']}&type={result['type']}&lang=eng")
+        return self._flat_env(
+            tool="ca_mdall_licence",
+            input={"licence_id": result["licence_id"], "licence_type": result["type"], "lang": lang},
+            reason=(f"MDALL licence {result['licence_no'] or result['licence_id']} "
+                    f"({result.get('licence_type') or '—'}): {result.get('licence_name') or '—'} — "
+                    f"class {result.get('device_class') or '—'}, first issued {result.get('first_issue_date') or '—'}, "
+                    f"{len(result.get('device_identifiers') or [])} device identifiers; manufacturer "
+                    f"{mfg.get('name') or '—'} (Company ID {mfg.get('company_id') or '—'})"),
+            result=result,
+            evidence=[{"quote": f"{d.get('device_name') or '—'} = {d.get('device_identifier') or '—'}",
+                       "url": lic_url}
+                      for d in (result.get("device_identifiers") or [])[:5]]
+            or [{"quote": f"{mfg.get('name') or '—'} — licence {result['licence_no']}", "url": lic_url}],
+            provider_id="ca_mdall", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def rasff_notifications(self, subject=None, *, notification_reference=None,
+                            ec_valid_date_from=None, ec_valid_date_to=None,
+                            page_number=1, items_per_page=25, execution=None, no_cache=None):
+        """healthcare rasff_notifications: the EU RASFF food-safety alert window (the consolidated
+        English backend). Three filters are exposed — the proven ones (subject free text /
+        notificationReference exact / ecValidDateFrom-To window, dates dd-MM-yyyy) + paging; the
+        enum-shaped country/category filters stay unprobed upstream (every object shape tried was
+        rejected with a generic error), so this face does not guess them."""
+        self._hc_only("rasff_notifications")
+        r = healthcare.rasff.search_raw(subject, notification_reference=notification_reference,
+                                        ec_valid_date_from=ec_valid_date_from,
+                                        ec_valid_date_to=ec_valid_date_to,
+                                        page_number=page_number, items_per_page=items_per_page,
+                                        cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="rasff_notifications",
+            input={"subject": subject, "notification_reference": notification_reference,
+                   "ec_valid_date_from": ec_valid_date_from, "ec_valid_date_to": ec_valid_date_to,
+                   "page_number": page_number, "items_per_page": result["count"]},
+            reason=(f"RASFF window: {result['total_elements']} notifications in the corpus "
+                    f"({result['total_pages']} pages), {result['count']} returned on page {page_number}"
+                    + (f" (subject '{subject}')" if subject else "")
+                    + (f" (reference '{notification_reference}')" if notification_reference else "")
+                    + " — notifying country × product × risk rows; the subject line is the "
+                      "company/product penetration channel"),
+            result=result,
+            evidence=[{"quote": f"{row['reference']} {row['notifying_country'] or '—'}: {row['subject'] or '—'} "
+                                f"({row['risk_decision'] or '—'})",
+                       "url": "https://webgate.ec.europa.eu/rasff-window/screen/search"}
+                      for row in result["rows"][:5]],
+            provider_id="rasff", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def safety_gate_alerts(self, *, year=None, limit=200, skip=0, execution=None, no_cache=None):
+        """healthcare safety_gate_alerts: the EU Safety Gate weekly-report index (1,122 reports
+        2005→now, one cached XML). year is a local post-filter (the upstream index always serves the
+        whole list); report_id in each row is the join key into safety_gate_report."""
+        self._hc_only("safety_gate_alerts")
+        r = healthcare.safety_gate.weekly_list_raw(year=year, limit=limit, skip=skip,
+                                                   cache=self._c._cache,
+                                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        newest = (result["rows"] or [{}])[0]
+        return self._flat_env(
+            tool="safety_gate_alerts",
+            input={"year": year, "limit": result["count"], "skip": skip},
+            reason=(f"Safety Gate weekly-report index: {result['total']} reports in the full index"
+                    + (f" matching year {year}" if year else "")
+                    + f", {result['count']} returned — newest {newest.get('reference') or '—'} "
+                      f"({newest.get('publication_date') or '—'}); drill into a week with safety_gate_report (report_id)"),
+            result=result,
+            evidence=[{"quote": f"{row['reference']} — published {row['publication_date']} (report_id {row['report_id']})",
+                       "url": row["url"] or "https://ec.europa.eu/safety-gate-alerts/api/download/weeklyReport/list/xml/en"}
+                      for row in result["rows"][:5]],
+            provider_id="safety_gate", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"path": "/safety-gate-alerts/api/download/weeklyReport/list/xml/en",
+                                                 **({"year": year} if year else {})}},
+        )
+
+    def safety_gate_report(self, *, report_id, limit=200, skip=0, execution=None, no_cache=None):
+        """healthcare safety_gate_report: one Safety Gate weekly report's alerts (the detail XML —
+        67 alerts for 2026-W43). Rows carry caseNumber/riskType/level/notifyingCountry/
+        countryOfOrigin/onlineTrader — the company-relevant edges of the non-food product-safety
+        regime; report_id comes verbatim from safety_gate_alerts rows."""
+        self._hc_only("safety_gate_report")
+        r = healthcare.safety_gate.weekly_detail_raw(report_id, limit=limit, skip=skip,
+                                                     cache=self._c._cache,
+                                                     no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="safety_gate_report",
+            input={"report_id": result["report_id"], "limit": result["count"], "skip": skip},
+            reason=(f"Safety Gate report {result['report_id']} (week {result.get('report_week') or '—'} "
+                    f"{result.get('report_year') or '—'}, published {result.get('report_date') or '—'}): "
+                    f"{result['count']} alerts returned — product × risk × measure rows with "
+                    "notifying country and country of origin; alert_id joins into the alert-detail screen"),
+            result=result,
+            evidence=[{"quote": f"{row['case_number'] or '—'} {row['category'] or '—'}: {row['risk_type'] or '—'} "
+                                f"({row['level'] or '—'}, origin {row['country_of_origin'] or '—'})",
+                       "url": row["alert_url"] or "https://ec.europa.eu/safety-gate-alerts/"}
+                      for row in result["rows"][:5]],
+            provider_id="safety_gate", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"path": f"/safety-gate-alerts/api/download/weeklyReport/detail/xml/{result['report_id']}"}},
+        )
+
