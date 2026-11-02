@@ -1,6 +1,6 @@
-"""gtr — UKRI Gateway to Research API (UK public funding projects; keyless).
+"""gb_gtr — UKRI Gateway to Research API (UK public funding projects; keyless).
 
-No key needed (gtr.ukri.org/gtr/api; no stated quota — self-imposed polite 1 rps tier).
+No key needed (gtr.ukri.org/gb_gtr/api; no stated quota — self-imposed polite 1 rps tier).
 projects face (probed 2026-10-26): GET /projects?q=&s=&p=; s<10 gets an upstream 400
 "Page size cannot be less than 10" (a friendly error, not a block — enforced locally as
 s≥10); response shell {"project": [...]}.
@@ -10,8 +10,8 @@ links.link[] entries with rel=LEAD_ORG/PM_PER hold the participating-institution
 to a future face.
 """
 provider = {
-    "id": "gtr",
-    "baseUrl": "https://gtr.ukri.org/gtr/api",
+    "id": "gb_gtr",
+    "baseUrl": "https://gtr.ukri.org/gb_gtr/api",
     "rate": {"rps": 1, "burst": 5},
     "ops": {
         "projects": {"path": "/projects", "method": "GET", "idempotent": True},
@@ -42,14 +42,14 @@ def projects_raw(q, *, s=20, p=1, cache=None, no_cache=False):
 
     query = str(q or "").strip()
     if not query:
-        raise SdkError("usage_error", provider="gtr", detail="gtr_projects requires q (search term)")
+        raise SdkError("usage_error", provider="gb_gtr", detail="gb_gtr_projects requires q (search term)")
     size = int(s)
     if size < _SIZE_FLOOR:
-        raise SdkError("usage_error", provider="gtr",
+        raise SdkError("usage_error", provider="gb_gtr",
                        detail=f"s must be ≥{_SIZE_FLOOR} (upstream 400 wall: \"Page size cannot be less than 10\", probed 2026-10-26)")
     page = int(p)
     if page < 1:
-        raise SdkError("usage_error", provider="gtr", detail="p must be ≥1")
+        raise SdkError("usage_error", provider="gb_gtr", detail="p must be ≥1")
     params = {"q": query, "s": size, "p": page}
     r = call_provider(provider, "projects", params, cache=cache, no_cache=no_cache)
     data = r["data"] or {}

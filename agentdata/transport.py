@@ -273,8 +273,8 @@ def _reset_rate_state():
         _breakers.clear()
 
 
-def build_url(base: str, path_tmpl: str, params: dict, query: bool = True) -> str:
-    """With query=False only the path template is substituted (POST read semantics: the remaining parameters go into the JSON body, not the query string)."""
+def build_url(base: str, path_tmpl: str, params: dict, query: bool = True, path_safe: str = "") -> str:
+    """With query=False only the path template is substituted (POST read semantics: the remaining parameters go into the JSON body, not the query string). path_safe: characters kept unescaped for path params (default = full escaping; the TNA document_uri carries slashes and needs "/" — first use in 0.3.7). List param values explode into repeated keys (doseq; the TNA court/tribunal explode=true shape)."""
     path = path_tmpl
     qs = {}
     for k, v in params.items():
@@ -282,16 +282,16 @@ def build_url(base: str, path_tmpl: str, params: dict, query: bool = True) -> st
             continue
         token = "{%s}" % k
         if token in path:
-            path = path.replace(token, urllib.parse.quote(str(v), safe=""))
+            path = path.replace(token, urllib.parse.quote(str(v), safe=path_safe))
         elif query:
-            qs[k] = str(v)
+            qs[k] = v
     url = base.rstrip("/") + (path if path.startswith("/") else "/" + path)
     if qs:
         # when the path already carries a query string (the ukec shape with the full parameter set baked
         # into the path) append with & — a second "?" would turn the query and everything after it into
         # the value of the previous parameter (proven 2026-10-21: the UK EC name filter silently stopped
         # working and always returned the whole register)
-        url += ("&" if "?" in path else "?") + urllib.parse.urlencode(qs)
+        url += ("&" if "?" in path else "?") + urllib.parse.urlencode(qs, doseq=True)
     return url
 
 
@@ -438,11 +438,13 @@ def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = F
     urlenc = None
     if is_form:
         url_params = {k: v for k, v in params.items() if k != opdef["form"]}
-        url = build_url(provider["baseUrl"], opdef["path"], url_params, query=True)
+        url = build_url(provider["baseUrl"], opdef["path"], url_params, query=True,
+                        path_safe=opdef.get("path_safe", ""))
         multipart = multipart_json_field(opdef["form"], params.get(opdef["form"]) or {})
         body = None
     else:
-        url = build_url(provider["baseUrl"], opdef["path"], params, query=not is_post)
+        url = build_url(provider["baseUrl"], opdef["path"], params, query=not is_post,
+                        path_safe=opdef.get("path_safe", ""))
         if is_post and opdef.get("urlencoded") is True:
             body = None
             urlenc = urllib.parse.urlencode(params).encode("utf-8")

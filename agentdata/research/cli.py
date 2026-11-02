@@ -28,7 +28,7 @@ def register(v, g):
     f2.add_argument("--cursor", default=None,
                     help="Deep-pager cursor ('*' for first page, then feed next_cursor; bypasses the 10,000 offset wall; 0.2.9 audit)")
 
-    f3 = v.add_parser("gtr_projects", parents=[g()],
+    f3 = v.add_parser("gb_gtr_projects", parents=[g()],
                       description="UK UKRI Gateway to Research projects (realtime, local execution; /projects?q=&s=&p=; s ≥ 10 is an upstream 400 wall; upstream sends no total — full page signals more via has_more; organisation edges live one hop deeper in detail links.link[] rel=LEAD_ORG, this face is the list only)")
     f3.add_argument("--q", required=True, help="Search term")
     f3.add_argument("--s", type=int, default=20, help="Page size (upstream param: s; ≥10)")
@@ -95,7 +95,7 @@ FLAT = {
     "crossref_works": lambda a: {"query": a.query, "funder": a.funder, "award_number": a.award_number,
                                  "rows": a.rows, "offset": a.offset, "cursor": a.cursor,
                                  "from_pub_date": a.from_pub_date, "to_pub_date": a.to_pub_date},
-    "gtr_projects": lambda a: {"q": a.q, "s": a.s, "p": a.p},
+    "gb_gtr_projects": lambda a: {"q": a.q, "s": a.s, "p": a.p},
     "icite_pubs": lambda a: {"pmid": a.pmid},
     "nih_reporter_projects": lambda a: {"org_name": a.org_name, "fiscal_year": a.fiscal_year,
                                         "include_fields": [x for x in (a.include_fields or "").split(",") if x.strip()] or None,
@@ -118,7 +118,7 @@ FLAT = {
 COUNTRY = {
     "biorxiv_details": "GLOBAL",
     "crossref_works": "GLOBAL",
-    "gtr_projects": "GB",
+    "gb_gtr_projects": "GB",
     "icite_pubs": "US",
     "nih_reporter_projects": "US",
     "nih_reporter_publications": "US",

@@ -19,6 +19,15 @@ def register(v, g):
     f2.add_argument("--max-entries", dest="max_entries", type=int, default=100,
                      help="Rows per page (upstream param: maxEntries; honored upstream; 1-100 our politeness cap)")
     f2.add_argument("--offset", type=int, default=0, help="Offset (upstream param: offset; walk with --offset, cap ~540k upstream maxOffset)")
+    # —— 0.3.11 CO RUES + KR hometax dual-country batch ——
+    f_co = v.add_parser("co_rues_companies", parents=[g()],
+                       help="Colombian business registry master (RUES via datos.gov.co Socrata; --where SoQL)",
+                       description="RUES registro mercantil master, 9.4M rows: matricula registry key x NIT tax id x CIIU industry x legal form x representante_legal name edge; base filter keeps NIT-identified (tax entity) rows only — persona natural rows whose id columns are cedulas stay out of the face, and the RL cedula-number column is stripped (names kept)")
+    f_co.add_argument("--where", default=None,
+                     help="Raw SoQL filter (upstream param: $where; merged with base filter clase_identificacion='NIT' by AND)")
+    f_co.add_argument("--limit", type=int, default=20, help="Rows per page (upstream param: $limit; 1-500 our politeness cap)")
+    f_co.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: $offset; >=0)")
+    f_co.add_argument("--order", default=None, help="Order clause (upstream param: $order; column [ASC|DESC], no NULLS syntax)")
     f3 = v.add_parser("fdic_institutions", parents=[g()],
                       help="US insured-bank master record (FDIC BankFind; --search/--filters raw channels)",
                       description="FDIC institutions: ES search × structured filters are combinable raw channels (search 'NAME:\"…\"' / filters 'CERT:n'); no upstream limit wall (10,000 verified)")
@@ -72,19 +81,32 @@ def register(v, g):
     f8.add_argument("--lei", required=True, help="LEI, 20 chars ISO 17442 (upstream path param: lei)")
     f9 = v.add_parser("gleif_lei_records", parents=[g()],
                       help="LEI→entity profile (GLEIF single-record face)",
-                      description="Legal Entity Identifier → entity card (legal name, status, jurisdiction, registration)")
+                      description="Legal Entity Identifier → entity card (legal name, status, jurisdiction, registration; "
+                                  "+ successor LEIs (M&A edge), expiration, legal form, BIC/MIC)")
     f9.add_argument("--lei", required=True, help="LEI, 20 chars ISO 17442 (upstream path param: lei)")
     f10 = v.add_parser("gleif_lei_records_search", parents=[g()],
-                      help="Company name→LEI candidates (GLEIF legalName contains)",
-                      description="Name → LEI candidates (non-authoritative; verify with gleif_lei_records before persisting)")
+                      help="Company name→LEI candidates (GLEIF legalName contains; --filter-entity-jurisdiction/--filter-entity-status narrow)",
+                      description="Name → LEI candidates (non-authoritative; verify with gleif_lei_records before persisting); "
+                                  "jurisdiction/status filters and page[number] walking upstream-verbatim; rows carry registered_as (cross-registry join key)")
     f10.add_argument("--filter-entity-legal-name", dest="filter_entity_legal_name", required=True,
                     help="Company name (upstream param: filter[entity.legalName], bracket-transcribed)")
+    f10.add_argument("--filter-entity-jurisdiction", dest="filter_entity_jurisdiction", default=None,
+                    help="Jurisdiction filter (upstream param: filter[entity.jurisdiction]; ISO 3166 country or region code, e.g. CH or US-MO — probed US-MO→1 hit; jurisdictionCountry is whitelist-rejected upstream, not mirrored)")
+    f10.add_argument("--filter-entity-status", dest="filter_entity_status", default=None,
+                    help="Entity status filter (upstream param: filter[entity.status]; ACTIVE/INACTIVE/NULL — entity lifecycle, not registration.status ISSUED/LAPSED/RETIRED)")
+    f10.add_argument("--page-number", dest="page_number", type=int, default=None,
+                    help="Page, 1-based (upstream param: page[number]; walk while page ≤ result page.lastPage)")
     f10.add_argument("--page-size", dest="page_size", type=int, default=10,
                     help="Candidates cap (upstream param: page[size]; 1-200 hard wall, default 10)")
     f11 = v.add_parser("gleif_ultimate_parent", parents=[g()],
                        help="LEI→ultimate parent (GLEIF dedicated endpoint)",
                        description="Ultimate parent card (top of the control chain); 404 = honestly no parent (not an error)")
     f11.add_argument("--lei", required=True, help="LEI, 20 chars ISO 17442 (upstream path param: lei)")
+    f_kr = v.add_parser("kr_hometax_biz_status", parents=[g()],
+                       help="Korean biz registration status, single lookup (hometax 휴폐업/과세유형; --biz-no)",
+                       description="NTS hometax anonymous single-BRN status: four states all legal answers — active (일반/간이/과세특례 taxpayer), closed (ISO closure date extracted), unregistered (result=S, not an error), error; txprNm is always null upstream (no owner-name leak)")
+    f_kr.add_argument("--biz-no", dest="biz_no", required=True,
+                     help="10-digit business registration number (사업자등록번호; 3-2-5 hyphens optional, e.g. 124-81-00998)")
     f12 = v.add_parser("no_brreg_enheter", parents=[g()],
                        help="Norwegian registry master record (Enhetsregisteret; --navn search XOR --organisasjonsnummer single)",
                        description="Brønnøysund Enhetsregisteret: navn search with HAL pagination (page/size, 0-based) or orgnr single record; navn is the Norwegian upstream param (?name= 400s)")
@@ -152,6 +174,9 @@ FLAT = {
     "ch_zefix_firm": lambda a: {"ehraid": a.ehraid},
     # 0.3.3 European country registry realtime faces (five)
     "ch_zefix_firm_search": lambda a: {"name": a.name, "max_entries": a.max_entries, "offset": a.offset},
+    # 0.3.11 CO RUES + KR hometax dual-country batch
+    "co_rues_companies": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset,
+                          "order": a.order},
     "fdic_institutions": lambda a: {"search": a.search, "filters": a.filters,
                             "limit": a.limit},
     "fi_ytj_companies": lambda a: {"name": a.name, "business_id": a.business_id},
@@ -166,8 +191,12 @@ FLAT = {
     "gleif_direct_parent": lambda a: {"lei": a.lei},
     "gleif_lei_records": lambda a: {"lei": a.lei},
     "gleif_lei_records_search": lambda a: {"filter_entity_legal_name": a.filter_entity_legal_name,
-                                           "page_size": a.page_size},
+                                           "page_size": a.page_size,
+                                           "filter_entity_jurisdiction": a.filter_entity_jurisdiction,
+                                           "filter_entity_status": a.filter_entity_status,
+                                           "page_number": a.page_number},
     "gleif_ultimate_parent": lambda a: {"lei": a.lei},
+    "kr_hometax_biz_status": lambda a: {"biz_no": a.biz_no},
     "no_brreg_enheter": lambda a: {"navn": a.navn, "organisasjonsnummer": a.organisasjonsnummer,
                           "page": a.page, "size": a.size},
     "no_brreg_roller": lambda a: {"organisasjonsnummer": a.organisasjonsnummer},
@@ -192,6 +221,7 @@ FLAT = {
 COUNTRY = {
     "ch_zefix_firm": "CH",
     "ch_zefix_firm_search": "CH",
+    "co_rues_companies": "CO",
     "fdic_institutions": "US",
     "fi_ytj_companies": "FI",
     "fr_recherche_search": "FR",
@@ -201,6 +231,7 @@ COUNTRY = {
     "gleif_lei_records": "GLOBAL",
     "gleif_lei_records_search": "GLOBAL",
     "gleif_ultimate_parent": "GLOBAL",
+    "kr_hometax_biz_status": "KR",
     "no_brreg_enheter": "NO",
     "no_brreg_roller": "NO",
     "ror_organizations": "GLOBAL",

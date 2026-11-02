@@ -13,7 +13,10 @@ class CompanyFaces:
             raise SdkError("usage_error", detail=f"{tool} is a company-domain capability (not available on the {self.name} domain)")
 
     def gleif_lei_records(self, *, lei, execution=None, no_cache=None):
-        """company gleif_lei_records: LEI → entity identity card (GLEIF /lei-records/{lei} single-record face; ISO 17442 20-char shape gate)."""
+        """company gleif_lei_records: LEI → entity identity card (GLEIF /lei-records/{lei} single-record face; ISO 17442 20-char
+        shape gate). 2026-10-30 param-fidelity round: the card additionally surfaces bic/mic, legal_form{elf id, other},
+        expiration{date, reason} and successor_entities (successor LEI list — the M&A successor edge, resolve each via
+        this same face)."""
         self._co_only("gleif_lei_records")
         v = str(lei or "").strip().upper()
         if not v:
@@ -21,10 +24,13 @@ class CompanyFaces:
         r = company.gleif.lookup_lei(v, cache=self._c._cache,
                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
         result = {k: x for k, x in r.items() if k != "_meta"}
+        succ = result.get("successor_entities") or []
         return self._flat_env(
             tool="gleif_lei_records", input={"lei": v},
             reason=(f"GLEIF normalization: LEI {r['lei']} → {r.get('legal_name') or '(no legal name)'}"
-                    f" ({r.get('entity_status') or 'unknown status'})"),
+                    f" ({r.get('entity_status') or 'unknown status'})"
+                    + (f"; {len(succ)} successor entity LEI(s) on record (M&A successor edge): {', '.join(succ[:3])}"
+                       if succ else "")),
             result=result,
             evidence=[{"quote": (f"LEI {r['lei']} = {r.get('legal_name') or '—'}"
                                  f" ({r.get('entity_status') or '—'}, {r.get('jurisdiction') or '—'})"),
@@ -33,10 +39,14 @@ class CompanyFaces:
             query={"source": "raw", "upstream": {"lei": r["lei"]}},
         )
 
-    def gleif_lei_records_search(self, *, filter_entity_legal_name, page_size=10, execution=None, no_cache=None):
+    def gleif_lei_records_search(self, *, filter_entity_legal_name, page_size=10, filter_entity_jurisdiction=None,
+                                 filter_entity_status=None, page_number=None, execution=None, no_cache=None):
         """company gleif_lei_records_search: company name → LEI candidates (GLEIF filter[entity.legalName] contains match;
         page[size] 1-200 upstream hard wall — probed 201→400, 200 served in full). Candidates are not an authoritative normalization.
-        The parameter name is the bracket transcription of upstream filter[entity.legalName] (naming convention §5)."""
+        The parameter names are bracket transcriptions of upstream filter[entity.legalName]/filter[entity.jurisdiction]/
+        filter[entity.status] (naming convention §5). 2026-10-30 param-fidelity round: jurisdiction (ISO country or
+        region code, CH/US-MO — probed US-MO→Nestlé Purina registeredAs=00007498), status (ACTIVE/INACTIVE/NULL entity
+        lifecycle — LAPSED is registration.status, a different field), page_number (walk while page <= page.lastPage)."""
         self._co_only("gleif_lei_records_search")
         v = str(filter_entity_legal_name or "").strip()
         if not v:
@@ -46,23 +56,50 @@ class CompanyFaces:
         if not 1 <= size <= 200:
             raise SdkError("usage_error", provider="gleif",
                            detail="page_size must be 1-200 (probed: page[size] 201→400, 200 served in full)")
+        j = str(filter_entity_jurisdiction or "").strip().upper() or None   # normalize before the call so the
+        s = str(filter_entity_status or "").strip().upper() or None         # upstream echo equals what was sent
+        extra = {}
+        if j:
+            extra["jurisdiction"] = j
+        if s:
+            extra["status"] = s
+        if page_number is not None:
+            if int(page_number) < 1:
+                raise SdkError("usage_error", provider="gleif",
+                               detail="page_number is 1-based (upstream param: page[number])")
+            extra["page_number"] = int(page_number)
         r = company.gleif.search_lei_by_name(v, limit=size, cache=self._c._cache,
-                                               no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+                                               no_cache=self._c.no_cache if no_cache is None else bool(no_cache), **extra)
         result = {k: x for k, x in r.items() if k != "_meta"}
         result["limit_applied"] = size
         top = (result["candidates"] or [None])[0]
+        scope = (f", filtered to jurisdiction {j}" if j else "") + (f", entity status {s}" if s else "")
+        up_query = {"filter[entity.legalName]": v, "page[size]": size}
+        if j:
+            up_query["filter[entity.jurisdiction]"] = j
+        if s:
+            up_query["filter[entity.status]"] = s
+        if "page_number" in extra:
+            up_query["page[number]"] = extra["page_number"]
+        inp = {"filter_entity_legal_name": v, "page_size": size,
+               **({"filter_entity_jurisdiction": j} if j else {}),
+               **({"filter_entity_status": s} if s else {}),
+               **({"page_number": extra["page_number"]} if "page_number" in extra else {})}
         return self._flat_env(
-            tool="gleif_lei_records_search", input={"filter_entity_legal_name": v, "page_size": size},
-            reason=(f"GLEIF reverse name search: {result['total']} candidates, top hit {top['legal_name'] or '—'}"
-                    f" (LEI {top['lei']}, {top['entity_status'] or '—'}) — legal-name contains match, not fuzzy tolerance, "
+            tool="gleif_lei_records_search", input=inp,
+            reason=(f"GLEIF reverse name search: {result['total']} candidates{scope}, top hit {top['legal_name'] or '—'}"
+                    f" (LEI {top['lei']}, {top['entity_status'] or '—'})"
+                    + (f", registered as {top['registered_as']}" if top.get("registered_as") else "")
+                    + " — legal-name contains match, not fuzzy tolerance, "
                     f"candidates are not an authoritative normalization; re-verify with gleif_lei_records before persisting"
-                    if top else f"GLEIF reverse name search zero hits: {v} (an empty result is a legal answer)"),
+                    if top else f"GLEIF reverse name search zero hits: {v}{scope} (an empty result is a legal answer)"),
             result=result,
-            evidence=[{"quote": f"LEI {c['lei']} = {c['legal_name'] or '—'} ({c['entity_status'] or '—'})",
+            evidence=[{"quote": f"LEI {c['lei']} = {c['legal_name'] or '—'} ({c['entity_status'] or '—'}"
+                               + (f", registered as {c['registered_as']}" if c.get("registered_as") else "") + ")",
                        "url": f"https://api.gleif.org/api/v1/lei-records/{c['lei']}"}
                       for c in result["candidates"][:5]],
             provider_id="gleif", metas=[r["_meta"]],
-            query={"source": "raw", "upstream": {"filter[entity.legalName]": v, "page[size]": size}},
+            query={"source": "raw", "upstream": up_query},
         )
 
     def _gleif_parent_face(self, tool, which, *, lei, no_cache):
@@ -643,6 +680,66 @@ class CompanyFaces:
                       for c in result["results"][:5]],
             provider_id="fr_recherche", metas=[r["_meta"]],
             query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # ---------- 0.3.11 CO RUES + KR hometax dual-country batch (LatAm/Korea company master & status faces) ----------
+
+    def co_rues_companies(self, where=None, *, limit=20, offset=0, order=None,
+                          execution=None, no_cache=None):
+        """company co_rues_companies: Colombia RUES commercial-registry master (datos.gov.co Socrata c82u-588k;
+        where â $where raw SoQL verbatim channel; limit/offset/order mirrored by name). 9.44M-row corpus â
+        matricula registry key x numero_identificacion (NIT tax id) x CIIU industry x legal form x RL officer-name edge;
+        **default base filter admits tax-entity rows only + RL cedula-number column stripped (PII double gate)**."""
+        self._co_only("co_rues_companies")
+        r = company.co_rues.companies_raw(where, limit=limit, offset=offset, order=order,
+                                          cache=self._c._cache,
+                                          no_cache=no_cache if no_cache is not None else self._c.no_cache)
+        res = {k: v for k, v in r.items() if k != "_meta"}
+        rows = res["rows"]
+        if rows:
+            reason = (f"CO RUES registry master: {len(rows)} rows returned (from offset={offset}; Socrata echoes no total)"
+                      f" â matricula x NIT x CIIU (sample {rows[0].get('razon_social') or 'â'}, "
+                      f"NIT {rows[0].get('numero_identificacion') or 'â'}, "
+                      f"{rows[0].get('organizacion_juridica') or 'â'})"
+                      f"; base filter clase_identificacion='NIT' (sole-proprietor personal-id rows stay out of the face), RL number column stripped")
+        else:
+            reason = ("CO RUES: 0 rows â the where filter matched nothing or offset is past the end; both are legal answers (not errors); "
+                      "base filter clase_identificacion='NIT' always on (sole proprietors go through the bulk line, not this face)")
+        ev = [{"quote": f"{x.get('matricula') or 'â'} {x.get('razon_social') or 'â'} â "
+                        f"NIT {x.get('numero_identificacion') or 'â'}-{x.get('digito_verificacion') or 'â'}"
+                        f" ({x.get('estado_matricula') or 'â'}, CIIU {x.get('cod_ciiu_act_econ_pri') or 'â'})",
+               "url": "https://www.datos.gov.co/resource/c82u-588k.json"}
+              for x in rows[:3] if x.get("razon_social")]
+        return self._flat_env(tool="co_rues_companies",
+                              input={"where": where, "limit": limit, "offset": offset, "order": order},
+                              reason=reason, result=res, evidence=ev, provider_id="co_rues",
+                              metas=[r["_meta"]],
+                              query={"source": "raw", "upstream": r["params"]})
+
+    def kr_hometax_biz_status(self, *, biz_no, execution=None, no_cache=None):
+        """company kr_hometax_biz_status: Korea NTA business-registration-status single-shot (í´í¬ì/tax type;
+        biz_no 10 digits (3-2-5 hyphens optional); all four states are legal answers â operating / closed (ISO í­ìì¼ì) /
+        unregistered (result=S) / error; txprNm stays null when anonymous â no owner-name leak)."""
+        self._co_only("kr_hometax_biz_status")
+        r = company.kr_hometax.biz_status_raw(biz_no, cache=self._c._cache,
+                                              no_cache=no_cache if no_cache is not None else self._c.no_cache)
+        s = r["status"]
+        state_label = {"active": "operating", "closed": "closed", "unregistered": "unregistered",
+                       "error": "malformed shape"}[s["state"]]
+        tail = f", í­ìì¼ì {s['closed_date']}" if s["closed_date"] else ""
+        reason = (f"KR hometax: {s['biz_no']} â {state_label}"
+                  + (f" ({s['tax_type'] or s['simple_status'] or 'â'})" if s["state"] != "error" else " (verbatim passthrough)")
+                  + tail
+                  + " â unregistered is also a legal result=S answer (same family as VIES INVALID); txprNm stays null when anonymous")
+        return self._flat_env(
+            tool="kr_hometax_biz_status", input={"biz_no": s["biz_no"]},
+            reason=reason, result={"status": s},
+            evidence=[{"quote": (f"{s['biz_no']}: {s['tax_type'] or 'â'}"
+                                 + (f" | EN: {s['english_status']}" if s["english_status"] else "")),
+                       "url": "https://hometax.go.kr/wqAction.do?actionId=ATTABZAA001R08"}],
+            provider_id="kr_hometax", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"actionId": "ATTABZAA001R08", "txprDscmNo": s["biz_no"],
+                                                 "dongCode": s["biz_no"][3:5]}},
         )
 
     # ---------- 0.2.0 flat panel commands (esg: source-qualified names + upstream param names + our defaults) ----------

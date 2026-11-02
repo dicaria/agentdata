@@ -1,4 +1,4 @@
-"""pncp — Brazil national procurement portal contract face provider (pncp.gov.br /api/consulta;
+"""br_pncp — Brazil national procurement portal contract face provider (pncp.gov.br /api/consulta;
 operated by Serpro, keyless).
 
 procurement domain (0.3.0 founding; admitted 2026-10-29, probed). Shape measured 2026-10-29:
@@ -24,7 +24,7 @@ tier 1 rps (Serpro publishes no quota, so take the conservative value).
 from ..errors import SdkError
 
 provider = {
-    "id": "pncp",
+    "id": "br_pncp",
     "baseUrl": "https://pncp.gov.br",
     "rate": {"rps": 1, "burst": 2},
     "ops": {
@@ -95,7 +95,7 @@ def _norm_date(v, field):
     if len(s) == 10 and s[4] == "-" and s[7] == "-":
         s = s.replace("-", "")           # YYYY-MM-DD → compact (both forms measured 200, compact is what gets sent)
     if len(s) != 8 or not s.isdigit():
-        raise SdkError("usage_error", provider="pncp",
+        raise SdkError("usage_error", provider="br_pncp",
                        detail=f"{field} must be YYYYMMDD or YYYY-MM-DD (contract publication-window endpoint), got '{v}'")
     return s
 
@@ -110,16 +110,16 @@ def contracts_raw(data_inicial, data_final, *, pagina=1, cnpj_orgao=None, cache=
 
     di, df = _norm_date(data_inicial, "data_inicial"), _norm_date(data_final, "data_final")
     if di > df:
-        raise SdkError("usage_error", provider="pncp",
+        raise SdkError("usage_error", provider="br_pncp",
                        detail=f"data_inicial ({di}) must not be later than data_final ({df})")
     pg = int(pagina) if pagina is not None else 1
     if pg < 1:
-        raise SdkError("usage_error", provider="pncp", detail=f"pagina must be a page number ≥1, got '{pagina}'")
+        raise SdkError("usage_error", provider="br_pncp", detail=f"pagina must be a page number ≥1, got '{pagina}'")
     params = {"dataInicial": di, "dataFinal": df, "pagina": pg}
     orgao = str(cnpj_orgao or "").strip().replace("/", "").replace(".", "").replace("-", "") or None
     if orgao:
         if len(orgao) != 14 or not orgao.isdigit():
-            raise SdkError("usage_error", provider="pncp",
+            raise SdkError("usage_error", provider="br_pncp",
                            detail=f"cnpj_orgao must be the buyer's 14-digit CNPJ, got '{cnpj_orgao}'")
         params["cnpjOrgao"] = orgao
     r = call_provider(provider, "contracts", params, cache=cache, no_cache=no_cache)

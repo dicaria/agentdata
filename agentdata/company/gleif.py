@@ -7,6 +7,11 @@ legal-name contains match (not fuzzy tolerance), and candidates are not an autho
 (each returns the full parent card; no parent → 404) — the old include= route, when a firm self-reports "no parent",
 pointed relationships at reporting-exceptions and the exception id got laid into the result as if it were an LEI;
 the dedicated endpoints are naturally honest nulls and the N+1 follow-up lookups disappeared.
+2026-10-30 param-fidelity round (0 new faces): search gains jurisdiction/status/page_number passthrough
+(filter[entity.jurisdiction] country-or-region / filter[entity.status] ACTIVE-INACTIVE-NULL / page[number]
+walking, bounded by meta.pagination.lastPage) and candidate rows surface registered_as (the cross-registry
+join key); the lookup card surfaces bic/mic, legal_form{elf,other}, expiration{date,reason} and
+successor_entities (LEI list — the M&A successor edge).
 """
 import re
 
@@ -16,7 +21,7 @@ provider = {
     "rate": {"rps": 1, "burst": 2},
     "ops": {
         "lookup": {"path": "/lei-records/{lei}", "notFound": [404]},   # params: lei (path template)
-        "search": {"path": "/lei-records"},                            # params: name, limit (query assembled as filter[entity.legalName]/page[size])
+        "search": {"path": "/lei-records"},                            # params: name, limit, jurisdiction, status, page_number (query assembled as filter[entity.legalName]/page[size]/filter[entity.jurisdiction]/filter[entity.status]/page[number])
         "direct_parent": {"path": "/lei-records/{lei}/direct-parent", "notFound": [404]},     # dedicated endpoint returns the full parent card; 404 = none
         "ultimate_parent": {"path": "/lei-records/{lei}/ultimate-parent", "notFound": [404]}, # same (ultimate sense)
     },
@@ -47,8 +52,16 @@ def lookup_lei(lei: str, cache=None, no_cache: bool = False) -> dict:
         "registration_country": (ent.get("legalAddress") or {}).get("country"),
         "hq_country": (ent.get("headquartersAddress") or {}).get("country"),
         "hq_city": (ent.get("headquartersAddress") or {}).get("city"),
+        "bic": a.get("bic"),   # BIC/MIC are top-level record attributes (null unless the LOU captured them)
+        "mic": a.get("mic"),
         "entity_category": ent.get("category"),
+        "legal_form": {"id": (ent.get("legalForm") or {}).get("id"),        # GLEIF ELF code (e.g. 8888)
+                       "other": (ent.get("legalForm") or {}).get("other")},  # raw local legal-form text (e.g. CREDIT_UNION)
         "creation_date": creation[:10] if creation else None,
+        "expiration": {"date": (ent.get("expiration") or {}).get("date"),
+                       "reason": (ent.get("expiration") or {}).get("reason")},
+        # successor LEIs (the M&A successor edge); upstream names are null in practice — resolve each via lookup_lei
+        "successor_entities": [s.get("lei") for s in (ent.get("successorEntities") or []) if (s or {}).get("lei")],
         "registration": {
             "status": reg.get("status"),  # ISSUED / LAPSED / RETIRED… (issuance sense)
             "last_update": reg.get("lastUpdateDate"),  # upstream key lastUpdateDate (2026-10-21: the old read of lastUpdate was permanently null)
@@ -60,28 +73,47 @@ def lookup_lei(lei: str, cache=None, no_cache: bool = False) -> dict:
     }
 
 
-def search_lei_by_name(name, *, limit=10, cache=None, no_cache=False):
-    """→ {total, candidates[], _meta}; name → LEI reverse search. Legal-name contains match, not fuzzy tolerance —
-    candidates are not an authoritative normalization; re-verify with lookup_lei before persisting."""
+def search_lei_by_name(name, *, jurisdiction=None, status=None, page_number=None, limit=10, cache=None, no_cache=False):
+    """→ {total, page, candidates[], _meta}; name → LEI reverse search. Legal-name contains match, not fuzzy tolerance —
+    candidates are not an authoritative normalization; re-verify with lookup_lei before persisting.
+    2026-10-30 param-fidelity round: jurisdiction (filter[entity.jurisdiction] — ISO 3166-1 country or
+    ISO 3166-2 region code: CH→14 Nestlé hits, US-MO→1 hit = Nestlé Purina registeredAs=00007498; the sibling
+    filter[entity.jurisdictionCountry] is whole-filter whitelist-rejected 400, do not mirror it), status
+    (filter[entity.status] — ACTIVE/INACTIVE/NULL, entity lifecycle; LAPSED lives in registration.status, a
+    different field), page_number (page[number], 1-based — walk while page <= meta.pagination.lastPage)."""
     from ..transport import call_provider
     from ..errors import SdkError
 
     q = str(name or "").strip()
     if not q:
         raise SdkError("usage_error", provider="gleif", detail="search requires --name")
-    r = call_provider(provider, "search", {
+    params = {
         "filter[entity.legalName]": q,
         "page[size]": min(max(1, int(limit) or 10), 200),  # real upstream limit 200 (probed: 201→400, 200 served in full; the earlier 100 clamp was a misrecord)
-    }, cache=cache, no_cache=no_cache)
+    }
+    if jurisdiction is not None and str(jurisdiction).strip():
+        params["filter[entity.jurisdiction]"] = str(jurisdiction).strip().upper()
+    if status is not None and str(status).strip():
+        params["filter[entity.status]"] = str(status).strip().upper()
+    if page_number is not None:
+        if int(page_number) < 1:
+            raise SdkError("usage_error", provider="gleif", detail="page_number is 1-based (upstream page[number])")
+        params["page[number]"] = int(page_number)
+    r = call_provider(provider, "search", params, cache=cache, no_cache=no_cache)
     rows = [{
         "lei": (e.get("attributes") or {}).get("lei") or e.get("id"),
         "legal_name": ((e.get("attributes") or {}).get("entity") or {}).get("legalName", {}).get("name"),
         "entity_status": ((e.get("attributes") or {}).get("entity") or {}).get("status"),
         "jurisdiction": ((e.get("attributes") or {}).get("entity") or {}).get("jurisdiction"),
         "registration_country": (((e.get("attributes") or {}).get("entity") or {}).get("legalAddress") or {}).get("country"),
+        "registered_as": ((e.get("attributes") or {}).get("entity") or {}).get("registeredAs"),  # national-registry id inside the registering LOU's jurisdiction — the cross-registry join key (e.g. US-MO Nestlé Purina 00007498, FR 74530)
     } for e in (r["data"] or {}).get("data") or []]
-    total = (((r["data"] or {}).get("meta") or {}).get("pagination") or {}).get("total")
-    return {"total": total if total is not None else len(rows), "candidates": rows, "_meta": r}
+    pg = (((r["data"] or {}).get("meta") or {}).get("pagination")) or {}
+    total = pg.get("total")
+    return {"total": total if total is not None else len(rows),
+            "page": ({k: pg.get(k) for k in ("currentPage", "perPage", "from", "to", "total", "lastPage")}
+                     if pg else None),  # lastPage = honest walk bound (Nestlé bare name: total 140 @ perPage 15 → lastPage 10)
+            "candidates": rows, "_meta": r}
 
 
 def _norm_lei(lei):

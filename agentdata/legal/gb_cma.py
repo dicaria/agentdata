@@ -1,4 +1,4 @@
-"""uk_cma — UK Competition and Markets Authority case face provider (www.gov.uk content/search API; keyless).
+"""gb_cma — UK Competition and Markets Authority case face provider (www.gov.uk content/search API; keyless).
 
 Shape verified 2026-10-29:
 GET /api/search.json?filter_format=cma_case&q=&count=&start=
@@ -21,7 +21,7 @@ records the evolution); polite rate 1 rps (gov.uk publishes no search-API quota 
 from ..errors import SdkError
 
 provider = {
-    "id": "uk_cma",
+    "id": "gb_cma",
     "baseUrl": "https://www.gov.uk",
     "rate": {"rps": 1, "burst": 2},
     "ops": {
@@ -60,11 +60,11 @@ def search_raw(q=None, *, count=20, start=0, cache=None, no_cache=False):
     term = str(q or "").strip() or None
     size = int(count) if count is not None else 20  # explicit None check — 0 being swallowed by `or` was a same-type bug caught by a test
     if not 1 <= size <= 100:
-        raise SdkError("usage_error", provider="uk_cma",
+        raise SdkError("usage_error", provider="gb_cma",
                        detail=f"count must be 1-100 (politeness cap; upstream has no wall — verified 2026-10-29, count=1000 delivers in full), got \"{count}\"")
     off = int(start) if start is not None else 0
     if off < 0:
-        raise SdkError("usage_error", provider="uk_cma", detail=f"start must be an offset ≥0, got \"{start}\"")
+        raise SdkError("usage_error", provider="gb_cma", detail=f"start must be an offset ≥0, got \"{start}\"")
     params = {"filter_format": "cma_case", "count": size, "start": off}
     if term:
         params["q"] = term
@@ -80,7 +80,7 @@ def _clean_slug(slug):
             s = s[len(pre):]
     s = s.strip("/")
     if not s or "/" in s:
-        raise SdkError("usage_error", provider="uk_cma",
+        raise SdkError("usage_error", provider="gb_cma",
                        detail=f"slug must be the case-page tail segment (e.g. nexfibre-slash-substantial-merger-inquiry, "
                               f"echoed verbatim from the search row's link field): {slug}")
     return s

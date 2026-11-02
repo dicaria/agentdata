@@ -4,7 +4,7 @@ Mixes into the root _Domain (assembled via MRO, see client.py); discipline: no _
 depend only on root internals (_flat_env/_c/_request…), method names globally unique across
 domains (a collision would shadow another domain's face).
 """
-from . import ny_open_data, pncp, secop, ungm, wb_proc
+from . import ny_open_data, br_pncp, co_secop, ungm, wb_proc
 from ..errors import SdkError
 
 
@@ -13,15 +13,15 @@ class ProcurementFaces:
         if self.name != "procurement":
             raise SdkError("usage_error", detail=f"{tool} is a procurement-domain capability (not available on the {self.name} domain)")
 
-    def pncp_contracts(self, data_inicial, data_final, *, pagina=1, cnpj_orgao=None,
+    def br_pncp_contracts(self, data_inicial, data_final, *, pagina=1, cnpj_orgao=None,
                        execution=None, no_cache=None):
-        """procurement pncp_contracts: Brazil national procurement contract window
+        """procurement br_pncp_contracts: Brazil national procurement contract window
         (PNCP /api/consulta/v1/contratos; data_inicial/data_final/pagina mirrored verbatim,
         cnpj_orgao optional buyer filter — pinned by the SpringDoc spec).
         Rows = buyer CNPJ × supplier CNPJ bilateral + the four amount columns; PF supplier rows
         are masked per the PII red line."""
-        self._pr_only("pncp_contracts")
-        r = pncp.contracts_raw(data_inicial, data_final, pagina=pagina, cnpj_orgao=cnpj_orgao,
+        self._pr_only("br_pncp_contracts")
+        r = br_pncp.contracts_raw(data_inicial, data_final, pagina=pagina, cnpj_orgao=cnpj_orgao,
                                cache=self._c._cache, no_cache=no_cache if no_cache is not None else self._c.no_cache)
         res = {k: v for k, v in r.items() if k != "_meta"}
         rows = res["rows"]
@@ -40,22 +40,22 @@ class ProcurementFaces:
                         f"{x.get('valorGlobal')} BRL",
                "url": "https://pncp.gov.br/api/consulta/v1/contratos"}
               for x in rows[:3] if x.get("numeroControlePNCP")]
-        return self._flat_env(tool="pncp_contracts",
+        return self._flat_env(tool="br_pncp_contracts",
                               input={"data_inicial": data_inicial, "data_final": data_final,
                                      "pagina": pagina, "cnpj_orgao": cnpj_orgao},
-                              reason=reason, result=res, evidence=ev, provider_id="pncp",
+                              reason=reason, result=res, evidence=ev, provider_id="br_pncp",
                               metas=[r["_meta"]],
                               query={"source": "raw", "upstream": r["params"]})
 
-    def secop_contracts(self, where=None, *, limit=20, offset=0, order=None,
+    def co_secop_contracts(self, where=None, *, limit=20, offset=0, order=None,
                         execution=None, no_cache=None):
-        """procurement secop_contracts: Colombia SECOP II electronic contracts (datos.gov.co
+        """procurement co_secop_contracts: Colombia SECOP II electronic contracts (datos.gov.co
         Socrata jbjy-vk9h; where→$where raw SoQL verbatim channel, limit/offset/order mirrored
         by the same names). 5.66M contracts corpus-wide; rows = buyer NIT × supplier NIT
         bilateral + the amount family; personal-document supplier rows are masked per the PII
         red line."""
-        self._pr_only("secop_contracts")
-        r = secop.contracts_raw(where, limit=limit, offset=offset, order=order,
+        self._pr_only("co_secop_contracts")
+        r = co_secop.contracts_raw(where, limit=limit, offset=offset, order=order,
                                 cache=self._c._cache, no_cache=no_cache if no_cache is not None else self._c.no_cache)
         res = {k: v for k, v in r.items() if k != "_meta"}
         rows = res["rows"]
@@ -72,9 +72,9 @@ class ProcurementFaces:
                         f"{x.get('valor_del_contrato')} COP",
                "url": "https://datos.gov.co/resource/jbjy-vk9h.json"}
               for x in rows[:3] if x.get("id_contrato")]
-        return self._flat_env(tool="secop_contracts",
+        return self._flat_env(tool="co_secop_contracts",
                               input={"where": where, "limit": limit, "offset": offset, "order": order},
-                              reason=reason, result=res, evidence=ev, provider_id="secop",
+                              reason=reason, result=res, evidence=ev, provider_id="co_secop",
                               metas=[r["_meta"]],
                               query={"source": "raw", "upstream": r["params"]})
 
@@ -166,11 +166,13 @@ class ProcurementFaces:
                              award_from=None, award_to=None, countries=None, agencies=None,
                              unspscs=None, page_index=1, page_size=15, sort_field="AwardDate",
                              sort_ascending=False, execution=None, no_cache=None):
-        """procurement ungm_contract_awards：联合国全球市场授标搜索（www.ungm.org/Public/ContractAward
-        PublicSearch；Supplier/Title/Reference/AwardFrom/AwardTo/Countries/Agencies/UNSPSCs
-        上游原名，page_index/page_size 翻页）。全库 ~5 万条——UN 机构买方宇宙（UNDP/UNFPA/ILO/
-        UNOPS…）×全球供方（vendor 名+供应商国家）；行=id（授标键）+六槽。反伪造配对会话
-        15 分钟自动复用，400 即重采；浏览器 UA 门控在 provider 层已内建。"""
+        """procurement ungm_contract_awards: UN Global Marketplace contract-award search
+        (www.ungm.org/Public/ContractAward PublicSearch; Supplier/Title/Reference/AwardFrom/
+        AwardTo/Countries/Agencies/UNSPSCs under their upstream names, page_index/page_size
+        paging). Full corpus ~50k awards — the UN-agency buyer universe (UNDP/UNFPA/ILO/
+        UNOPS…) × global suppliers (vendor name + supplier country); rows = id (the award
+        key) + six slots. The anti-forgery pairing session is reused for 15 minutes and
+        re-collected on a 400; the browser-UA gate is built into the provider layer."""
         self._pr_only("ungm_contract_awards")
         r = ungm.awards_raw(supplier, title=title, reference=reference, award_from=award_from,
                             award_to=award_to, countries=countries, agencies=agencies,
@@ -182,16 +184,16 @@ class ProcurementFaces:
         rows = res["rows"]
         n_vendor = sum(1 for x in rows if x.get("vendor"))
         if rows:
-            reason = (f"UNGM 授标搜索：全量 {res['total']:,} 条命中，第 {page_index} 页返回 {len(rows)} 行"
-                      f"（{n_vendor} 行带供方名）——UN 机构买方 × 全球供方"
-                      + (f"，supplier=「{supplier}」" if supplier else "")
-                      + f"（样例 {rows[0].get('agency') or '—'} × {rows[0].get('vendor') or '—'}，"
-                        f"{rows[0].get('award_date') or '—'} 授标）")
+            reason = (f"UNGM award search: {res['total']:,} total hits, page {page_index} returned {len(rows)} rows"
+                      f" ({n_vendor} rows carry a vendor name) — UN-agency buyers × global suppliers"
+                      + (f", supplier=\"{supplier}\"" if supplier else "")
+                      + f" (sample {rows[0].get('agency') or '—'} × {rows[0].get('vendor') or '—'}, "
+                        f"awarded {rows[0].get('award_date') or '—'})")
         else:
-            reason = (f"UNGM 授标搜索：0 行——过滤无命中或页号越界均为合法答案"
-                      f"（total={res['total']}）")
+            reason = (f"UNGM award search: 0 rows — no filter match or a past-the-end page number, "
+                      f"both legitimate answers (total={res['total']})")
         ev = [{"quote": f"{x['id']} — {x.get('agency') or '—'} × {x.get('vendor') or '—'} — "
-                        f"{x.get('supplier_country') or '—'}（{x.get('award_date') or '—'}）",
+                        f"{x.get('supplier_country') or '—'} ({x.get('award_date') or '—'})",
                "url": f"https://www.ungm.org/Public/ContractAward/{x['id']}"}
               for x in rows[:3] if x.get("id")]
         return self._flat_env(tool="ungm_contract_awards",
@@ -207,10 +209,12 @@ class ProcurementFaces:
 
     def ny_ogs_payments(self, where=None, *, limit=20, offset=0, order=None,
                         execution=None, no_cache=None):
-        """procurement ny_ogs_payments：纽约州总务署 D&C 付款（data.ny.gov Socrata rb9h-9fit；
-        where→$where 裸 SoQL 原名通道、limit/offset/order 同名镜像）。全库 6.9 万行——买方恒
-        OGS，行=contractnumber×vendor×paymentamount+fiscalyear/quarter/county（无地址列，
-        name walk 单键标识）；与 ABO/MTA 双面拼齐纽约州三买方宇宙。"""
+        """procurement ny_ogs_payments: New York State OGS D&C payments (data.ny.gov Socrata
+        rb9h-9fit; where→$where the bare-SoQL upstream-name channel, limit/offset/order
+        mirrored under the same names). Full corpus ~69k rows — the buyer is always OGS,
+        rows = contractnumber×vendor×paymentamount + fiscalyear/quarter/county (no address
+        column; a name walk with a single key); pairs with the ABO/MTA faces to complete
+        the New York State three-buyer universe."""
         self._pr_only("ny_ogs_payments")
         r = ny_open_data.ogs_dc_payments_raw(where, limit=limit, offset=offset, order=order,
                                              cache=self._c._cache,
@@ -218,14 +222,14 @@ class ProcurementFaces:
         res = {k: v for k, v in r.items() if k != "_meta"}
         rows = res["rows"]
         if rows:
-            reason = (f"NY OGS D&C 付款：返回 {len(rows)} 行（offset={offset} 起；Socrata 无 total 回显）"
-                      f"——买方恒 OGS，contractnumber×vendor×paymentamount 三柱"
-                      f"（样例 {rows[0].get('vendor') or '—'} — {rows[0].get('paymentamount') or '—'} USD，"
-                      f"{rows[0].get('fiscalyear') or '—'} Q{rows[0].get('quarter') or '—'}）")
+            reason = (f"NY OGS D&C payments: returned {len(rows)} rows (from offset={offset}; Socrata sends no total echo)"
+                      f" — the buyer is always OGS, contractnumber×vendor×paymentamount three pillars"
+                      f" (sample {rows[0].get('vendor') or '—'} — {rows[0].get('paymentamount') or '—'} USD, "
+                      f"{rows[0].get('fiscalyear') or '—'} Q{rows[0].get('quarter') or '—'})")
         else:
-            reason = "NY OGS：0 行——where 过滤无命中或 offset 越界，均为合法答案（非错误）"
+            reason = "NY OGS: 0 rows — the where filter has no match or offset is past the end, both legitimate answers (not errors)"
         ev = [{"quote": f"OGS × {x.get('vendor') or '—'} — {x.get('paymentamount') or '—'} USD"
-                        f"（{x.get('contractnumber') or '—'}，{x.get('fiscalyear') or '—'} Q{x.get('quarter') or '—'}）",
+                        f" ({x.get('contractnumber') or '—'}, {x.get('fiscalyear') or '—'} Q{x.get('quarter') or '—'})",
                "url": "https://data.ny.gov/resource/rb9h-9fit.json"}
               for x in rows[:3] if x.get("vendor")]
         return self._flat_env(tool="ny_ogs_payments",

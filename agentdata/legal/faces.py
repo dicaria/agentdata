@@ -407,23 +407,23 @@ class LegalFaces:
             "request_id": self._c._request_id(),
         }
 
-    def uk_cma_cases(self, q=None, *, count=20, start=0, execution=None, no_cache=None):
-        """legal uk_cma_cases: UK CMA case search (gov.uk search API, filter_format=cma_case fixed;
+    def gb_cma_cases(self, q=None, *, count=20, start=0, execution=None, no_cache=None):
+        """legal gb_cma_cases: UK CMA case search (gov.uk search API, filter_format=cma_case fixed;
         q/count/start go through with verbatim names — count politeness wall 1-100 (upstream has no wall,
         count=1000 delivers in full, verified 2026-10-29), start = offset paging; case name = the party-pair
         "A / B" form, title is the party search face)."""
-        self._lg_only("uk_cma_cases")
+        self._lg_only("gb_cma_cases")
         term = str(q or "").strip() or None
-        r = legal.uk_cma.search_raw(q=term, count=count, start=start,
+        r = legal.gb_cma.search_raw(q=term, count=count, start=start,
                                     cache=self._c._cache,
                                     no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
         result = {k: x for k, x in r.items() if k != "_meta"}
         return self._flat_env(
-            tool="uk_cma_cases",
+            tool="gb_cma_cases",
             input={"q": term, "count": result["limit_applied"], "start": start},
             reason=(f"UK CMA case register: {result['total']} cases hit, returning {len(result['rows'])} rows"
                     + (f" (query \"{term}\")" if term else " (full-register enumeration)")
-                    + " — case name = the party pair (merger/inquiry cases); for single-case detail use uk_cma_case (slug from the row)"
+                    + " — case name = the party pair (merger/inquiry cases); for single-case detail use gb_cma_case (slug from the row)"
                     if result["rows"] else
                     f"UK CMA zero hits (an empty result is a legitimate answer — query too narrow or no registered cases; enumerate the full register of {result['total']} cases by omitting q)"),
             result=result,
@@ -432,25 +432,25 @@ class LegalFaces:
                        "url": c["url"] or "https://www.gov.uk/search/all?keywords=&level_one_taxon=&"
                                           "manual_close_coronavirus=none&order=updated-newest"}
                       for c in result["rows"][:5]],
-            provider_id="uk_cma", metas=[r["_meta"]],
+            provider_id="gb_cma", metas=[r["_meta"]],
             query={"source": "raw", "upstream": r["params"]},
         )
 
-    def uk_cma_case(self, slug, *, execution=None, no_cache=None):
-        """legal uk_cma_case: the full UK CMA single-case dossier (gov.uk content API; content_id = the UUID
+    def gb_cma_case(self, slug, *, execution=None, no_cache=None):
+        """legal gb_cma_case: the full UK CMA single-case dossier (gov.uk content API; content_id = the UUID
         stable key; change_history = the evolution stream newest→oldest (last = First published),
         attachments = the decision/notice PDF family — the company × case negative-signal detail face)."""
-        self._lg_only("uk_cma_case")
+        self._lg_only("gb_cma_case")
         if not str(slug or "").strip():
-            raise SdkError("usage_error", provider="uk_cma",
-                           detail="uk_cma_case requires slug (the case-page tail segment, echoed verbatim from "
-                                  "uk_cma_cases rows; a pasted full base_path also gets its prefix stripped)")
-        r = legal.uk_cma.case_raw(slug, cache=self._c._cache,
+            raise SdkError("usage_error", provider="gb_cma",
+                           detail="gb_cma_case requires slug (the case-page tail segment, echoed verbatim from "
+                                  "gb_cma_cases rows; a pasted full base_path also gets its prefix stripped)")
+        r = legal.gb_cma.case_raw(slug, cache=self._c._cache,
                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
         result = {k: x for k, x in r.items() if k != "_meta"}
         latest = (result["change_history"] or [{}])[0]  # upstream order = newest→oldest ([0] = latest, last = First published)
         return self._flat_env(
-            tool="uk_cma_case",
+            tool="gb_cma_case",
             input={"slug": result["slug"]},
             reason=(f"UK CMA single case: {result['title'] or result['slug']}"
                     + (" (withdrawn)" if result["withdrawn"] else "")
@@ -462,8 +462,115 @@ class LegalFaces:
                        "url": a["url"] or result["url"]}
                       for a in result["attachments"][:5]]
                     or [{"quote": latest.get("note") or result["title"] or result["slug"], "url": result["url"]}],
-            provider_id="uk_cma", metas=[r["_meta"]],
+            provider_id="gb_cma", metas=[r["_meta"]],
             query={"source": "raw", "upstream": {"path": f"/api/content/cma-cases/{result['slug']}"}},
+        )
+
+    # ---------- 0.3.16 legal CO SIC 制裁面（datos.gov.co Socrata 73dx-n59j；与 co_secop_contracts 同 $-参数契约） ----------
+
+    def co_sic_sanctions(self, where=None, *, limit=20, offset=0, order=None, execution=None, no_cache=None):
+        """legal co_sic_sanctions: Colombia SIC firm-sanctions register (datos.gov.co Socrata 73dx-n59j, keyless):
+        multado (the sanctioned party) × valor (fine, COP) × conducta (the violation) × sector — 3,938 firm
+        sanctions 2013→. $where raw SoQL / $limit 1-500 / $offset / $order column[ ASC|DESC] verbatim (same
+        contract as co_secop_contracts); Socrata sends no total echo — paging goes through offset. Name-only
+        key (no NIT column): a name join onto co_rues_companies is the corpus line's job."""
+        self._lg_only("co_sic_sanctions")
+        w = str(where or "").strip() or None
+        r = legal.co_sic.sanctions_raw(w, limit=limit, offset=offset, order=order,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="co_sic_sanctions",
+            input={"where": w, "limit": result["limit_applied"], "offset": offset, "order": order},
+            reason=(f"Colombia SIC sanctions register: {len(result['rows'])} rows returned"
+                    + (f" (SoQL filter \"{w}\")" if w else " (enumerate from the head of the register; the corpus holds 3,938 firm sanctions 2013→, counted at admission)")
+                    + " — row = multado (sanctioned party) × valor (COP) × conducta × sector; name-only key, join onto NIT via co_rues_companies on the corpus line"
+                    if result["rows"] else
+                    "Colombia SIC zero hits (an empty result is a legitimate answer — SoQL too narrow or no firm sanction on record; drop --where to enumerate from the register head)"),
+            result=result,
+            evidence=[{"quote": f"{c['multado'] or '—'} — {c['conducta'] or '—'} ({c['sector'] or '—'}), "
+                               f"COP {c['valor'] or '—'}, res. {c['res_sancion'] or '—'} of {(c['fecha_emitida'] or '')[:10]}",
+                       "url": "https://www.datos.gov.co/Comercio-Industria-y-Turismo/Sanciones-impuestas-en-firme-por-la-SIC/73dx-n59j"}
+                      for c in result["rows"][:5]],
+            provider_id="co_sic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # ---------- legal caselaw line (TNA Find Case Law: search + Akoma Ntoso single record; born 0.3.8, ISO-prefixed 0.3.13, Englished in the 0.3.14 collection round) ----------
+
+    def gb_tna_caselaw_search(self, query=None, *, court=None, tribunal=None, party=None, judge=None,
+                           order=None, page=1, per_page=50, minimum_availability=None,
+                           execution=None, no_cache=None):
+        """legal gb_tna_caselaw_search: UK judgment search (TNA Find Case Law /atom.xml; party/judge = whole-word
+        party/judge-name matching, query = full text, court/tribunal = court codes, repeatable (explode),
+        order = ±date/±updated/±transformation — eight upstream-named params passed straight through;
+        per_page polite tier 1-50 (the upstream default is 50). Rows carry the neutral_citation (the
+        human-readable official key, [2026] EWHC 2298 (Admin)) + uri (the machine-stable key, fed straight
+        into the judgment face) + contenthash.
+        **The Open Justice Licence forbids bulk computational analysis (free-application regime) — this
+        face is directed search / rolling monitoring; do not enumerate the corpus**."""
+        self._lg_only("gb_tna_caselaw_search")
+        r = legal.gb_tna_caselaw.search_raw(query=query, court=court, tribunal=tribunal,
+                                         party=party, judge=judge, order=order, page=page,
+                                         per_page=per_page, minimum_availability=minimum_availability,
+                                         cache=self._c._cache,
+                                         no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="gb_tna_caselaw_search",
+            input={"query": query, "court": court, "tribunal": tribunal, "party": party,
+                   "judge": judge, "order": order, "page": result["page"],
+                   "per_page": result["per_page"], "minimum_availability": minimum_availability},
+            reason=(f"UK caselaw library (TNA Find Case Law): page {result['page']}/{result['total_pages'] or '?'}, "
+                    f"{result['count']} rows — row = case name (party string)/court/judgment date/neutral citation; "
+                    "the full judgment text goes through gb_tna_caselaw_judgment (uri = the row's uri)"
+                    if result["rows"] else
+                    "TNA zero hits (an empty result is a valid answer — party/judge are whole-word matches; "
+                    "try a single word of the name or switch to a full-text query)"),
+            result=result,
+            evidence=[{"quote": f"{c['neutral_citation'] or c['uri'] or '—'} {c['title'] or ''}"
+                               f" ({c['court'] or '—'}, {(c['published'] or '')[:10]})",
+                       "url": c["html_url"] or c["data_url"] or "https://caselaw.nationalarchives.gov.uk/atom.xml"}
+                      for c in result["rows"][:5]],
+            provider_id="gb_tna_caselaw", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def gb_tna_caselaw_judgment(self, document_uri, *, execution=None, no_cache=None):
+        """legal gb_tna_caselaw_judgment: the full UK single-judgment dossier (Akoma Ntoso data.xml;
+        neutral_citation = the neutral-citation official key, parties=[{name, role}] the party→role official
+        edge (claimant/defendant, company and personal names), judges, text = the plain-text extraction of
+        the judgment body). document_uri takes all three forms: legacy ewhc/admin/2026/2298, new-style
+        d-<uuid>, tna.<fclid> — fed straight from the search row's uri; a pasted full URL is unwrapped
+        automatically."""
+        self._lg_only("gb_tna_caselaw_judgment")
+        if not str(document_uri or "").strip():
+            raise SdkError("usage_error", provider="gb_tna_caselaw",
+                           detail="gb_tna_caselaw_judgment requires document_uri (fed straight from the "
+                                  "gb_tna_caselaw_search row's uri; three forms accepted: legacy "
+                                  "ewhc/admin/2026/2298, new-style d-<uuid>, tna.<fclid>)")
+        r = legal.gb_tna_caselaw.judgment_raw(document_uri, cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        n_cl = sum(1 for p in result["parties"] or [] if p.get("role") == "claimant")
+        n_df = sum(1 for p in result["parties"] or [] if p.get("role") == "defendant")
+        return self._flat_env(
+            tool="gb_tna_caselaw_judgment",
+            input={"document_uri": result["uri"]},
+            reason=(f"UK judgment dossier: {result['neutral_citation'] or result['uri']} ({result['court_code'] or '—'}, "
+                    f"judged {result['date'] or '—'}) — {len(result['parties'] or [])} parties"
+                    f" (claimant {n_cl}/defendant {n_df}) · {len(result['judges'] or [])} judges · "
+                    f"body {result['text_length']} chars; licence = Open Justice (reuse compliant, bulk analysis requires an application)"
+                    if result["neutral_citation"] else
+                    "data.xml came back empty or is not a judgment structure (the uri is not in the register — "
+                    "go back to gb_tna_caselaw_search and check)"),
+            result=result,
+            evidence=[{"quote": f"{p['role'] or 'party'}: {p['name'] or '—'}", "url": result["url"]}
+                      for p in (result["parties"] or [])[:5]]
+                      or [{"quote": result["title"] or result["uri"], "url": result["url"]}],
+            provider_id="gb_tna_caselaw", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"path": f"/{result['uri']}/data.xml"}},
         )
 
     # ---------- 0.2.4 flat-panel commands (research: grants × papers × institutions × impact — upstream verbatim params) ----------

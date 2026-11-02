@@ -202,19 +202,19 @@ class ResearchFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
-    def gtr_projects(self, *, q=None, s=20, p=1, execution=None, no_cache=None):
-        """research gtr_projects: UK UKRI funded-project search (/projects?q= verbatim three
+    def gb_gtr_projects(self, *, q=None, s=20, p=1, execution=None, no_cache=None):
+        """research gb_gtr_projects: UK UKRI funded-project search (/projects?q= verbatim three
         params; s≥10 upstream 400 wall (probe showed a friendly error); upstream sends no
         total — a full page signals more via has_more; the organisation edge is a second hop
         in detail (links.link[] rel=LEAD_ORG), this face is the list only)."""
-        self._research_only("gtr_projects")
-        r = research.gtr.projects_raw(q, s=s, p=p,
+        self._research_only("gb_gtr_projects")
+        r = research.gb_gtr.projects_raw(q, s=s, p=p,
                                        cache=self._c._cache,
                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
         result = {k: x for k, x in r.items() if k != "_meta"}
         top = (result["rows"] or [None])[0]
         return self._flat_env(
-            tool="gtr_projects",
+            tool="gb_gtr_projects",
             input={"q": q, "s": r["params"]["s"], "p": r["params"]["p"]},
             reason=(f"UKRI GtR: '{q}' — {result['count']} rows this page"
                     + (" (full page, likely more — continue with --p)" if result.get("has_more") else "")
@@ -226,7 +226,7 @@ class ResearchFaces:
                                 f"{x['start'] or '?'}→{x['end'] or '?'})",
                        "url": x["href"]}
                       for x in result["rows"][:5]],
-            provider_id="gtr", metas=[r["_meta"]],
+            provider_id="gb_gtr", metas=[r["_meta"]],
             query={"source": "raw", "upstream": r["params"]},
         )
 

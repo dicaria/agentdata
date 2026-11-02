@@ -489,15 +489,77 @@ class HealthcareFaces:
                                       f"{row['medical_specialty_description'] or '—'}, 21 CFR {row['regulation_number'] or '—'})"),
             lead="openFDA device product-code classification (device/classification)", no_cache=no_cache)
 
+    # ---------- 0.3.16 UK MHRA safety-alert twin faces (gov.uk search/content API; the same contract family as the legal gb_cma case chain) ----------
 
-    def tga_artg(self, *, query=None, limit=20, skip=0,
+    def gb_mhra_alerts(self, q=None, *, count=20, start=0, execution=None, no_cache=None):
+        """healthcare gb_mhra_alerts: UK MHRA safety-alert search (gov.uk search API, filter_format=
+        medical_safety_alert fixed; q/count/start go through with verbatim names — count politeness
+        wall 1-100 (family cap as gb_cma), start = offset paging. q= is a company-name penetration
+        channel into the alert corpus (Abbott → 160 alerts 2019-2026, measured 2026-10-30)."""
+        self._hc_only("gb_mhra_alerts")
+        term = str(q or "").strip() or None
+        r = healthcare.gb_mhra.alerts_raw(q=term, count=count, start=start,
+                                          cache=self._c._cache,
+                                          no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="gb_mhra_alerts",
+            input={"q": term, "count": result["limit_applied"], "start": start},
+            reason=(f"UK MHRA safety-alert register: {result['total']} alerts hit, returning {len(result['rows'])} rows"
+                    + (f" (query \"{term}\")" if term else " (full-register enumeration)")
+                    + " — drug alerts, device alerts (MDA) and the weekly field-safety-notice digests in one stream; "
+                      "for the single-alert dossier use gb_mhra_alert (slug from the row)"
+                    if result["rows"] else
+                    f"UK MHRA zero hits (an empty result is a legitimate answer — query too narrow or no alert on record; enumerate the full register of {result['total']} alerts by omitting q)"),
+            result=result,
+            evidence=[{"quote": f"{c['title'] or '—'} (updated {c['public_timestamp'] or '—'})",
+                       "url": c["url"] or "https://www.gov.uk/search/all?keywords=&order=updated-newest"}
+                      for c in result["rows"][:5]],
+            provider_id="gb_mhra", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def gb_mhra_alert(self, slug, *, execution=None, no_cache=None):
+        """healthcare gb_mhra_alert: the full UK MHRA single-alert dossier (gov.uk content API; content_id =
+        the UUID stable key; alert_type/issued_date are the MHRA metadata fields — medicines-recall-notification,
+        device-field-safety-notice …; attachments = the notice PDF family — the manufacturer × product × action
+        detail face). The content API has no .json variant — a trailing .json serves the gov.uk 404 page (the
+        pasted-slug form with it gets it stripped)."""
+        self._hc_only("gb_mhra_alert")
+        if not str(slug or "").strip():
+            raise SdkError("usage_error", provider="gb_mhra",
+                           detail="gb_mhra_alert requires slug (the alert-page tail segment, echoed verbatim from "
+                                  "gb_mhra_alerts rows; a pasted full base_path also gets its prefix stripped)")
+        r = healthcare.gb_mhra.alert_raw(slug, cache=self._c._cache,
+                                         no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        latest = (result["change_history"] or [{}])[0]  # upstream order = newest→oldest ([0] = latest, last = First published)
+        return self._flat_env(
+            tool="gb_mhra_alert",
+            input={"slug": result["slug"]},
+            reason=(f"UK MHRA single alert: {result['title'] or result['slug']}"
+                    + (" (withdrawn)" if result["withdrawn"] else "")
+                    + f" — type {result['alert_type'] or '—'}, issued {result['issued_date'] or '—'}"
+                    + f", {len(result['change_history'])} change-history entries (latest: {latest.get('note') or '—'})"
+                    + f", {len(result['attachments'])} notice PDFs; first published {result['first_published_at'] or '—'}")
+            if result["content_id"] else "gov.uk content API returned empty (slug not in the register — go back to the search face and check the spelling)",
+            result=result,
+            evidence=[{"quote": f"{a['title'] or '—'} ({a['content_type'] or '—'})",
+                       "url": a["url"] or result["url"]}
+                      for a in result["attachments"][:5]]
+            or [{"quote": latest.get("note") or result["title"] or result["slug"], "url": result["url"]}],
+            provider_id="gb_mhra", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"path": f"/api/content/drug-device-alerts/{result['slug']}"}},
+        )
+
+    def au_tga_artg(self, *, query=None, limit=20, skip=0,
                           execution=None, no_cache=None):
-        """healthcare tga_artg: search of the AU ARTG register (the TGA eBS Domino face;
+        """healthcare au_tga_artg: search of the AU ARTG register (the TGA eBS Domino face;
         query=Query is a verbatim all-fields AND channel (a quoted phrase also matches the Sponsor column exactly))."""
-        self._hc_only("tga_artg")
+        self._hc_only("au_tga_artg")
         raw = str(query or "").strip() or None
         size = min(max(1, int(limit or 20)), 100)  # SearchView Count measured 100/page (the real upstream limit)
-        r = healthcare.tga.search_art_register(None, raw, limit=size, skip=skip,
+        r = healthcare.au_tga.search_art_register(None, raw, limit=size, skip=skip,
                                               cache=self._c._cache,
                                               no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
         result = {k: x for k, x in r.items() if k != "_meta"}
@@ -512,22 +574,22 @@ class HealthcareFaces:
                    "upstream": {"SearchView": "", "Query": result["query"], "Count": result["limit_applied"],
                                 "charset": "utf-8", **({"Start": result["skip"]} if result["skip"] else {})}}
         return self._flat_env(
-            tool="tga_artg",
+            tool="au_tga_artg",
             input={"query": raw, "limit": result["limit_applied"], "skip": result["skip"]},
             reason=reason, result=result,
             evidence=[{"quote": (f"{row['artg_id'] or '—'} {row['product_name'] or '—'} = "
                                  f"{row['sponsor'] or '—'} ({row['product_type'] or '—'})"),
                        "url": row["doc_url"]}
                       for row in result["rows"][:5]],
-            provider_id="tga", metas=[r["_meta"]],
+            provider_id="au_tga", metas=[r["_meta"]],
             query=quartet,
         )
 
-    def tga_manufacturers(self, *, state=None, limit=100, execution=None, no_cache=None):
-        """healthcare tga_manufacturers: the AU manufacturer licence register (MIS: 444 licences in one full shot + a state filter; limit ≤500 is the upstream single-page hard limit)."""
-        self._hc_only("tga_manufacturers")
+    def au_tga_manufacturers(self, *, state=None, limit=100, execution=None, no_cache=None):
+        """healthcare au_tga_manufacturers: the AU manufacturer licence register (MIS: 444 licences in one full shot + a state filter; limit ≤500 is the upstream single-page hard limit)."""
+        self._hc_only("au_tga_manufacturers")
         size = min(max(1, int(limit or 100)), 500)
-        r = healthcare.tga.list_manufacturers(state, limit=size, cache=self._c._cache,
+        r = healthcare.au_tga.list_manufacturers(state, limit=size, cache=self._c._cache,
                                              no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
         result = {k: x for k, x in r.items() if k != "_meta"}
         by_state = {}
@@ -535,7 +597,7 @@ class HealthcareFaces:
             by_state[row.get("state") or "—"] = by_state.get(row.get("state") or "—", 0) + 1
         state_note = " / ".join(f"{k} {v}" for k, v in by_state.items())
         return self._flat_env(
-            tool="tga_manufacturers",
+            tool="au_tga_manufacturers",
             input={"state": state, "limit": result["limit_applied"]},
             reason=(f"TGA MIS licence register: {result['total']} licences in the register, {result['count']} returned"
                     + (f" (state filter {state})" if state else "")
@@ -545,7 +607,7 @@ class HealthcareFaces:
                        "url": "https://www.ebs.tga.gov.au/ebs/ANZTPAR/PublicWeb.nsf/luPortalManufacturers"
                               "?ReadViewEntries&outputformat=json&count=500"}
                       for row in result["rows"][:5]],
-            provider_id="tga", metas=[r["_meta"]],
+            provider_id="au_tga", metas=[r["_meta"]],
             query={"source": "raw",
                    # state is a local post-filter (not an upstream param): it is echoed in input.state while upstream stays purely what was sent
                    "upstream": {"ReadViewEntries": "", "outputformat": "json", "count": 500, "charset": "utf-8"}},

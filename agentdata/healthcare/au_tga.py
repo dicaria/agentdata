@@ -1,4 +1,4 @@
-"""tga — Australian TGA eBS public face provider (a Domino .nsf site family; keyless).
+"""au_tga — Australian TGA eBS public face provider (a Domino .nsf site family; keyless).
 
 Wave 6 of the healthcare domain: related
 kind=artg_register / mis_manufacturers — the Australian therapeutic goods register ARTG, 97,988 product × sponsor
@@ -21,7 +21,7 @@ import re
 from ..errors import SdkError
 
 provider = {
-    "id": "tga",
+    "id": "au_tga",
     "baseUrl": "https://www.ebs.tga.gov.au/ebs/ANZTPAR/PublicWeb.nsf",
     "rate": {"rps": 1, "burst": 2},
     "ops": {
@@ -103,7 +103,7 @@ def build_search_query(sponsor=None, query=None):
     query → passed through as given (a quoted phrase is upstream-native syntax; since 0.3.0 the quotes are not stripped — stripping them would make the exact Sponsor match unreachable)."""
     sp, q = str(sponsor or "").strip(), str(query or "").strip()
     if not sp and not q:
-        raise SdkError("usage_error", provider="tga", detail="sponsor or query is required (a bare query would enumerate the whole 98,000-row register, so it is refused)")
+        raise SdkError("usage_error", provider="au_tga", detail="sponsor or query is required (a bare query would enumerate the whole 98,000-row register, so it is refused)")
     if sp:
         return '"' + sp.replace('"', "") + '"'
     return q

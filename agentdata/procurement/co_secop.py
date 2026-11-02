@@ -1,4 +1,4 @@
-"""secop — Colombia SECOP II electronic contract face provider (datos.gov.co Socrata dataset
+"""co_secop — Colombia SECOP II electronic contract face provider (datos.gov.co Socrata dataset
 jbjy-vk9h; keyless).
 
 procurement domain (0.3.0 founding; admitted 2026-10-29, probed). Shape measured 2026-10-29:
@@ -25,7 +25,7 @@ Socrata throttling, take the conservative value).
 from ..errors import SdkError
 
 provider = {
-    "id": "secop",
+    "id": "co_secop",
     "baseUrl": "https://datos.gov.co",
     "rate": {"rps": 1, "burst": 2},
     "ops": {
@@ -72,11 +72,11 @@ def contracts_raw(where=None, *, limit=20, offset=0, order=None, cache=None, no_
 
     size = int(limit) if limit is not None else 20  # explicit None check — an `or default` swallows 0, the same trap as 0.2.10
     if not 1 <= size <= 500:
-        raise SdkError("usage_error", provider="secop",
+        raise SdkError("usage_error", provider="co_secop",
                        detail=f"limit must be 1-500 (politeness cap), got '{limit}'")
     off = int(offset) if offset is not None else 0
     if off < 0:
-        raise SdkError("usage_error", provider="secop", detail=f"offset must be ≥0, got '{offset}'")
+        raise SdkError("usage_error", provider="co_secop", detail=f"offset must be ≥0, got '{offset}'")
     params = {"$limit": size, "$offset": off}
     w = str(where or "").strip() or None
     if w:

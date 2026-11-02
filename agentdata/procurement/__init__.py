@@ -2,4 +2,4 @@
 
 PNCP/SECOP passed the admission gate, ruled 2026-10-29.
 """
-from . import pncp, secop  # noqa: F401
+from . import br_pncp, co_secop  # noqa: F401

@@ -2,14 +2,14 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![Commands](https://img.shields.io/badge/81_commands-7_domains-teal)](docs/domains/api.md)
+[![Commands](https://img.shields.io/badge/90_commands-7_domains-teal)](docs/domains/api.md)
 
 One Python client for public-domain company intelligence: registries, sanctions,
 procurement, judgments, filings, and research outputs across 10+ countries and
 regions — through one consistent interface.
 
 - **Pure standard library** — Python 3.10+, zero third-party dependencies
-- **81 flat-panel commands** across 7 domains, one command per upstream dataset
+- **90 flat-panel commands** across 7 domains, one command per upstream dataset
   (`<domain> <source>_<dataset>`), parameters kept under their upstream names
 - **Politeness built in** — per-source rate limits are enforced by default
   (see [docs/domains/rate-limits.md](docs/domains/rate-limits.md))
@@ -27,8 +27,16 @@ dicaria under a separate service agreement — contact **contact@dicaria.com**.
 
 ## Install
 
+From a release tarball — no git required:
+
 ```bash
-pip install git+https://github.com/dicaria/agentdata.git
+pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.18.tar.gz
+```
+
+Or via git (pin a tag for reproducible installs):
+
+```bash
+pip install git+https://github.com/dicaria/agentdata.git@v0.3.18
 ```
 
 ## Quick start (Python)
@@ -95,17 +103,35 @@ agentdata security cisa_kev_catalog --cve CVE-2021-44228
 agentdata procurement pncp_contracts --data-inicial 20260901 --data-final 20260930 --pagina 1
 ```
 
+## Caching
+
+Every response is cached in a per-user SQLite cache shared across virtual
+environments and processes — cache hits cost no rate budget (see
+[docs/domains/rate-limits.md](docs/domains/rate-limits.md)). A fresh install
+in a new virtual environment will therefore hit entries written by earlier
+runs on the same machine; that is by design.
+
+| | |
+|---|---|
+| Default location | `%LOCALAPPDATA%\agentdata\cache.db` on Windows; `~/.cache/agentdata/cache.db` on macOS/Linux |
+| Override | `AGENTDATA_CACHE_DIR` environment variable (CLI: `--cache-dir`) |
+| Bypass | `--no-cache` (CLI) / `no_cache=True` (Python) |
+| Clear | delete the file — every entry re-fetches on demand |
+
+Entry lifetimes follow the per-source TTL table in the rate-limits ledger;
+immutable lookups (e.g. drug name → RxCUI) are cached permanently.
+
 ## Domains
 
 | Domain | Faces | Examples of sources |
 |---|---|---|
-| `healthcare` | 22 | RxNav, MeSH, AccessGUDID, EUDAMED, Europe PMC, openFDA, CT.gov, DailyMed, TGA |
-| `company` | 19 | GLEIF, FDIC, SEC EDGAR, TED, Zefix, Brreg, YTJ, SIRENE, Companies House |
+| `healthcare` | 24 | RxNav, MeSH, AccessGUDID, EUDAMED, Europe PMC, openFDA, CT.gov, DailyMed, TGA, MHRA alerts |
+| `company` | 21 | GLEIF, FDIC, SEC EDGAR, TED, Zefix, Brreg, YTJ, SIRENE, Companies House, RUES (CO), Hometax (KR) |
 | `esg` | 11 | EITI, Climate TRACE, Paris MoU, THETIS-MRV |
-| `legal` | 12 | US CSL, eCFR, DG COMP, LDA, CourtListener, gazette corpora |
+| `legal` | 15 | US CSL, eCFR, DG COMP, LDA, CourtListener, gazette corpora, TNA judgments, SIC sanctions |
 | `research` | 10 | OpenAlex, NIH RePORTER, NSF, Crossref, UKRI GtR, iCite, bioRxiv, COCI |
 | `security` | 2 | OSV, CISA KEV |
-| `procurement` | 5 | PNCP (BR), SECOP II (CO), World Bank Procurement Notices, NY Authorities (US), NY MTA (US) |
+| `procurement` | 7 | PNCP (BR), SECOP II (CO), UNGM, World Bank Procurement Notices, NY Authorities (US), NY MTA (US) |
 
 ## Documentation
 
