@@ -225,9 +225,10 @@ class CompanyFaces:
         result = {k: x for k, x in r.items() if k != "_meta"}
         top = (result["candidates"] or [None])[0]
         mode = "id normalization" if rid else "name search"
+        subject = "ROR id " + rid if rid else f'"{q}"'
         return self._flat_env(
             tool="ror_organizations", input={"query": q, "ror_id": rid, "page": page, "all_status": all_status},
-            reason=(f"ROR {mode}: {'ROR id ' + rid if rid else f'\"{q}\"'} → {top['name'] or '—'}"
+            reason=(f"ROR {mode}: {subject} → {top['name'] or '—'}"
                     f" ({top['country'] or '—'}, {top['type'] or '—'}"
                     + (f"; parent org {top['parent']['name'] or '—'}" if top.get("parent") else "")
                     + f") — {'authoritative single record' if rid else 'candidates, not an authoritative normalization (fixed 20 rows/page)'}"
