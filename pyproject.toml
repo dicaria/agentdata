@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agentdata"
 # keep in sync with agentdata/__init__.py __version__ (0.1.10 split-brain lesson; 0.2.1/0.2.2 missed this spot; a trailing comment on the version line breaks site/docs-app gen/openapi.mjs whole-line regex — keep the version line a bare value)
-version = "0.3.24"
+version = "0.3.25"
 description = "AgentData domain API SDK — corpus (hosted) + third-party enrichment (local, keyless); stdlib-only"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -30,5 +30,9 @@ procurement = "agentdata.entries:procurement"   # seventh domain (0.3.0)
 research = "agentdata.entries:research"   # registered late (missing at 0.2.2, added 0.2.4)
 security = "agentdata.entries:security"   # registered late (missing at 0.2.2, added 0.2.4)
 
-[tool.setuptools]
-packages = ["agentdata", "agentdata.healthcare", "agentdata.company", "agentdata.esg", "agentdata.legal", "agentdata.procurement", "agentdata.research", "agentdata.security"]
+# auto-discover subpackages — the explicit packages list missed agentdata.economy when the
+# economy domain was established (0.3.23), so every pip install of 0.3.23-0.3.24 shipped an
+# unimportable package while the source-tree test suite stayed green (third strike: 0.2.2
+# missed two domains the same way). Domain registration is the build system's job.
+[tool.setuptools.packages.find]
+include = ["agentdata*"]

@@ -51,7 +51,7 @@ You can — and then you get to rediscover what is already pinned here:
   anti-forgery token dance; Socrata endpoints that silently ignore documented
   parameters; the gov.uk content API that 404s when you append `.json`;
   registries that clamp your page size without an error.
-- **One envelope across all 112 commands.** Query echo, a plain-language
+- **One envelope across all 117 commands.** Query echo, a plain-language
   `reason`, `evidence` rows with a checkable quote and source URL, source
   metadata, and a `jurisdiction` chapter — your code parses one shape.
 - **Upstream parameter names, verbatim.** What the official API docs call a
@@ -126,13 +126,21 @@ every command returns this shape:
 From a release tarball — no git required:
 
 ```bash
-pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.24.tar.gz
+pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.25.tar.gz
 ```
 
 Or via git (pin a tag for reproducible installs):
 
 ```bash
-pip install git+https://github.com/dicaria/agentdata.git@v0.3.24
+pip install git+https://github.com/dicaria/agentdata.git@v0.3.25
+```
+
+Or track the latest release (convenience for agents and scripts — a fresh
+release does not trigger a reinstall under the same URL, so pass
+`--force-reinstall` when you want the new one):
+
+```bash
+pip install --force-reinstall https://github.com/dicaria/agentdata/releases/latest/download/agentdata-latest.tar.gz
 ```
 
 ## Quick start (Python)
