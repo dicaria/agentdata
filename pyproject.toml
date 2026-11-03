@@ -1,29 +1,42 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77.0.3"]  # PEP 639 SPDX license metadata
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentdata"
 # keep in sync with agentdata/__init__.py __version__ (0.1.10 split-brain lesson; 0.2.1/0.2.2 missed this spot; a trailing comment on the version line breaks site/docs-app gen/openapi.mjs whole-line regex — keep the version line a bare value)
-version = "0.3.25"
+version = "0.3.26"
 description = "AgentData domain API SDK — corpus (hosted) + third-party enrichment (local, keyless); stdlib-only"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "dicaria", email = "contact@dicaria.com" }]
+keywords = ["company-intelligence", "open-data", "sanctions", "procurement", "enrichment", "government-data"]
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Information Analysis",
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/dicaria/agentdata"
+Source = "https://github.com/dicaria/agentdata"
+Issues = "https://github.com/dicaria/agentdata/issues"
+Changelog = "https://github.com/dicaria/agentdata/releases"
 
 [project.scripts]
 agentdata = "agentdata.cli:main"
 healthcare = "agentdata.entries:healthcare"
 company = "agentdata.entries:company"
+economy = "agentdata.entries:economy"
 esg = "agentdata.entries:esg"
 legal = "agentdata.entries:legal"
 procurement = "agentdata.entries:procurement"   # seventh domain (0.3.0)

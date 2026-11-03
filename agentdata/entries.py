@@ -21,6 +21,7 @@ def _domain_entry(domain: str):
 
 healthcare = _domain_entry("healthcare")
 company = _domain_entry("company")
+economy = _domain_entry("economy")
 esg = _domain_entry("esg")
 legal = _domain_entry("legal")
 procurement = _domain_entry("procurement")  # 0.3.0: the seventh domain

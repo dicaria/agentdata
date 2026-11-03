@@ -1,8 +1,9 @@
 # agentdata
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/agentdata)](https://pypi.org/project/agentdata/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/dicaria/agentdata/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![Commands](https://img.shields.io/badge/117_commands-8_domains-teal)](docs/domains/api.md)
+[![Commands](https://img.shields.io/badge/117_commands-8_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
 
 Government registries, sanctions lists, procurement portals, and health-agency
 databases hold the decisive facts about companies — scattered across 60+ public
@@ -57,7 +58,7 @@ You can — and then you get to rediscover what is already pinned here:
 - **Upstream parameter names, verbatim.** What the official API docs call a
   parameter is what the SDK takes — no invented vocabulary to unlearn.
 - **Polite by default.** Per-source rate limits are enforced before every
-  request ([rate-limits ledger](docs/domains/rate-limits.md)); responses are
+  request ([rate-limits ledger](https://github.com/dicaria/agentdata/blob/main/docs/domains/rate-limits.md)); responses are
   cached locally, and a cache hit costs no rate budget.
 - **Zero dependencies.** Python 3.10+ standard library only.
 
@@ -123,16 +124,24 @@ every command returns this shape:
 
 ## Install
 
+From PyPI:
+
+```bash
+python -m pip install agentdata
+```
+
+For a reproducible install, pin the release: `python -m pip install agentdata==0.3.26`.
+
 From a release tarball — no git required:
 
 ```bash
-pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.25.tar.gz
+python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.26.tar.gz
 ```
 
 Or via git (pin a tag for reproducible installs):
 
 ```bash
-pip install git+https://github.com/dicaria/agentdata.git@v0.3.25
+python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.26
 ```
 
 Or track the latest release (convenience for agents and scripts — a fresh
@@ -140,7 +149,7 @@ release does not trigger a reinstall under the same URL, so pass
 `--force-reinstall` when you want the new one):
 
 ```bash
-pip install --force-reinstall https://github.com/dicaria/agentdata/releases/latest/download/agentdata-latest.tar.gz
+python -m pip install --force-reinstall https://github.com/dicaria/agentdata/releases/latest/download/agentdata-latest.tar.gz
 ```
 
 ## Quick start (Python)
@@ -182,11 +191,14 @@ agentdata procurement br_pncp_contracts --data-inicial 20260901 --data-final 202
 agentdata economy wb_wdi_values --country CHN --indicator NY.GDP.MKTP.CD --date 2020:2023
 ```
 
+If a domain entry-point command (`company`, `legal`, …) collides with another tool
+on your machine, `python -m agentdata <domain> …` is the equivalent invocation.
+
 ## Caching
 
 Every response is cached in a per-user SQLite cache shared across virtual
 environments and processes — cache hits cost no rate budget (see
-[docs/domains/rate-limits.md](docs/domains/rate-limits.md)). A fresh install
+[docs/domains/rate-limits.md](https://github.com/dicaria/agentdata/blob/main/docs/domains/rate-limits.md)). A fresh install
 in a new virtual environment will therefore hit entries written by earlier
 runs on the same machine; that is by design.
 
@@ -202,27 +214,28 @@ immutable lookups (e.g. drug name → RxCUI) are cached permanently.
 
 ## Documentation
 
-- [docs/domains/api.md](docs/domains/api.md) — the API contract of the release
+- [docs/domains/api.md](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md) — the API contract of the release
   you installed: the two families, request/response envelope, parameter
   conventions
-- [docs/domains/rate-limits.md](docs/domains/rate-limits.md) — per-source
+- [docs/domains/rate-limits.md](https://github.com/dicaria/agentdata/blob/main/docs/domains/rate-limits.md) — per-source
   rate-limit facts this release enforces
+- [docs/publishing.md](https://github.com/dicaria/agentdata/blob/main/docs/publishing.md) — maintainer setup, package checks, and PyPI releases
 - Hosted-corpus per-domain guides: contact **contact@dicaria.com**
 
 ## License and terms
 
 - The **code** in this repository is licensed under the license in
-  [LICENSE](LICENSE).
+  [LICENSE](https://github.com/dicaria/agentdata/blob/main/LICENSE).
 - The **data** returned by the SDK is governed by the terms of each upstream
-  source; the SDK grants no data rights. See [TERMS.md](TERMS.md).
+  source; the SDK grants no data rights. See [TERMS.md](https://github.com/dicaria/agentdata/blob/main/TERMS.md).
 
 ## Contact
 
 - Questions, bug reports, and data-coverage requests:
   [GitHub issues](https://github.com/dicaria/agentdata/issues) or
-  **contact@dicaria.com** (see [CONTRIBUTING.md](CONTRIBUTING.md))
+  **contact@dicaria.com** (see [CONTRIBUTING.md](https://github.com/dicaria/agentdata/blob/main/CONTRIBUTING.md))
 - Hosted-corpus credentials and service inquiries: **contact@dicaria.com**
 - Security reports: **contact@dicaria.com** — please don't open a public
-  issue; see [SECURITY.md](SECURITY.md)
+  issue; see [SECURITY.md](https://github.com/dicaria/agentdata/blob/main/SECURITY.md)
 - Conduct issues: **contact@dicaria.com** (see
-  [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md))
+  [CODE_OF_CONDUCT.md](https://github.com/dicaria/agentdata/blob/main/CODE_OF_CONDUCT.md))
