@@ -3,7 +3,8 @@
 - Upstream/availability family (exit 1): upstream_unavailable / upstream_rate_limited / upstream_not_found /
   thirdparty_upstream_unavailable / thirdparty_rate_limited / capability_unavailable / rate_limited
 - Usage family (exit 2): usage_error / op_unknown / resolve_kind_unknown /
-  corpus-contract 4xx (undeclared_field / bad_value / unauthenticated / forbidden …)
+  corpus-contract 4xx (undeclared_field / bad_value / unauthenticated / forbidden …) /
+  insufficient_credits (RFC-001 §3.6 — 网关 402 余额不足，携带升级提示)
 New entries require adversarial review (the same closed-set discipline as the Node side).
 """
 

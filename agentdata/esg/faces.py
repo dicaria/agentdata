@@ -269,12 +269,17 @@ class EsgFaces:
         )
 
     def epa_frs_facilities(self, *, registry_id=None, primary_name=None, state_code=None,
-                           city_name=None, start=0, size=50, execution=None, no_cache=None):
+                           city_name=None, country_name=None, site_type_name=None, epa_region_code=None,
+                           start=0, size=50, execution=None, no_cache=None):
         """esg epa_frs_facilities: FRS facility master point query (Envirofacts efservice frs_facility_site;
-        four filter columns under upstream names (all `=` exact, combinable AND) + start/size closed-interval paging — born flat, zero sugar)."""
+        seven filter columns under upstream names (all `=` exact, combinable AND) + start/size closed-interval
+        paging — born flat, zero sugar; 0.3.20 audit added country_name/site_type_name/epa_region_code,
+        country_name unlocking the non-US facility slice GERMANY=110)."""
         self._esg_only("epa_frs_facilities")
         r = esg.epa_frs.facilities_raw(registry_id=registry_id, primary_name=primary_name,
                                        state_code=state_code, city_name=city_name,
+                                       country_name=country_name, site_type_name=site_type_name,
+                                       epa_region_code=epa_region_code,
                                        start=start, size=size, cache=self._c._cache,
                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
         result = {k: x for k, x in r.items() if k not in ("_meta", "_count_meta")}
@@ -287,7 +292,11 @@ class EsgFaces:
             tool="epa_frs_facilities",
             input={"registry_id": registry_id, "primary_name": primary_name,
                    "state_code": (state_code or "").strip().upper() if state_code else None,
-                   "city_name": city_name, "start": result["offset"],
+                   "city_name": city_name,
+                   "country_name": (country_name or "").strip().upper() if country_name else None,
+                   "site_type_name": (site_type_name or "").strip().upper() if site_type_name else None,
+                   "epa_region_code": (epa_region_code or "").strip().upper() if epa_region_code else None,
+                   "start": result["offset"],
                    "size": result["limit_applied"]},
             reason=(f"FRS facility master registry: {result['count']} rows on this page / {total_s} total matches"
                     f", top {top['primary_name'] or '—'} ({top['registry_id'] or '—'}, "
@@ -410,8 +419,10 @@ class EsgFaces:
                               ism_company_name=None, ism_company_imo_number=None,
                               execution=None, no_cache=None):
         """esg paris_mou_inspections: Paris MoU historical PSC inspection stream window search (THETIS getPublicInspections
-        form-encoded POST; period_min/period_max dd/mm/yyyy window <= 3 years + page/start/limit paging +
-        ism_company_name/ism_company_imo_number direct company query — the resume window stats ride along)."""
+        form-encoded POST; period_min/period_max dd/mm/yyyy window <= 3 years + psc_inspection_regime (1 = the only live
+        value, 0.3.20 audit: 0 -> poisoned empty, 2 -> HTTP 500, walled with evidence) + page/start/limit paging +
+        ism_company_name/ism_company_imo_number direct company query (IMO padded/unpadded both accepted) — the resume
+        window stats ride along)."""
         self._esg_only("paris_mou_inspections")
         r = esg.paris_mou.inspections_raw(period_min=period_min, period_max=period_max,
                                           psc_inspection_regime=psc_inspection_regime,
@@ -451,6 +462,36 @@ class EsgFaces:
                        "url": "https://portal.emsa.europa.eu/o/portlet-public/rest/inspection/getPublicInspections.json"}
                       for x in result["rows"][:5]],
             provider_id="paris_mou", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # ---------- 0.3.22 transport-compliance axis (EU air safety list catalog face) ----------
+
+    def euasl_datasets(self, *, execution=None, no_cache=None):
+        """esg euasl_datasets: EU Air Safety List download catalog (banned/restricted third-country air
+        carriers — one XLSX machine-readable master + 24 official-language PDF renditions; the document UUIDs
+        rotate on every republication, reconcile against this listing and never guess file names; the binary
+        bodies go through the batch pipeline — same posture as eutl/thetis_mrv)."""
+        self._esg_only("euasl_datasets")
+        r = esg.euasl.datasets_raw(cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        top = (result["rows"] or [None])[0]
+        master = result.get("master")
+        langs = len({x["language"] for x in result["rows"] if x.get("language")})
+        return self._flat_env(
+            tool="euasl_datasets", input={},
+            reason=(f"EU Air Safety List download catalog: {result['count']} files across {langs} languages — the machine-readable "
+                    f"XLSX master ({master['file_name']}) sorts first, the rest are official-language PDF renditions; "
+                    f"Annex A = carriers under an operating ban, Annex B = restrictions/conditions; "
+                    f"the document UUIDs rotate on every republication — reconcile against this listing, the binary bodies go through the batch pipeline"
+                    if top and master else
+                    "EU Air Safety List page rendered without download links (an abnormal state — the Commission reorganization moved the page, not a legal empty"),
+            result=result,
+            evidence=[{"quote": f"{x['file_name']} ({x['format']}, {x['language']}): {x['download_path']}",
+                       "url": "https://transport.ec.europa.eu/transport-themes/eu-air-safety-list_en"}
+                      for x in result["rows"][:5]],
+            provider_id="euasl", metas=[r["_meta"]],
             query={"source": "raw", "upstream": r["params"]},
         )
 

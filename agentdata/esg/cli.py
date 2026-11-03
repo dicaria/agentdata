@@ -58,7 +58,7 @@ def register(v, g):
 
     f5 = v.add_parser("epa_frs_facilities", parents=[g()],
                       help="EPA facility master lookup (FRS frs_facility_site)",
-                      description="EPA FRS facility registry point query: four filter columns upstream-verbatim (registry_id / primary_name / state_code / city_name — ALL exact '=' match, combinable = AND; the upstream contains/~ operators silently return 0, fuzzy facility names go through ECHO) + start/size paging (ROWS closed interval start:end, computed locally — an omitted/inverted ROWS segment makes the upstream dump the whole table); at least one filter required (bare 5.6M-row scan walled politely, batch pipeline serves that); each call = rows + count (total_matches)")
+                      description="EPA FRS facility registry point query: seven filter columns upstream-verbatim (registry_id / primary_name / state_code / city_name + the 0.3.20 audit trio country_name / site_type_name / epa_region_code — ALL exact '=' match, combinable = AND; the upstream contains/~ operators silently return 0, fuzzy facility names go through ECHO; country_name unlocks the non-US facility slice, GERMANY=110 measured) + start/size paging (ROWS closed interval start:end, computed locally — an omitted/inverted ROWS segment makes the upstream dump the whole table); at least one filter required (bare 5.6M-row scan walled politely, batch pipeline serves that); each call = rows + count (total_matches)")
     f5.add_argument("--registry-id", dest="registry_id", default=None,
                     help="FRS Registry ID — authoritative facility key (ECHO/TRI/GHGRP join anchor)")
     f5.add_argument("--primary-name", dest="primary_name", default=None,
@@ -66,50 +66,62 @@ def register(v, g):
     f5.add_argument("--state-code", dest="state_code", default=None,
                     help="State code, 2-letter (lowercase input uppercased locally, e.g. DE)")
     f5.add_argument("--city-name", dest="city_name", default=None, help="City name (exact)")
+    f5.add_argument("--country-name", dest="country_name", default=None,
+                    help="Country name (exact uppercase form, lowercase input uppercased locally — GERMANY=110 / "
+                         "UNITED STATES=3,129,491 measured; the non-US facility slice)")
+    f5.add_argument("--site-type-name", dest="site_type_name", default=None,
+                    help="Site type (exact uppercase, e.g. STATIONARY — 4,725,914 of 5,602,878 measured)")
+    f5.add_argument("--epa-region-code", dest="epa_region_code", default=None,
+                    help="EPA region (zero-padded two-digit string form '03'; region 10 = 214,197 measured)")
     f5.add_argument("--start", type=int, default=0, help="Paging offset (upstream ROWS start, closed interval)")
     f5.add_argument("--size", type=int, default=50, help="Rows (politeness cap 500)")
 
-    f6 = v.add_parser("eutl_datasets", parents=[g()],
+    f6 = v.add_parser("euasl_datasets", parents=[g()],
+                      help="EU Air Safety List download catalog (banned/restricted air carriers)",
+                      description="EU Air Safety List official download catalog (keyless): one call returns all files — the machine-readable XLSX master (Annex A = carriers under an operating ban, Annex B = restrictions/conditions) + 24 official-language PDF renditions; the document UUIDs rotate on every republication (reconcile against this listing, never guess file names); zero params upstream; the binary bodies go through the batch pipeline, this face gives coordinates")
+    # Upstream takes zero params: no flags (the catalog ships in one shot; clients pick the xlsx master row)
+
+    f7 = v.add_parser("eutl_datasets", parents=[g()],
                       help="EU carbon registry bulk-download catalog (EUTL)",
                       description="EUTL official bulk-download catalog (keyless): one call returns all datasets — Azure daily extracts (accounts/operators/holdings csv.gz) + climate.ec.europa.eu yearly files (compliance/verified emissions 2021-2025); zero params upstream; file downloads themselves go through the batch pipeline, this face gives coordinates")
     # Upstream takes zero params: no flags (the catalog ships in one shot; clients filter rows themselves)
 
     # esg 0.3.5 port-state emissions/supervision axis (thetis_mrv + paris_mou; upstream param names mirrored) — folded in and seated lexicographically in 0.3.10
-    f7 = v.add_parser("paris_mou_bans", parents=[g()],
+    f8 = v.add_parser("paris_mou_bans", parents=[g()],
                       help="Paris MoU banned ships register",
                       description="Paris MoU banned-ships register (keyless): ban date/occurrence/order status/reason/minimum duration/banning authority, with the embedded ISM company flattened to row keys — the official ship x management-company edge (~2/3 of rows carry a company IMO number); zero params upstream")
     # Upstream takes zero params: no flags (the bans list ships in one shot)
 
-    f8 = v.add_parser("paris_mou_detentions", parents=[g()],
+    f9 = v.add_parser("paris_mou_detentions", parents=[g()],
                       help="Paris MoU current detentions snapshot",
                       description="Paris MoU (Atlantic/European port state control) currently-detained ships snapshot (keyless): daily-rolling live state — ship IMO number (asset key), detention port+country, reporting authority; historical detentions go through paris_mou_inspections window search; zero params upstream")
     # Upstream takes zero params: no flags (the same-day snapshot ships in one shot)
 
-    f9 = v.add_parser("paris_mou_inspections", parents=[g()],
+    f10 = v.add_parser("paris_mou_inspections", parents=[g()],
                       help="Paris MoU historical PSC inspection window search",
                       description="Paris MoU historical port state control inspections (THETIS form-encoded POST, keyless): period_min/period_max are dd/mm/yyyy STRICT (upstream native order day/month/year — wrong order silently returns zero) and the window must be <= 3 years (enforced locally, upstream silently empties beyond); page is the paging switch — the face always sends it (without page upstream ignores limit and dumps the whole window); page+start+limit = start-offset paging (page 1/2 verified zero overlap); ism_company_imo_number / ism_company_name filter straight to the management company (resume window stats ships/inspections/detentions/ISM deficiencies ride along); psc_inspection_regime upstream-verbatim (1 = PSC default regime, only verified value; omitted = upstream 200 empty); zero rows in window = legal empty")
-    f9.add_argument("--period-min", dest="period_min", required=True,
+    f10.add_argument("--period-min", dest="period_min", required=True,
                     help="Window start dd/mm/yyyy (upstream param periodMin; STRICT day-first)")
-    f9.add_argument("--period-max", dest="period_max", required=True,
+    f10.add_argument("--period-max", dest="period_max", required=True,
                     help="Window end dd/mm/yyyy (upstream param periodMax; window <= 3 years)")
-    f9.add_argument("--psc-inspection-regime", dest="psc_inspection_regime", type=int, default=1,
+    f10.add_argument("--psc-inspection-regime", dest="psc_inspection_regime", type=int, default=1,
                     help="Inspection regime (upstream param pscInspectionRegime; 1 = PSC default, only verified value)")
-    f9.add_argument("--page", type=int, default=1,
+    f10.add_argument("--page", type=int, default=1,
                     help="Page number (upstream param page; the paging switch — always sent by this face)")
-    f9.add_argument("--start", type=int, default=0,
+    f10.add_argument("--start", type=int, default=0,
                     help="Row offset within page (upstream param start; page+start+limit paging)")
-    f9.add_argument("--limit", type=int, default=50, help="Rows (politeness cap 500)")
-    f9.add_argument("--ism-company-name", dest="ism_company_name", default=None,
+    f10.add_argument("--limit", type=int, default=50, help="Rows (politeness cap 500)")
+    f10.add_argument("--ism-company-name", dest="ism_company_name", default=None,
                     help="ISM management company name filter (upstream param ismCompanyName)")
-    f9.add_argument("--ism-company-imo-number", dest="ism_company_imo_number", default=None,
+    f10.add_argument("--ism-company-imo-number", dest="ism_company_imo_number", default=None,
                     help="ISM company IMO number filter, 7-digit zero-padded (upstream param ismCompanyImoNumber, e.g. 0052193)")
 
-    f10 = v.add_parser("paris_mou_low_performance_companies", parents=[g()],
+    f11 = v.add_parser("paris_mou_low_performance_companies", parents=[g()],
                        help="Paris MoU low-performance ISM companies",
                        description="Paris MoU low-performance ISM company list (rolling 6-month window, keyless): each row carries an IMO company number (7-digit zero-padded official string), with address/country/performance level (LOW dominant, some MEDIUM)/listing dates — company-risk attribute list; zero params upstream")
     # Upstream takes zero params: no flags (the rolling-window list ships in one shot)
 
-    f11 = v.add_parser("thetis_mrv_datasets", parents=[g()],
+    f12 = v.add_parser("thetis_mrv_datasets", parents=[g()],
                        help="EU shipping MRV emission-report file catalog (THETIS-MRV)",
                        description="THETIS-MRV versioned bulk-file catalog (keyless): reporting periods (2018+) x versioned regenerated XLSX publications (versions roll — reconcile by this list, never guess filenames; generation timestamps are early-morning batch runs); download_path template is served for the batch pipeline, this face gives coordinates; zero params upstream")
     # Upstream takes zero params: no flags (reporting-period × version ledger composed; clients filter rows themselves)
@@ -131,7 +143,10 @@ FLAT = {
     "epa_frs_facilities": lambda a: {"registry_id": a.registry_id,
                                      "primary_name": a.primary_name,
                                      "state_code": a.state_code, "city_name": a.city_name,
+                                     "country_name": a.country_name, "site_type_name": a.site_type_name,
+                                     "epa_region_code": a.epa_region_code,
                                      "start": a.start, "size": a.size},
+    "euasl_datasets": lambda a: {},  # upstream zero params (download catalog in one shot; 0.3.22)
     "eutl_datasets": lambda a: {},  # upstream zero params (catalog in one shot)
     # esg 0.3.5 port-state emissions/supervision axis (thetis_mrv + paris_mou; upstream param names mirrored)
     "paris_mou_bans": lambda a: {},        # upstream zero params (bans list in one shot)
@@ -155,6 +170,7 @@ COUNTRY = {
     "eiti_companies": "GLOBAL",
     "eiti_payments": "GLOBAL",
     "epa_frs_facilities": "US",
+    "euasl_datasets": "EU",
     "eutl_datasets": "EU",
     "paris_mou_bans": "GLOBAL",
     "paris_mou_detentions": "GLOBAL",

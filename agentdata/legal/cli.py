@@ -7,6 +7,30 @@ import argparse
 
 def register(v, g):
     # Flat commands (2026-10-23 ruling: verb layer abolished across all domains, <domain> <source>_<dataset> direct; new capabilities are born flat)
+    # —— 0.3.21 debarment-roster line (afdb/ca_sema/idb/wb, dictionary slots: afdb first, ca_sema second) ——
+    fa = v.add_parser("afdb_debarred_entities", parents=[g()],
+                      help="African Development Bank debarred entities (afdb.org json-feed, local full-register scan)",
+                      description="AfDB debarment register (keyless): the whole 1,440-row feed (FIRM 1,196 / "
+                                  "INDIVIDUAL 244) is pulled once, cached 24h and scanned locally. Basis = the "
+                                  "cross-debarment edge (CROSS DEBARMENT : WBG / CROSS-DEBARMENT: ADB — upstream "
+                                  "spacing inconsistent, so --basis is a contains-match on the bank token: WBG/ADB/"
+                                  "IDB/EBRD); To empty = ongoing. Empty result = clean screening (legitimate answer)")
+    fa.add_argument("--name", default=None, help="Entity/individual name (substring, case-insensitive, over Name)")
+    fa.add_argument("--type", default=None, choices=["FIRM", "INDIVIDUAL"], help="Subject type (upstream value domain, exact: Type column)")
+    fa.add_argument("--basis", default=None, help="Debarment basis, substring over Basis — filter on the bank token (WBG/ADB/IDB/EBRD; punctuation upstream is inconsistent)")
+    fa.add_argument("--limit", type=int, default=20, help="Rows to return (default 20, ≤100 local payload wall; total_matched echoes the full count)")
+
+    fb = v.add_parser("ca_sema_sanctions", parents=[g()],
+                      help="Canada SEMA sanctions listings (Global Affairs consolidated list: persons/entities/ships)",
+                      description="Canada SEMA sanctions (Consolidated Canadian Autonomous Sanctions List, keyless "
+                                  "sema-lmes.xml): 5,708 live listings — persons 3,526 / entities 2,181 of which 731 "
+                                  "ships with an IMO number (the join key onto shipping rosters). Bilingual cells "
+                                  "verbatim (\"Syria / Syrie\"); name screening contains-matches name + aliases "
+                                  "(matched_on echoes the hit face). Empty result = clean screening (legitimate answer)")
+    fb.add_argument("--name", default=None, help="Designated name (substring, case-insensitive, over name + aliases)")
+    fb.add_argument("--country", default=None, help="Country, substring over the bilingual cell (Syria and Syrie both hit)")
+    fb.add_argument("--limit", type=int, default=20, help="Rows to return (default 20, ≤100 local payload wall; total_matched echoes the full count)")
+
     f0 = v.add_parser("co_sic_sanctions", parents=[g()],
                       help="Colombia SIC firm sanctions (datos.gov.co Socrata 73dx-n59j)",
                       description="Colombia SIC sanctions register (keyless): firm sanctions imposed "
@@ -165,6 +189,21 @@ def register(v, g):
                     choices=["metadata", "document", "full-text"],
                     help="Minimum representation level (upstream param: minimum_availability; default full-text)")
 
+    # —— 0.3.21 debarment-roster line cont. (dictionary slot: idb between gb_tna_caselaw_search and lda) ——
+    f_idb = v.add_parser("idb_debarred_entities", parents=[g()],
+                         help="Inter-American Development Bank sanctioned firms/individuals (data.iadb.org CKAN, server-side)",
+                         description="IDB sanctioned-firms register (keyless CKAN DataStore, server-side search; live "
+                                     "1,343 rows): q = full-text across all fields, filters = JSON field→value exact "
+                                     "matches (e.g. {\"To\": \"Ongoing\"} or {\"Entity\": \"Firm\"}), offset paging, "
+                                     "include_total always on. From arrives as nanosecond text kept verbatim "
+                                     "(\"2009-07-10 00:00:00.000000000\"); Source carries the cross-debarment markers "
+                                     "(ADB/WBG cross debarment). Empty result = clean screening (legitimate answer)")
+    f_idb.add_argument("--q", default=None, help="Full-text query across all fields (upstream param: q)")
+    f_idb.add_argument("--filters", default=None, help='Field→value exact matches, JSON text — e.g. \'{"To": "Ongoing"}\' (upstream param: filters)')
+    f_idb.add_argument("--limit", type=int, default=20, help="Rows (upstream param: limit; 1-100 politeness cap)")
+    f_idb.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: offset; total echoes the register size)")
+    f_idb.add_argument("--sort", default=None, help="Sort, e.g. 'From desc' (upstream param: sort)")
+
     f13 = v.add_parser("lda_filings", parents=[g()],
                       help="US lobbying filings (LDA; client/registrant dual name face)",
                       description="LDA lobbying-disclosure filings: client_name (lobbied company) / registrant_name (lobbying firm) / filing_year all upstream-verbatim (may combine); page_size hard-clamped 25 — upstream silently returns 25 rows for larger asks (probed 2026-10-26); iterate with --page (true offset pagination)")
@@ -185,9 +224,27 @@ def register(v, g):
     f14.add_argument("--page", type=int, default=1, help="Page number (upstream param: pageNo)")
     f14.add_argument("--limit", type=int, default=20, help="Rows (upstream param: pageSize; 1-100 cap, upstream probed 2026-10-20)")
 
+    # —— 0.3.21 debarment-roster line cont. (dictionary slot: wb last) ——
+    f_wb = v.add_parser("wb_debarred_firms", parents=[g()],
+                        help="World Bank debarred firms (SAP gateway full dump, local full-register scan)",
+                        description="World Bank debarred-firms register (keyless via the page-embedded public apikey): "
+                                    "the whole 1,546-row dump is pulled once, cached 24h and scanned locally (same "
+                                    "contract as csl_screening_list). SUPP_ELIG_STAT DEBARRED 890 / X-DEBARRED 656; "
+                                    "DEBAR_TO_DATE 2999-12-31 = indefinite; DEBAR_REASON cites the procurement-"
+                                    "guidelines clause; China leads at 392 firms. The DNB/REGISTER identifier fields "
+                                    "ship empty — name × country is the join channel. Empty result = clean screening "
+                                    "(legitimate answer)")
+    f_wb.add_argument("--name", default=None, help="Firm name (substring, case-insensitive, over SUPP_NAME)")
+    f_wb.add_argument("--country", default=None, help="Country, substring over COUNTRY_NAME or exact LAND1 code (China and CN both hit)")
+    f_wb.add_argument("--type", default=None, choices=["F", "I", "U", "C"], help="Supplier type (SUPP_TYPE_CODE: F firm / I individual / U unspecified / C conglomerate)")
+    f_wb.add_argument("--limit", type=int, default=20, help="Rows to return (default 20, ≤100 local payload wall; total_matched echoes the full count)")
+
 FLAT = {
     # legal 0.2.0 flat panel (upstream param names verbatim + our defaults; lambdas only shuttle names across namespaces)
     # csl_screening_list was the first flat command (Wave 7), ecfr_* Wave 8 (both merged on the main side) — folded into the same dispatch table
+    # 0.3.21 debarment-roster line: afdb/ca_sema head slots, idb/wb tail slots (dictionary order)
+    "afdb_debarred_entities": lambda a: {"name": a.name, "type": a.type, "basis": a.basis, "limit": a.limit},
+    "ca_sema_sanctions": lambda a: {"name": a.name, "country": a.country, "limit": a.limit},
     "co_sic_sanctions": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset, "order": a.order},
     "courtlistener_opinions_search": lambda a: {"q": a.q, "case_name": a.case_name,
                                                 "court": a.court, "judge": a.judge,
@@ -216,12 +273,15 @@ FLAT = {
                                      "party": a.party, "judge": a.judge, "order": a.order,
                                      "page": a.page, "per_page": a.per_page,
                                      "minimum_availability": a.minimum_availability},
+    "idb_debarred_entities": lambda a: {"q": a.q, "filters": a.filters, "limit": a.limit,
+                                        "offset": a.offset, "sort": a.sort},
     "lda_filings": lambda a: {"client_name": a.client_name, "registrant_name": a.registrant_name,
                               "filing_year": a.filing_year, "limit": a.limit, "page": a.page,
                               "ordering": a.ordering},
     "sipri_trades_search": lambda a: {"filters": a.filters, "supplier": a.supplier,
                                    "recipient": a.recipient, "type": a.type,
                                    "page": a.page, "limit": a.limit},
+    "wb_debarred_firms": lambda a: {"name": a.name, "country": a.country, "type": a.type, "limit": a.limit},
 }
 
 
@@ -229,6 +289,9 @@ FLAT = {
 # covering global phenomena = GLOBAL; vocabulary ISO-3166 alpha-2 + EU + GLOBAL) —— merged by the root cli.py
 # into _JURISDICTION, the success envelope carries a jurisdiction chapter
 COUNTRY = {
+    # 0.3.21: MDB debarment rosters = GLOBAL (cross-national registers, wb_procnotices precedent); CA SEMA = CA
+    "afdb_debarred_entities": "GLOBAL",
+    "ca_sema_sanctions": "CA",
     "co_sic_sanctions": "CO",
     "courtlistener_opinions_search": "US",
     "csl_screening_list": "US",
@@ -242,6 +305,8 @@ COUNTRY = {
     "gb_ec_loans": "GB",
     "gb_tna_caselaw_judgment": "GB",
     "gb_tna_caselaw_search": "GB",
+    "idb_debarred_entities": "GLOBAL",
     "lda_filings": "US",
     "sipri_trades_search": "GLOBAL",
+    "wb_debarred_firms": "GLOBAL",
 }

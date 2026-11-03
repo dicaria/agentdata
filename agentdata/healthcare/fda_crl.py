@@ -16,7 +16,7 @@ from ..errors import SdkError
 provider = {
     "id": "fda_crl",
     "baseUrl": "https://api.fda.gov",
-    "rate": {"rps": 2, "burst": 5},
+    "rate": {"rps": 2, "burst": 5, "group": "fda"},
     "ops": {
         "search": {"path": "/transparency/crl.json", "notFound": [404]},  # params: search, limit, skip, sort
     },

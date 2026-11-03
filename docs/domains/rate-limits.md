@@ -1,9 +1,14 @@
-# Third-Party Source Rate-Limit Research Ledger v1.6 (66 providers / 97 faces)
+# Third-Party Source Rate-Limit Research Ledger v1.11 (81 providers / 117 faces)
 
 > **Edition**: this copy is versioned with the SDK release that carries it — it
 > records the upstream rate-limit facts and the polite settings that release
 > enforces.
 
+> v1.10→v1.11 (2026-11-03): 0.3.24 economy expansion five-face round — +3 providers (imf_sdmx, bis, unsd_sdg) +5 faces (imf_sdmx_series, bis_sdmx_series, unsd_sdg_indicators, unsd_sdg_series; the fifth face wb_ids_indicators rides the existing wb provider row — its catalog endpoint is the same api.worldbank.org host already registered); all three are keyless public statistical services with **no published quota** → polite tier 0.5 rps/burst 2 (deliberately half, the same posture as ecb — the IMF/BIS SDMX surfaces and the UNStats SDGAPI are reference-publication paths); no host family shares a quota with an existing provider (api.imf.org, stats.bis.org, unstats.un.org all new to the ledger); the UNSD pageSize 1-2000 is a page size, not a rate line.
+> v1.9→v1.10 (2026-11-02): 0.3.23 economy domain-founding ten-face round — +7 providers (wb, eurostat, ecb, fred, who_xmart, un_comtrade, ilo_stat) +10 faces; all seven are keyless public statistical services with **no published quota** → polite tiers (wb/eurostat/fred 1 rps/burst 2; ecb/who_xmart/un_comtrade/ilo_stat 0.5 rps/burst 2); no host family shares a quota with an existing provider (every host here is new to the ledger), so no group bucket is needed; the Comtrade preview's 500-record cap is a result-set wall, not a rate line.
+> v1.6→v1.7 (2026-11-02): 0.3.20 esg audit round rider — no provider/face count change (the 66/97 roster absorbed from main's merged 0.3.19 round, the same landing that took v1.6 and api.md entry 50 — this rider renumbers onto it as v1.7, the eleventh collision resolved by the user merge order); **§5-6 openFDA family debt closed**: the `fda` group bucket landed in transport `GROUP_LIMITS` (3.9rps/6burst, minute-window quota form 6+3.9×60=240.0 exactly — the quota the v1.5 host-bucket clause called "the correct fix") + the five api.fda.gov hosters declare `rate.group="fda"`; the keyless 1,000/day cap registered as a **documented stance, not a local wall** (§4-2 unchanged).
+> v1.8→v1.9 (2026-11-02): 0.3.22 esg transport-compliance single-face round — +1 provider (euasl; zero-param download-catalog face, no published limit, catalog TTL 1d — same evidence class C as eutl/thetis_mrv; same-batch exclusion: Tokyo MoU APCIS byte-wall verdict, no provider admitted).
+> v1.7→v1.8 (2026-11-02): 0.3.21 legal debarment-roster round — +4 providers (afdb, ca_sema, idb, wb; three local full-register scans on the csl daily-pull pattern + one server-side CKAN face; three gates pinned: AfDB Cloudflare UA-fingerprint = ext-8 full browser suite / CA SEMA Accept 406 content-negotiation = accept:'text' + Accept override / WB page-embedded public apikey, no UA gate). **v1.7 was pre-reserved for !169 — fulfilled: !169 merged first (ce2157be) exactly on v1.7, this round takes v1.8 on top.**
 > v1.5→v1.6 (2026-11-02): 0.3.19 healthcare CA+EU product-safety round — +4 providers (ca_dpd, ca_mdall, rasff, safety_gate) +7 faces (ca_dpd_companies, ca_dpd_drug_products, ca_mdall_companies, ca_mdall_licence, rasff_notifications, safety_gate_alerts, safety_gate_report); built on main's v1.5 (the naming-alignment sweep landed first while this batch was in flight — same yield-and-follow sequence as v1.4→v1.5).
 > v1.4→v1.5 (2026-10-30): naming-alignment sweep, no number changes — v1.4 (the 0.3.16 SIC/MHRA round) landed first, so this sweep follows it as v1.5 per the in-review-face-batch-keeps-its-number rule. Five provider labels re-keyed to the code provider ids the 0.3.13 ISO renames left behind (tga→au_tga, gtr→gb_gtr, pncp→br_pncp, secop→co_secop, kev→cisa-kev; the v1.3 catch-up fixed uk_cma→gb_cma and missed these); the §3 heading count caught up to the actual row count (56→60 at the pre-merge base, 62 after the v1.4 round); the procurement section count 4→5; the datos.gov.co Socrata family (co_rues, co_sic, co_secop) recorded as one shared origin — per-IP anonymous-tier note on all three rows; §5-6 gains a host-bucket precision clause (the default host bucket at 5rps = 300/min also sits above the openFDA keyless 240/min line, so the group entry is the correct fix).
 > v1.3→v1.4 (2026-10-30): 0.3.16 legal/healthcare round — +2 providers (co_sic, gb_mhra) +3 faces (co_sic_sanctions, gb_mhra_alerts, gb_mhra_alert); the §3 header count also caught up (56→62 — missed by the v1.2/v1.3 rounds).
@@ -34,7 +39,7 @@
 - **B** = official documentation read, states a soft policy / no numbers (a throttling mechanism exists but no figures)
 - **C** = primary page not verified; presumed unpublished based on the nature of the service (upgraded when the six-step audit passes)
 
-## 3. Master Table of 66 Sources (by domain)
+## 3. Master Table of 78 Sources (by domain)
 
 ### healthcare (18)
 
@@ -47,17 +52,17 @@
 | ctgov (studies) | 2/4 | no hard number (soft policy; a 429+Retry-After mechanism exists) | B [CT.gov v2](https://clinicaltrials.gov/data-api/api) | polite tier |
 | gudid (devices) | 2/4 | **no official figure** (the rumored 20/s is a misattribution from UMLS) | B [accessgudid v3](https://accessgudid.nlm.nih.gov/api/v3/); gating verified live = TLS-fingerprint WAF keyed on the client stack | polite tier |
 | eudamed (devices_udi_di_data) | 1/2 + concurrency pinned to 1 | none published (cold-query ~50s is performance, not throttling) | B [EUDAMED public REST](https://ec.europa.eu/eudamed/) | aligned (the concurrency gate is the real constraint) |
-| shortages (fda_drug_shortages) | 2/5 | static JSON fetched in one shot; no rate-limit surface | B | n/a (TTL 1d backstop) |
+| shortages (fda_drug_shortages) | 2/5 + fda group bucket | static JSON fetched in one shot; no rate-limit surface (api.fda.gov family line applies) | B | n/a (TTL 1d backstop); 0.3.20 joins the fda group (family stacking backstopped) |
 | au_tga (artg/manufacturers) | 1/2 | none published | C (government portal, no figures on record) | polite tier |
 | gb_mhra (alerts/alert) | 1/2 | none published (gov.uk search/content API — no quota figure for the search endpoint; same host as gb_cma, same politeness tier) | B (live probe 2026-10-30, tmp/probe-uk-mhra/; 1,462-alert register measured) | polite tier |
 | ca_dpd (companies/drug_products) | 1/2 | none published (the Read Me page documents the data model, not a quota; one-shot registers — the full-shot faces amortize to one request per TTL window) | B (live probe 2026-11-02, tmp/probe-ca-eu-faces/; 5,253-row company register + status=3 → 4,116 measured) | polite tier |
 | ca_mdall (companies/licence) | 1/2 | none published; **same host as ca_dpd — the two providers share one host bucket** (the politeness tier is deliberately conservative to cover the pair) | B (live probe 2026-11-02, same corpus; 7,682-row register + LIMH dossier shapes verified) | polite tier |
 | rasff (notifications) | 1/2 | none published for the window backend (the portal publishes no quota; the two-step handshake means each search costs 1 shell GET per 15-min session + 1 POST) | B (live probe 2026-11-02, same corpus; 33,256-notification corpus / 11,086 pages measured) | polite tier |
 | safety_gate (alerts/report) | 1/2 | none published (static XML downloads off the notifications portal CDN; the weekly index is one request per TTL window) | B (live probe 2026-11-02, same corpus; 1,120 weekly reports, detail 10000329 = 67 notifications) | polite tier |
-| fda_recalls (drug/device/food) | 2/5 | **keyless 240 req/min + 1,000/day per IP; key 240/min + 120k/day** | A [openFDA Authentication](https://open.fda.gov/apis/authentication/) 2026-10-30 primary-page verification | minute window compliant (5+120=125≤240); the keyless 1,000/day cap is window-quota type — **bucket blind to it** (§4-2); provider docstring already self-notes the family total ~4 rps |
-| fda_drugs (approvals/catalog/orange_book) | 2/5 | openFDA family limit — **one shared bucket per IP across all endpoints** | A (same source as above) | same as above; api.fda.gov hosts five providers (incl. shortages) at 2rps each = 10rps sustained potential > 240/min family line → intra-family stacking (§5-6, the 0.2.8 `rate.group` pattern) |
-| fda_devices (510k/pma/registrations/classification) | 2/5 | same as above | A (same source as above) | same as above |
-| fda_crl (search) | 2/5 | same as above | A (same source as above) | same as above; quasi-static corpus (TTL 30d) — live exposure minimal |
+| fda_recalls (drug/device/food) | 2/5 + fda group bucket | **keyless 240 req/min + 1,000/day per IP; key 240/min + 120k/day** | A [openFDA Authentication](https://open.fda.gov/apis/authentication/) 2026-10-30 primary-page verification | ✅0.3.20 group bucket landed (`GROUP_LIMITS['fda']`=3.9/6, minute-window quota form 6+3.9×60=240.0 exactly — §5-6 closed); single-source window 125≤240; the keyless 1,000/day cap is window-quota type — **bucket blind to it, held as a documented stance not a local wall** (§4-2) |
+| fda_drugs (approvals/catalog/orange_book) | 2/5 + fda group bucket | openFDA family limit — **one shared bucket per IP across all endpoints** | A (same source as above) | same as above; api.fda.gov hosts five providers (incl. shortages) at 2rps each = 10rps sustained potential > 240/min family line → **0.3.20 backstopped by the fda group bucket** (the 0.2.8 `rate.group` pattern, §5-6 closed) |
+| fda_devices (510k/pma/registrations/classification) | 2/5 + fda group bucket | same as above | A (same source as above) | same as above |
+| fda_crl (search) | 2/5 + fda group bucket | same as above | A (same source as above) | same as above; quasi-static corpus (TTL 30d) — live exposure minimal |
 
 ### company (16)
 
@@ -80,7 +85,7 @@
 | co_rues (companies) | 1/2 | none published (Socrata anonymous tier; the $limit 1-500 politeness cap is self-imposed); **shares the datos.gov.co origin with the other Socrata providers in this ledger (co_sic in legal, co_secop in procurement)** — the anonymous tier is per IP across them all, and the in-process host-layer bucket binds them at one shared quota | B [datos.gov.co](https://datos.gov.co/) (Socrata platform, same anonymous tier as data.ny.gov) | polite tier |
 | kr_hometax (biz_status) | 0.5/2 | none published (anonymous single-shot action, no figures) | C (admission probe 2026-10-30, tmp/probe-co-kr/) | polite tier |
 
-### esg (6)
+### esg (7)
 
 | provider | Self-set | Upstream | Evidence | Verdict |
 |---|---|---|---|---|
@@ -88,10 +93,11 @@
 | climatetrace (owners/sources) | 1/3 | none published | C [Climate TRACE API](https://api.climatetrace.org/) | polite tier |
 | eutl (datasets) | 0.5/2 | none published (official bulk-download catalog; static files behind it) | C (design volume §7, 2026-10-29 politeness batch) | n/a-leaning (catalog TTL 1d) |
 | epa_frs (facilities/count) | 1/2 | none published (two requests per call: rows+COUNT; size politeness cap 500) | C (same as above) | polite tier |
+| euasl (datasets) | 0.5/2 | none published (official download-catalog page; UUIDs rotate per republication — reconcile via the face) | C (0.3.22 batch, design volume §7) | n/a-leaning (catalog TTL 1d) |
 | thetis_mrv (periods/files) | 0.5/2 | none published (version-ledger catalog, daily roll) | C (same as above) | polite tier |
 | paris_mou (detentions/bans/low_performance/inspections) | 0.5/2 | none published (EMSA portlet) | C (same as above; bans face ~1MB in one response, timeout 45s as measured) | polite tier |
 
-### legal (11)
+### legal (15)
 
 | provider | Self-set rps/burst | Upstream official limit | Evidence | Verdict |
 |---|---|---|---|---|
@@ -106,6 +112,10 @@
 | gb_cma (search/case) | 1/2 | none published (count has no upstream wall — live-verified count=1000 full send 2026-10-29; the wall is our own politeness cap; gov.uk parameter minimalism, unprobed combos 422) | B (live probe 2026-10-29, design volume §uk_cma_cases) | polite tier |
 | gb_tna_caselaw (search/judgment) | 0.5/1 | **1000 req / rolling 5 min (≈3.3 rps)** | A (official API docs, caselaw.nationalarchives.gov.uk; provider verified 2026-10-29) | polite tier (~6× under; the Open Justice Licence bars bulk anyway — targeted retrieval face) |
 | co_sic (sanctions) | 1/2 | none published (Socrata anonymous tier — **shares the datos.gov.co origin with co_rues (company) and co_secop (procurement): the anonymous tier is per IP across all three, and the in-process host-layer bucket binds them at one shared quota**; the $limit 1-500 cap is our own politeness wall) | B [datos.gov.co](https://datos.gov.co/) (Socrata platform; live probe 2026-10-30, tmp/probe-co-sicoex/) | polite tier |
+| afdb (debarred_entities) | 0.2/1 | none published; **Cloudflare UA-fingerprint gate** (three-way controlled experiment 2026-11-02: default UA flaky-403 on repeat, bare Mozilla/5.0 refused, full browser document suite passes consistently — not a rate gate; ext-8 full-suite override in the provider) | B (live probe 2026-11-02, tmp/probe-debar-0321/) | polite tier; TTL 1d daily-pull pattern (single-endpoint full dump) |
+| ca_sema (sanctions) | 0.2/1 | none published; **Accept content-negotiation gate** (406 to application/json; text/xml and */* pass, any UA — op `accept:'text'` + ext-8 Accept override) | B (live probe 2026-11-02, tmp/probe-debar-0321/) | polite tier; TTL 1d daily-pull pattern (2.9MB single XML) |
+| idb (debarred_entities) | 0.5/2 | none published (CKAN DataStore; no quota documented on the dataset portal) | C (live probe 2026-11-02, tmp/probe-debar-0321/) | polite tier (server-side search face) |
+| wb (debarred_firms) | 0.2/1 | none published; gateway apikey = page-embedded browser-public constant (no credential tier); page self-reports a 3h refresh; **no UA gate** (plain agentdata UA + key = 200, pinned) | B (live probe 2026-11-02, tmp/probe-debar-0321/) | polite tier; TTL 1d daily-pull pattern (1.77MB single dump) |
 
 ### research (8; 0.2.4 grants→research migration 2) / security (2)
 
@@ -132,6 +142,21 @@
 | wb_proc (procnotices) | 1/2 | none published (rows 1-100 politeness cap self-imposed) | C (design volume §6) | polite tier |
 | ungm (contract_awards) | 0.5/1 | none published (browser UA mandatory behind a UA fingerprint gate; ASP.NET anti-forgery session pairing; PageSize 1-100 politeness cap self-imposed — the browser itself uses 15) | C (admission probes 2026-10-30) | polite tier |
 
+### economy (10; 0.3.23 new domain, first registered here; 0.3.24 +3 providers)
+
+| provider | Self-set rps/burst | Upstream official limit | Evidence | Verdict |
+|---|---|---|---|---|
+| wb (wdi_values/wdi_indicators/countries/ids_indicators) | 1/2 | none published (keyless api.worldbank.org/v2; per_page 1-1000 is a page size, not a rate line) | C (live probe 2026-11-02, sdk/tmp/probe-economy/; the ids face probed 2026-11-03, tmp/probe-economy-0324/) | polite tier |
+| eurostat (table) | 1/2 | none published (JSON-stat dissemination API; the 500,000-cell cap is our own local safety wall) | C (live probe 2026-11-02, same corpus) | polite tier |
+| ecb (fx_rates) | 0.5/2 | none published (SDMX data-api; the csvdata surface carries no quota figure) | C (live probe 2026-11-02, same corpus) | polite tier (deliberately half — the endpoint is the ECB's reference-rate publication path) |
+| fred (series) | 1/2 | none published for the fredgraph.csv export (the graph API's own quota page covers the api.stlouisfed.org JSON surface, not this CSV export) | C (live probe 2026-11-02, same corpus) | polite tier |
+| who_xmart (indicator_directory/indicator_values/geo_reference) | 0.5/2 | none published (public OData v4; $top 1-5000 is a page size) | C (live probe 2026-11-02, same corpus) | polite tier |
+| un_comtrade (trade/areas) | 0.5/2 | none published (the public preview endpoint; maxRecords 500 is a result-set cap, not a rate line) | C (live probe 2026-11-02, same corpus) | polite tier |
+| ilo_stat (indicator) | 0.5/2 | none published (rplumber public endpoint; no quota surface) | C (live probe 2026-11-02, same corpus; the curl-stack empty-200 is a client-stack issue, not throttling — the urllib channel returned 612 rows every time) | polite tier |
+| imf_sdmx (sdmx_series) | 0.5/2 | none published (the public SDMX 2.1 REST surface at api.imf.org/external/sdmx/2.1; no quota page) | C (live probe 2026-11-03, tmp/probe-economy-0324/) | polite tier (deliberately half — same reference-publication posture as ecb) |
+| bis (sdmx_series) | 0.5/2 | none published (stats.bis.org/api/v1 SDMX; no quota surface) | C (live probe 2026-11-03, same corpus) | polite tier (same deliberately-half posture) |
+| unsd_sdg (indicators/series) | 0.5/2 | none published (unstats.un.org/SDGAPI/v1; pageSize 1-2000 is a page size, not a rate line) | C (live probe 2026-11-03, same corpus) | polite tier (same deliberately-half posture) |
+
 ## 4. Three-Type Layered Conclusions
 
 1. **Rate type (seconds)**: SEC, NIH, the NLM family (RxNav/DailyMed/MesH), ROR (5min window but ≈6.7/s, ample), TED (pending verification) — the token bucket is the right tool; the current mechanism already covers them.
@@ -148,7 +173,7 @@
 3. Overly-strict list: ~~NLM family (2 vs 20)~~ → **cleared (2026-10-28: 0.2.8 speed-up rxnav/dailymed 2→10, mesh 1→10 + transport family group bucket `rate.group` (nlm group 10+10=20 flush to the official line; the 0.2.6 design batch's "registration-only" guardrail upgraded to runtime))**, ROR (1 vs 6.7), OSV/NSF (1 vs unlimited), fdic (0.25 vs unknown)
 4. User-tunable surface, quota-type accounting mechanism (→ §7 ruling)
 5. Pending verification: TED figures (policy page 429, to be probed); FDIC throttle headers collected passively; CL anonymous-tier black-box live test; ~~research six-source official rate-limit evidence registration~~ → **cleared (0.2.4 re-review MR)**: openalex/crossref promoted to A (primary-page verification 2026-10-27; openalex also fixed burst 10→5 flush to the line); icite/opencitations/gtr/biorxiv have no official published face, C = end state, not a debt; ~~**edgar quota-semantics candidate re-review** (5/10 vs the official 10 req/s: 15>10, the same lda-type violation; currently judged "aligned (half speed)" per the old 2026-10-19 framing, without passing the §7 general formula — if SEC soft-throttling is tolerable, add an exception registration; otherwise realign to 5/5; assigned to the 0.2.5 case owner for re-review, not moved in this MR)~~ → **cleared (2026-10-28, 0.2.7 realigned to 5/5)**: no betting on "SEC soft-throttling is tolerable"; general formula flush to the line 5+5=10≤10 (§7 exception registration; two regression nails); **lda egress-block re-verification** (since 2026-10-27, Akamai empty-body 403, direct + proxy egress both blocked; immediately following the 2026-10-26 two acceptance-gate rounds that hit lda repeatedly at the 0.5 rps over-limit setting (=30/min, 2× over the anonymous tier) — suspected over-speed triggering an IP-level block; live proof of the motive for the 0.2.5 compliance fix; re-run the two live probes once access recovers)
-6. **openFDA family minute+day accounting (2026-10-30 ledger add)**: five api.fda.gov providers (fda_recalls/fda_drugs/fda_devices/fda_crl + shortages) × 2rps each = **10rps sustained potential > the keyless 240/min family line** (one bucket per IP across all endpoints) — the same intra-family stacking shape the NLM group bucket solved in 0.2.8 (`rate.group` mechanism already exists; an `fda` group entry is mechanical); the keyless 1,000/day cap is additionally bucket-blind (§4-2). Page faces + TTL caches keep live exposure far under both lines today; register the group entry + a day-quota stance before any bulk sweep through the SDK surface. **Host-bucket precision (v1.5)**: the host-layer bucket that binds the five providers defaults to 5rps = 300/min, itself above the 240/min keyless line — the host layer mitigates but does not solve this; the group entry (quota ≤4rps) is the correct fix.
+6. ~~**openFDA family minute+day accounting (2026-10-30 ledger add)**: five api.fda.gov providers (fda_recalls/fda_drugs/fda_devices/fda_crl + shortages) × 2rps each = **10rps sustained potential > the keyless 240/min family line** (one bucket per IP across all endpoints) — the same intra-family stacking shape the NLM group bucket solved in 0.2.8 (`rate.group` mechanism already exists; an `fda` group entry is mechanical); the keyless 1,000/day cap is additionally bucket-blind (§4-2). Page faces + TTL caches keep live exposure far under both lines today; register the group entry + a day-quota stance before any bulk sweep through the SDK surface. **Host-bucket precision (v1.5)**: the host-layer bucket that binds the five providers defaults to 5rps = 300/min, itself above the 240/min keyless line — the host layer mitigates but does not solve this; the group entry (quota ≤4rps) is the correct fix.~~ → **cleared (2026-11-02, 0.3.20)**: the `fda` group entry landed exactly as the v1.5 clause prescribed (`GROUP_LIMITS['fda']`=3.9rps/6burst — minute-window quota form, any-60s-window bound 6+3.9×60=240.0 exactly; five providers declare `rate.group="fda"`; two regression nails inline + 60s-window simulation); the day-quota stance registered = **documented, not walled** (the 1,000/day keyless cap is a per-IP window quota the token bucket cannot express; any bulk sweep through the SDK surface must budget it at the caller, and the docstring + this ledger are the contract).
 
 ## 6. Maintenance Rules
 

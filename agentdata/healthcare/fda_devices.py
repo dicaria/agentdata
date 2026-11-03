@@ -25,7 +25,7 @@ from ..errors import SdkError
 provider = {
     "id": "fda_devices",
     "baseUrl": "https://api.fda.gov",
-    "rate": {"rps": 2, "burst": 5},
+    "rate": {"rps": 2, "burst": 5, "group": "fda"},
     "ops": {
         "clearance_510k": {"path": "/device/510k.json", "notFound": [404]},
         "pma": {"path": "/device/pma.json", "notFound": [404]},

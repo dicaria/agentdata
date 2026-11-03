@@ -16,6 +16,7 @@ import urllib.parse
 import urllib.request
 
 from .company.faces import CompanyFaces
+from .economy.faces import EconomyFaces
 from .esg.faces import EsgFaces
 from .healthcare.faces import HealthcareFaces
 from .legal.faces import LegalFaces
@@ -47,6 +48,7 @@ class Client:
         self.procurement = _Domain(self, "procurement")  # 0.3.0: the seventh domain
         self.research = _Domain(self, "research")
         self.security = _Domain(self, "security")
+        self.economy = _Domain(self, "economy")  # 0.3.23: the eighth domain (country denominators)
 
     def _request_id(self) -> str:
         return str(uuid.uuid4())
@@ -87,7 +89,7 @@ class Client:
 
 
 class _Domain(HealthcareFaces, CompanyFaces, EsgFaces, LegalFaces, ProcurementFaces,
-              ResearchFaces, SecurityFaces):
+              ResearchFaces, SecurityFaces, EconomyFaces):
     """Domain namespace object — the flat faces are mixed in from each domain's faces; the corpus-family
     search/read stay on the base class (hosted, api.md section 8 living contract). In 0.3.0 the verb layer
     (resolve/evidence/trials/label/related/fulltext), the csl_screening frozen alias and the grants domain

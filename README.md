@@ -2,13 +2,13 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![Commands](https://img.shields.io/badge/97_commands-7_domains-teal)](docs/domains/api.md)
+[![Commands](https://img.shields.io/badge/117_commands-8_domains-teal)](docs/domains/api.md)
 
 Government registries, sanctions lists, procurement portals, and health-agency
 databases hold the decisive facts about companies — scattered across 60+ public
 APIs, each with its own pagination, rate limits, and undocumented quirks.
 
-**agentdata puts 97 of those datasets behind one interface**: a
+**agentdata puts 117 of those datasets behind one interface**: a
 pure-standard-library Python client and CLI across 13 jurisdictions. No API
 keys, no accounts — politeness and caching are built in, and every upstream
 gotcha we hit live is already pinned.
@@ -33,12 +33,14 @@ dataset, parameters kept under their upstream names. Every row below works as
 
 | Question | Commands |
 |---|---|
-| Is this company sanctioned? | `legal csl_screening_list` · `legal co_sic_sanctions` |
+| Is this company sanctioned? | `legal csl_screening_list` · `legal co_sic_sanctions` · `legal wb_debarred_firms` · `legal ca_sema_sanctions` |
 | Who owns or controls it? | `company gleif_direct_parent` · `company no_brreg_roller` · `company fr_recherche_search` |
 | Did it win public contracts? | `procurement br_pncp_contracts` · `procurement ungm_contract_awards` · `procurement wb_procnotices` |
 | Is its drug or device approved — or recalled? | `healthcare fda_drug_approvals` · `healthcare gb_mhra_alerts` · `healthcare fda_drug_recalls` |
 | What does this facility or fleet emit? | `esg climatetrace_sources` · `esg thetis_mrv_datasets` · `esg paris_mou_detentions` |
 | Pull a company card from a national registry | `company ch_zefix_firm` · `company co_rues_companies` · `company kr_hometax_biz_status` |
+| How big is the country it operates in? | `economy wb_wdi_values` · `economy eurostat_table` · `economy fred_series` |
+| Convert an EUR amount, or read a bilateral trade flow | `economy ecb_fx_rates` · `economy un_comtrade_trade` |
 
 ## Why not just call the APIs yourself?
 
@@ -49,7 +51,7 @@ You can — and then you get to rediscover what is already pinned here:
   anti-forgery token dance; Socrata endpoints that silently ignore documented
   parameters; the gov.uk content API that 404s when you append `.json`;
   registries that clamp your page size without an error.
-- **One envelope across all 97 commands.** Query echo, a plain-language
+- **One envelope across all 112 commands.** Query echo, a plain-language
   `reason`, `evidence` rows with a checkable quote and source URL, source
   metadata, and a `jurisdiction` chapter — your code parses one shape.
 - **Upstream parameter names, verbatim.** What the official API docs call a
@@ -61,17 +63,18 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Coverage
 
-**97 datasets · 66 upstream providers · 13 jurisdictions:** US 36 · global 24 · UK 11 · EU 9 · Canada 4 · Colombia 3 · Australia 2 · Switzerland 2 · Norway 2 · Brazil 1 · Finland 1 · France 1 · Korea 1.
+**117 datasets · 80 upstream providers · 13 jurisdictions:** global 39 · US 37 · EU 12 · UK 11 · Canada 5 · Colombia 3 · Australia 2 · Switzerland 2 · Norway 2 · Brazil 1 · Finland 1 · France 1 · Korea 1.
 
 | Domain | Commands | Sources |
 |---|---|---|
 | `healthcare` | 31 | US FDA approvals & recalls, ClinicalTrials.gov, RxNav, DailyMed, AccessGUDID, UK MHRA alerts, Health Canada DPD & MDALL, EUDAMED, RASFF & Safety Gate (EU), TGA (AU), Europe PMC, MeSH |
 | `company` | 21 | GLEIF, SEC EDGAR, FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR |
-| `esg` | 11 | Climate TRACE, EITI, EU ETS (EUTL), THETIS-MRV (EU shipping), EPA FRS, Paris MoU |
-| `legal` | 15 | US consolidated screening list, eCFR, Federal Register, LDA filings, CourtListener, DG COMP, UK CMA cases, UK Electoral Commission, TNA case law, SIPRI, SIC sanctions (CO) |
+| `esg` | 12 | Climate TRACE, EITI, EU ETS (EUTL), THETIS-MRV (EU shipping), EPA FRS, Paris MoU, EU Air Safety List |
+| `legal` | 19 | US consolidated screening list, eCFR, Federal Register, LDA filings, CourtListener, DG COMP, UK CMA cases, UK Electoral Commission, TNA case law, SIPRI, SIC sanctions (CO), MDB debarment rosters (WB/AfDB/IDB), Canada SEMA |
 | `research` | 10 | OpenAlex, NIH RePORTER, NSF, Crossref, UKRI GtR, iCite, bioRxiv, OpenCitations |
 | `procurement` | 7 | PNCP (BR), SECOP II (CO), UNGM, World Bank, New York Authorities / MTA / OGS (US) |
 | `security` | 2 | OSV, CISA KEV |
+| `economy` | 15 | World Bank WDI, Eurostat, ECB reference rates, FRED, WHO xMart, UN Comtrade, ILOSTAT |
 
 ## Show me a response
 
@@ -123,13 +126,13 @@ every command returns this shape:
 From a release tarball — no git required:
 
 ```bash
-pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.19.tar.gz
+pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.24.tar.gz
 ```
 
 Or via git (pin a tag for reproducible installs):
 
 ```bash
-pip install git+https://github.com/dicaria/agentdata.git@v0.3.19
+pip install git+https://github.com/dicaria/agentdata.git@v0.3.24
 ```
 
 ## Quick start (Python)
@@ -147,6 +150,8 @@ c.legal.csl_screening_list(name="VTB BANK")                       # sanctions sc
 c.research.openalex_works(search="vaccine", ror="01xdqrp08")
 c.procurement.br_pncp_contracts(data_inicial="20260901", data_final="20260930", pagina=1)
 c.security.osv_vulns(package="lodash", ecosystem="npm", version="4.17.15")
+c.economy.wb_wdi_values(country="CHN", indicator="NY.GDP.MKTP.CD", date="2020:2023")  # World Bank indicator values
+c.economy.ecb_fx_rates(currency="USD", start="2026-10-01", end="2026-10-31")  # euro reference rate (1 EUR = X)
 ```
 
 Corpus commands use the same shape with hosted credentials:
@@ -158,7 +163,7 @@ c2.company.read(id=1476, level="tier2")
 
 ## Quick start (CLI)
 
-Eight entry points — `agentdata` plus one command per domain:
+Nine entry points — `agentdata` plus one command per domain:
 
 ```bash
 agentdata healthcare rxnav_rxcui_by_name --name atorvastatin
@@ -166,6 +171,7 @@ agentdata company gleif_lei_records_search --filter-entity-legal-name "Siemens" 
 agentdata legal csl_screening_list --name "VTB BANK"
 agentdata esg climatetrace_sources --owner-ids E100000001492 --year 2023
 agentdata procurement br_pncp_contracts --data-inicial 20260901 --data-final 20260930 --pagina 1
+agentdata economy wb_wdi_values --country CHN --indicator NY.GDP.MKTP.CD --date 2020:2023
 ```
 
 ## Caching

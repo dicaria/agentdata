@@ -204,7 +204,11 @@ def inspections_raw(*, period_min, period_max, psc_inspection_regime=1, page=1, 
 
     -> {rows[], count, total, resume, paging, params, _meta}. The <= 3 year window is validated locally first
     (upstream silently returns empty beyond it); **page always travels with the request** (without page the whole
-    window is dumped and the limit is void — the face pins the paging semantics)."""
+    window is dumped and the limit is void — the face pins the paging semantics). 0.3.20 audit truths (probed
+    2026-11-02): pscInspectionRegime=1 is the only live value (0 -> poisoned empty, 2 -> HTTP 500 — walled locally
+    with evidence); the 500 limit cap is a **local politeness tier** (upstream honors 1000 — measured 1,000 rows
+    of a 1,395-total Jan-2026 window); ismCompanyImoNumber accepts both the zero-padded 7-digit and the unpadded
+    form (measured 52193 and 0052193 both -> total=1) — passed verbatim, no normalization."""
     from ..transport import call_provider
 
     d1, d2 = _check_date(period_min, "period_min"), _check_date(period_max, "period_max")
@@ -214,6 +218,14 @@ def inspections_raw(*, period_min, period_max, psc_inspection_regime=1, page=1, 
     if (d2 - d1).days > 366 * 3:
         raise SdkError("usage_error", provider=provider["id"],
                        detail=f"the search window of {(d2 - d1).days} days exceeds the 3-year cap (an upstream limit) — split the search")
+    if int(psc_inspection_regime) != 1:
+        # 0.3.20 audit (probed 2026-11-02, Jan-2026 window): regime=1 is the only live value — 0 returns
+        # 200 success with total=0 (a poisoned empty), 2 returns HTTP 500. Wall it with the evidence instead
+        # of letting either silent shape through.
+        raise SdkError("usage_error", provider=provider["id"],
+                       detail=f"psc_inspection_regime={psc_inspection_regime!r} is not a live upstream value — 1 (PSC) is the "
+                              "only regime the public endpoint serves (measured: 0 -> 200 poisoned-empty total=0, "
+                              "2 -> HTTP 500)")
     params = {
         "pscInspectionRegime": int(psc_inspection_regime),  # mandatory (1 = PSC default regime; without it = 200 empty)
         "periodMin": period_min,

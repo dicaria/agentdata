@@ -20,7 +20,7 @@ from ..errors import SdkError
 provider = {
     "id": "fda_recalls",
     "baseUrl": "https://api.fda.gov",
-    "rate": {"rps": 2, "burst": 5},
+    "rate": {"rps": 2, "burst": 5, "group": "fda"},
     "ops": {
         "drug": {"path": "/drug/enforcement.json", "notFound": [404]},
         "device": {"path": "/device/recall.json", "notFound": [404]},

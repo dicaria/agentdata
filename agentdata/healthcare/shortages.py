@@ -24,7 +24,7 @@ from ..errors import SdkError
 provider = {
     "id": "shortages",
     "baseUrl": "https://api.fda.gov",
-    "rate": {"rps": 2, "burst": 5},
+    "rate": {"rps": 2, "burst": 5, "group": "fda"},
     "ops": {
         "search": {"path": "/drug/shortages.json", "notFound": [404]},  # params: search, limit, skip, sort
     },

@@ -38,7 +38,12 @@ provider = {
     "ttl": {},
 }
 
-_FILTERS = ("registry_id", "primary_name", "state_code", "city_name")  # order = URL segment order (stable, replayable)
+_FILTERS = ("registry_id", "primary_name", "state_code", "city_name", "country_name", "site_type_name",
+            "epa_region_code")  # order = URL segment order (stable, replayable); the 0.3.20 audit added the
+# three trailing columns (probed 2026-11-02: COUNTRY_NAME/=/GERMANY -> COUNT 110 — FRS covers non-US facilities,
+# UNITED STATES -> 3,129,491; SITE_TYPE_NAME/=/STATIONARY -> 4,725,914; EPA_REGION_CODE/=/10 -> 214,197, the
+# value form is the zero-padded two-digit string '03'). interest_status_code/operating_status are null on the
+# master table (they live on the interest subtables) — not exposed.
 TTL = 86400
 
 
@@ -79,34 +84,42 @@ def facilities_from_upstream(data, size, start):
     return {"rows": rows, "count": len(rows), "limit_applied": size, "offset": start}
 
 
-def _norm_filters(registry_id, primary_name, state_code, city_name):
+def _norm_filters(registry_id, primary_name, state_code, city_name, country_name, site_type_name, epa_region_code):
     out = {}
+    upper_cols = {"state_code", "country_name", "site_type_name", "epa_region_code"}  # upstream stores uppercase forms
     for k, v in (("registry_id", registry_id), ("primary_name", primary_name),
-                 ("state_code", state_code), ("city_name", city_name)):
+                 ("state_code", state_code), ("city_name", city_name),
+                 ("country_name", country_name), ("site_type_name", site_type_name),
+                 ("epa_region_code", epa_region_code)):
         v = str(v or "").strip()
-        if k == "state_code" and v:
-            v = v.upper()  # upstream uses the two-letter abbreviation form; tolerate lowercase input
+        if k in upper_cols and v:
+            v = v.upper()  # upstream uses the uppercase form (DE / GERMANY / STATIONARY / '03'); tolerate lowercase input
         if v:
             out[k] = v
     return out
 
 
 def facilities_raw(registry_id=None, primary_name=None, state_code=None, city_name=None, *,
+                   country_name=None, site_type_name=None, epa_region_code=None,
                    start=0, size=50, cache=None, no_cache=False):
-    """0.3.2 flat face internals: four filter columns (all `=` exact, combinable = AND) + start/size paging.
+    """0.3.2 flat face internals: seven filter columns (all `=` exact, combinable = AND) + start/size paging.
 
-    Every call makes two requests: rows (ROWS/{start}:{end} closed interval, end always computed locally)
-    + count (TOTALQUERYRESULTS).
+    The four 0.3.2 columns (registry_id/primary_name/state_code/city_name) plus the three the 0.3.20 audit
+    added (country_name/site_type_name/epa_region_code — country_name unlocks the non-US facility slice,
+    GERMANY=110 measured). Every call makes two requests: rows (ROWS/{start}:{end} closed interval, end
+    always computed locally) + count (TOTALQUERYRESULTS).
     -> {rows[], count, limit_applied, offset, total_matches, params, _meta, _count_meta}.
-    Local safety wall: at least one of the four filters (a bare scan of all 5,602,878 rows is served by
+    Local safety wall: at least one of the seven filters (a bare scan of all 5,602,878 rows is served by
     the batch pipeline as national_single.zip)."""
     from ..transport import call_provider
 
-    filters = _norm_filters(registry_id, primary_name, state_code, city_name)
+    filters = _norm_filters(registry_id, primary_name, state_code, city_name,
+                            country_name, site_type_name, epa_region_code)
     if not filters:
         raise SdkError("usage_error", provider="epa_frs",
                        detail="facilities_raw requires at least one of registry_id / primary_name / state_code / "
-                              "city_name (local safety wall: a bare scan of all 5,602,878 rows is served by the "
+                              "city_name / country_name / site_type_name / epa_region_code "
+                              "(local safety wall: a bare scan of all 5,602,878 rows is served by the "
                               "batch pipeline as national_single.zip)")
     cols = [c for c in _FILTERS if c in filters]
     sz = _polite_size(size, 50)

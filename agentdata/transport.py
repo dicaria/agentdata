@@ -133,6 +133,10 @@ _state_lock = threading.Lock()
 # RxNav ToS 20/s per IP (top tier), group bucket 10+10=20 right at the line.
 GROUP_LIMITS = {
     "nlm": {"rps": 10.0, "burst": 10},  # NLM family (shared by rxnav/dailymed/mesh; gudid has no official number, not in the group)
+    "fda": {"rps": 3.9, "burst": 6},  # openFDA keyless family line 240/min per IP — one shared bucket across all
+    # api.fda.gov endpoints (recalls/crl/drugs/devices/shortages — rate-limits.md section 5-6 debt, 2026-10-30 ledger add,
+    # closed in the 0.3.20 audit round). Minute-window quota form b + r x 60s <= 240 exactly (6 + 3.9x60 = 240.0);
+    # the keyless 1,000/day cap is bucket-blind and stays a documented stance, not a local wall.
 }
 
 

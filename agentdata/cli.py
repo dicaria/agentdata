@@ -12,6 +12,7 @@ import uuid
 from . import __version__
 from .client import Client
 from .company import cli as company_cli
+from .economy import cli as economy_cli
 from .esg import cli as esg_cli
 from .healthcare import cli as healthcare_cli
 from .legal import cli as legal_cli
@@ -22,9 +23,9 @@ from .security import cli as security_cli
 # 0.2.6 per-domain split: the domain command registrars (register(v, g)) live in each domain's cli.py;
 # the root keeps only the shared parts plus the search/read dispatch
 # 0.3.10 domain order = lexicographic (DOMAIN_ORDER is the source of truth — the build_parser loop, per-domain face order, and site navigation all follow it; the sort key is the English identifier)
-DOMAIN_ORDER = ("company", "esg", "healthcare", "legal", "procurement", "research", "security")
-_CLI = {"company": company_cli, "esg": esg_cli, "healthcare": healthcare_cli,
-        "legal": legal_cli, "procurement": procurement_cli,
+DOMAIN_ORDER = ("company", "economy", "esg", "healthcare", "legal", "procurement", "research", "security")
+_CLI = {"company": company_cli, "economy": economy_cli, "esg": esg_cli,
+        "healthcare": healthcare_cli, "legal": legal_cli, "procurement": procurement_cli,
         "research": research_cli, "security": security_cli}
 from .errors import SdkError
 
@@ -111,7 +112,7 @@ def build_parser():
 _FLAT_DISPATCH = {}
 for _m in _CLI.values():
     _FLAT_DISPATCH.update(_m.FLAT)
-assert len(_FLAT_DISPATCH) == 97, f"flat dispatch {len(_FLAT_DISPATCH)} != 97 (97 faces; 0.3.2 esg +2 + 0.3.3 European registries +5 + 0.3.4 FR recherche +1 + 0.3.5 esg port-state +5 + 0.3.6 World Bank/NY +3 + 0.3.8 legal TNA caselaw +2 + 0.3.12 UNGM/NY OGS collection +2 + 0.3.14 CO RUES/KR hometax +2 + 0.3.16 legal co_sic +1 + healthcare gb_mhra +2 + 0.3.19 healthcare CA DPD/MDALL +4 + rasff/safety_gate +3; the csl_screening alias was removed in 0.3.0)"
+assert len(_FLAT_DISPATCH) == 117, f"flat dispatch {len(_FLAT_DISPATCH)} != 117 (117 faces; 0.3.2 esg +2 + 0.3.3 European registries +5 + 0.3.4 FR recherche +1 + 0.3.5 esg port-state +5 + 0.3.6 World Bank/NY +3 + 0.3.8 legal TNA caselaw +2 + 0.3.12 UNGM/NY OGS collection +2 + 0.3.14 CO RUES/KR hometax +2 + 0.3.16 legal co_sic +1 + healthcare gb_mhra +2 + 0.3.19 healthcare CA DPD/MDALL +4 + rasff/safety_gate +3 + 0.3.21 legal debarment rosters afdb/ca_sema/idb/wb +4 + 0.3.22 transport compliance euasl_datasets +1 + 0.3.23 economy domain (wb/eurostat/ecb/fred/who_xmart/un_comtrade/ilo_stat) +10 + 0.3.24 economy expansion (imf_sdmx/bis/unsd_sdg/wb_ids) +5; the csl_screening alias was removed in 0.3.0)"
 # 0.3.10 jurisdiction chapter: face -> jurisdiction (default = the issuing authority's jurisdiction; institutions covering global phenomena = GLOBAL; vocabulary = ISO-3166 alpha-2 + EU + GLOBAL).
 # The per-domain source of truth is each domain cli.py's COUNTRY (same face set as FLAT); the root only merges them; the success envelope carries a jurisdiction chapter (search/read are hosted mixed-jurisdiction corpus services — unstamped)
 _JURISDICTION = {f: cc for _m in _CLI.values() for f, cc in _m.COUNTRY.items()}

@@ -2,4 +2,4 @@
 
 One domain per package: provider adapters laid flat (one source per file) + faces/cli.
 """
-from . import climatetrace, eiti, epa_frs, eutl, paris_mou, thetis_mrv  # noqa: F401
+from . import climatetrace, eiti, epa_frs, euasl, eutl, paris_mou, thetis_mrv  # noqa: F401

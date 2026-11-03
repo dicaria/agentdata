@@ -573,5 +573,128 @@ class LegalFaces:
             query={"source": "raw", "upstream": {"path": f"/{result['uri']}/data.xml"}},
         )
 
+    # ---------- 0.3.21 legal debarment-roster line (WB + AfDB + IDB MDB debarment + CA SEMA sanctions; born flat; local-scan trio carries no quartet — there are no upstream params to replay, the csl_screening_list precedent) ----------
+
+    def afdb_debarred_entities(self, name=None, *, type=None, basis=None, limit=20,
+                               execution=None, no_cache=None):
+        """legal afdb_debarred_entities: African Development Bank debarment register (afdb.org json-feed,
+        keyless; full 1,440-row dump cached 24h and scanned locally). Basis = the cross-debarment edge
+        self-evidenced (CROSS DEBARMENT : WBG/ADB/IDB/EBRD vs DEBARMENT:AFDB) — contains-match because
+        upstream punctuation is inconsistent; To empty = ongoing."""
+        self._lg_only("afdb_debarred_entities")
+        nm = str(name or "").strip() or None
+        r = legal.afdb.debarred_entities_raw(nm, type=type, basis=basis, limit=limit,
+                                             cache=self._c._cache,
+                                             no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="afdb_debarred_entities",
+            input={"name": nm, "type": type, "basis": basis, "limit": result["limit_applied"]},
+            reason=(f"AfDB debarment register: {result['total_matched']} of {result['scanned_rows']} rows matched"
+                    + (f" (name contains \"{nm}\")" if nm else "")
+                    + (f", type {type}" if type else "") + (f", basis contains \"{basis}\"" if basis else "")
+                    + ", returning top rows — Basis carries the cross-debarment edge (WBG/ADB/IDB/EBRD tokens; To empty = ongoing); zero hits = not on the AfDB register"
+                    if result["rows"] else
+                    f"AfDB zero hits (an empty result is a legitimate answer = clean screening on the {result['scanned_rows']}-row register; drop filters to enumerate from the head)"),
+            result=result,
+            evidence=[{"quote": f"{x['Name'] or '—'} ({x['Type'] or '—'}, {x['Nationality'] or '—'}) "
+                               f"{x['From'] or '?'}→{x['To'] or 'ongoing'} · {x['Basis'] or '—'}",
+                       "url": "https://www.afdb.org/en/projects-operations/debarment-and-sanctions-procedures"}
+                      for x in result["rows"][:5]],
+            provider_id="afdb", metas=[r["_meta"]],
+        )
+
+    def ca_sema_sanctions(self, name=None, *, country=None, limit=20,
+                          execution=None, no_cache=None):
+        """legal ca_sema_sanctions: Canada SEMA sanctions listings (Global Affairs Canada sema-lmes.xml,
+        keyless; the Consolidated Canadian Autonomous Sanctions List — 5,708 live records: persons, entities
+        and ships; bilingual cells verbatim; 731 ships carry an IMO number = the join key onto shipping
+        rosters). Name screening contains-matches name + aliases (matched_on echoes the hit face)."""
+        self._lg_only("ca_sema_sanctions")
+        nm = str(name or "").strip() or None
+        r = legal.ca_sema.sanctions_raw(nm, country=country, limit=limit,
+                                        cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="ca_sema_sanctions",
+            input={"name": nm, "country": country, "limit": result["limit_applied"]},
+            reason=(f"Canada SEMA sanctions list: {result['total_matched']} of {result['scanned_rows']} listings matched"
+                    + (f" (name/alias contains \"{nm}\")" if nm else "")
+                    + (f", country contains \"{country}\"" if country else "")
+                    + " — bilingual cells verbatim (Syria / Syrie), schedule = the SEMA schedule reference; zero hits = not designated under SEMA"
+                    if result["rows"] else
+                    f"Canada SEMA zero hits (an empty result is a legitimate answer = clean screening on the {result['scanned_rows']}-listing register; the bilingual country cell matches either language)"),
+            result=result,
+            evidence=[{"quote": f"{x['name'] or '—'} ({x['kind'] or '—'}, {x['country'] or '—'})"
+                               + (f" IMO {x['ship_imo']}" if x["ship_imo"] else "")
+                               + f" · listed {x['date_of_listing'] or '—'}",
+                       "url": "https://www.international.gc.ca/world-monde/international_relations-relations_internationales/sanctions/consolidated-consolide.aspx?lang=eng"}
+                      for x in result["rows"][:5]],
+            provider_id="ca_sema", metas=[r["_meta"]],
+        )
+
+    def idb_debarred_entities(self, q=None, *, filters=None, limit=20, offset=0, sort=None,
+                              execution=None, no_cache=None):
+        """legal idb_debarred_entities: Inter-American Development Bank sanctioned-firms register
+        (data.iadb.org CKAN DataStore, keyless, server-side search: q full-text verbatim, filters =
+        JSON field→value exact matches verbatim, offset paging, include_total always; live register
+        1,343 rows; Source carries the cross-debarment markers ADB/WBG cross debarment)."""
+        self._lg_only("idb_debarred_entities")
+        qq = str(q or "").strip() or None
+        r = legal.idb.debarred_entities_raw(qq, filters=filters, limit=limit, offset=offset, sort=sort,
+                                            cache=self._c._cache,
+                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="idb_debarred_entities",
+            input={"q": qq, "filters": filters, "limit": result["limit_applied"], "offset": offset, "sort": sort},
+            reason=(f"IDB sanctioned-firms register: {result['total']} rows total, {len(result['rows'])} returned"
+                    + (f" (q \"{qq}\")" if qq else "")
+                    + (f" (filters {filters})" if filters else "")
+                    + " — Entity=Firm rows are the company roster; Source carries cross-debarment markers (ADB/WBG cross debarment); page through offset"
+                    if result["rows"] else
+                    "IDB zero hits (an empty result is a legitimate answer; q is a full-text match and filters are exact-match — drop them to enumerate from the register head)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('Title') or '—'} ({x.get('Entity') or '—'}, {x.get('Nationality') or '—'}) "
+                               f"{(x.get('From') or '?')[:10]}→{x.get('To') or '?'} · {(x.get('Prohibited Practice') or '—').strip()}"
+                               + (f" · {x.get('Source')}" if x.get("Source") and str(x.get("Source")) != "IDB" else ""),
+                       "url": "https://www.iadb.org/en/transparency/sanctioned-firms-and-individuals"}
+                      for x in result["rows"][:5]],
+            provider_id="idb", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def wb_debarred_firms(self, name=None, *, country=None, type=None, limit=20,
+                          execution=None, no_cache=None):
+        """legal wb_debarred_firms: World Bank debarred-firms register (apigwext SAP gateway via the
+        page-embedded public apikey; full 1,546-row dump cached 24h and scanned locally). SUPP_ID = the WB
+        supplier key; DEBAR_TO_DATE 2999-12-31 = indefinite; eligibility DEBARRED/X-DEBARRED; China leads
+        the roster (392 firms); the DNB/REGISTER identifier fields ship empty — name × country is the
+        join channel."""
+        self._lg_only("wb_debarred_firms")
+        nm = str(name or "").strip() or None
+        r = legal.wb.debarred_firms_raw(nm, country=country, type=type, limit=limit,
+                                        cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        return self._flat_env(
+            tool="wb_debarred_firms",
+            input={"name": nm, "country": country, "type": type, "limit": result["limit_applied"]},
+            reason=(f"World Bank debarred-firms register: {result['total_matched']} of {result['scanned_rows']} rows matched"
+                    + (f" (name contains \"{nm}\")" if nm else "")
+                    + (f", country contains \"{country}\"" if country else "")
+                    + (f", type {type}" if type else "")
+                    + " — DEBAR_REASON cites the procurement-guidelines clause; DEBAR_TO_DATE 2999-12-31 = indefinite; zero hits = not on the WB register"
+                    if result["rows"] else
+                    f"World Bank zero hits (an empty result is a legitimate answer = clean screening on the {result['scanned_rows']}-row register; country matches the name or the LAND1 code, e.g. China/CN)"),
+            result=result,
+            evidence=[{"quote": f"{x['SUPP_NAME'] or '—'} ({x['COUNTRY_NAME'] or '—'}) "
+                               f"{x['DEBAR_FROM_DATE'] or '?'}→{x['DEBAR_TO_DATE'] or '?'} · {x['DEBAR_REASON'] or '—'}",
+                       "url": "https://www.worldbank.org/en/projects-operations/procurement/debarred-firms"}
+                      for x in result["rows"][:5]],
+            provider_id="wb", metas=[r["_meta"]],
+        )
+
     # ---------- 0.2.4 flat-panel commands (research: grants × papers × institutions × impact — upstream verbatim params) ----------
     # The grants axis was established in 0.2.2 and renamed research in 0.2.4 (the grants alias was removed in 0.3.0).

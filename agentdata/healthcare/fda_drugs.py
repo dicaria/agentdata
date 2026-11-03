@@ -22,7 +22,7 @@ from ..errors import SdkError
 provider = {
     "id": "fda_drugs",
     "baseUrl": "https://api.fda.gov",
-    "rate": {"rps": 2, "burst": 5},
+    "rate": {"rps": 2, "burst": 5, "group": "fda"},
     "ops": {
         "approvals": {"path": "/drug/drugsfda.json", "notFound": [404]},
         "catalog": {"path": "/drug/ndc.json", "notFound": [404]},
