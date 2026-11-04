@@ -178,6 +178,47 @@ class EconomyFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    # ---------- Comext trade mirror (EU) ----------
+
+    def comext_flows(self, *, reporter=None, partner=None, product=None, flow=None,
+                     indicators=None, time=None, since=None, until=None,
+                     execution=None, no_cache=None):
+        """economy comext_flows: Eurostat Comext annual HS2-4-6 trade mirror since 2002 (the
+        DEDICATED comext dissemination root — the plain Eurostat root 404s the ds- datasets;
+        at least one filter is required — the filterless mirror is a 413 "Full extraction
+        forbidden" with a 5-million-cell single-query cap; flow = 1 imports / 2 exports;
+        indicators defaults to VALUE_EUR; the reporter aggregates EU / EU27_2020 / EA / EA21
+        live alongside the country codes; the monthly CN8 detail travels the raw side)."""
+        self._economy_only("comext_flows")
+        r = economy.comext.flows_raw(reporter=reporter, partner=partner, product=product,
+                                     flow=flow, indicators=indicators, time=time,
+                                     since=since, until=until, cache=self._c._cache,
+                                     no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        top = (result["rows"] or [None])[0]
+
+        def _dims(x):
+            return ", ".join(f"{k}={v}" for k, v in x.items()
+                             if k not in ("value", "status", "labels"))
+
+        return self._flat_env(
+            tool="comext_flows",
+            input={"reporter": reporter, "partner": partner, "product": product,
+                   "flow": flow, "indicators": r["params"].get("indicators"),
+                   "time": time, "since": since, "until": until},
+            reason=(f"Comext annual HS mirror — {result['count']} cells"
+                    + (f" of {result['total']:,} in the grid" if result.get("total") else "")
+                    + (f", top {_dims(top)} = {top['value']}" if top else ", zero cells")
+                    + (f" (updated {result['updated']})" if result.get("updated") else "")),
+            result=result,
+            evidence=[{"quote": f"{_dims(x)} = {x['value']}"
+                             + (f" [{x['status']}]" if x.get("status") else ""),
+                       "url": "https://ec.europa.eu/eurostat/api/comext/dissemination/statistics/1.0/data/ds-059341"}
+                      for x in result["rows"][:5]],
+            provider_id="comext", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
     # ---------- ECB reference rates (EU) ----------
 
     def ecb_fx_rates(self, *, currency=None, start=None, end=None, execution=None, no_cache=None):
@@ -505,6 +546,46 @@ class EconomyFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    # ---------- OECD SDMX (global) ----------
+
+    def oecd_sdmx_series(self, *, flow=None, key=None, start=None, end=None,
+                         execution=None, no_cache=None):
+        """economy oecd_sdmx_series: one OECD dataflow series (/public/rest/data/{flow}/{key}/all,
+        the SDMX generic-CSV channel; flow = the CATALOG form agency,DSD@DF[,version] — the
+        bare DF spelling answers 404; key = dot-separated with EXACTLY one segment per DSD
+        dimension, an empty segment is the wildcard — the segment count is validated against
+        the DSD structure before the data call, so the short-key 403 never forms; start / end
+        = the upstream startPeriod / endPeriod bounds)."""
+        self._economy_only("oecd_sdmx_series")
+        r = economy.oecd_sdmx.sdmx_series_raw(flow, key, start=start, end=end,
+                                              cache=self._c._cache,
+                                              no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        # the rows are sorted ascending by period — the latest observation is the LAST row
+        top = (result["rows"] or [None])[-1]
+        win = (f" {r['params']['start']}→{r['params']['end']}"
+               if r["params"].get("start") and r["params"].get("end")
+               else (f" from {r['params']['start']}" if r["params"].get("start")
+                     else (f" until {r['params']['end']}" if r["params"].get("end") else "")))
+        return self._flat_env(
+            tool="oecd_sdmx_series",
+            input={"flow": r["params"]["flow"], "key": r["params"]["key"],
+                   "start": start, "end": end},
+            reason=(f"OECD SDMX {r['params']['flow']} {r['params']['key']} — "
+                    f"{result['count']} observations{win}"
+                    + (f", first {result['rows'][0]['period']}, latest {top['period']} = {top['value']}"
+                       if top else ", zero observations")
+                    + (f" ({top['unit_measure']})" if top and top.get("unit_measure") else "")),
+            result=result,
+            evidence=[{"quote": f"{x['period']} {x['value']}"
+                             + (f" ({', '.join(f'{k}={v}' for k, v in x['dims'].items())})" if x["dims"] else "")
+                             + (f" [{x['unit_measure']}]" if x.get("unit_measure") else ""),
+                       "url": f"https://sdmx.oecd.org/public/rest/data/{r['params']['flow']}/{r['params']['key']}/all"}
+                      for x in result["rows"][:5]],
+            provider_id="oecd_sdmx", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
     # ---------- UNSD SDG (global) ----------
 
     def unsd_sdg_indicators(self, *, page=1, per_page=50, search=None,
@@ -569,5 +650,40 @@ class EconomyFaces:
                        "url": f"https://unstats.un.org/SDGAPI/v1/sdg/Series/Data?seriesCode={r['params']['series']}"}
                       for x in result["rows"][:5]],
             provider_id="unsd_sdg", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def bls_series(self, *, series=None, start_year=None, end_year=None,
+                   execution=None, no_cache=None):
+        """economy bls_series: BLS v2 series observations (POST /publicAPI/v2/timeseries/data/
+        — up to 25 series ids over one <= 10-year window on the keyless tier; catalog/
+        calculations/annualaverage/aspects are key-gated options and are never sent; a window
+        wider than 10 years is refused locally because the upstream clamp keeps the EARLIEST
+        ten years (startyear-anchored, pinned 2026-11-03); a bogus id answers 200 and surfaces
+        as series_without_data; omitting both years answers the latest ~3 calendar years)."""
+        self._economy_only("bls_series")
+        r = economy.bls.series_raw(series, start_year=start_year, end_year=end_year,
+                                   cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = rows[0] if rows else None
+        dead = (f"; {len(result['series_without_data'])} of {len(result['series'])} series "
+                f"returned no data ({'; '.join(result['series_without_data'])})"
+                if result["series_without_data"] else "")
+        return self._flat_env(
+            tool="bls_series",
+            input={"series": result["series"], "start_year": start_year, "end_year": end_year},
+            reason=(f"BLS series {', '.join(result['series'])} — {result['count']} observations"
+                    + (f", window {r['params']['startyear']}..{r['params']['endyear']}"
+                       if r["params"]["startyear"] else ", latest ~3 years (default window)")
+                    + dead
+                    + (f"; first {top['series']} {top['year']}-{top['period']} = {top['value']}"
+                       if top else ", zero observations")),
+            result=result,
+            evidence=[{"quote": f"{x['series']} {x['year']}-{x['period']} ({x['period_name']}) = {x['value']}",
+                       "url": "https://api.bls.gov/publicAPI/v2/timeseries/data/"}
+                      for x in rows[:5]],
+            provider_id="bls", metas=[r["_meta"]],
             query={"source": "raw", "upstream": r["params"]},
         )

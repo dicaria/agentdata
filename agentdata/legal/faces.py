@@ -8,6 +8,7 @@ from ..errors import SdkError
 from ..transport import resolve_execution
 from ..transport import enrich_source
 import re
+import urllib.parse
 
 
 from .. import legal  # domain-module path call (historical shape, kept for minimal disturbance)
@@ -696,5 +697,383 @@ class LegalFaces:
             provider_id="wb", metas=[r["_meta"]],
         )
 
-    # ---------- 0.2.4 flat-panel commands (research: grants × papers × institutions × impact — upstream verbatim params) ----------
-    # The grants axis was established in 0.2.2 and renamed research in 0.2.4 (the grants alias was removed in 0.3.0).
+    # ---------- 0.3.27 gazette + IE defaulters line (UK official-record search + IE statutory tax-defaulters register; born flat) ----------
+
+    def gb_gazette_notices(self, text=None, *, noticetypes=None, insolvency=None,
+                           start_date=None, end_date=None, page=1, page_size=20, sort=None,
+                           execution=None, no_cache=None):
+        """legal gb_gazette_notices: The Gazette notice search (thegazette.co.uk data.json, keyless,
+        OGL; 3.58M notices digitised from 1992, three editions). Event filtering is by notice code —
+        noticetypes +-joined (the noticecode= param is silently ignored) or the insolvency chapter
+        preset; title = the company name on corporate insolvency codes; geo:Point = the registered
+        office; at least one filter is required (the 4.89M-notice bulk wall)."""
+        self._lg_only("gb_gazette_notices")
+        txt = str(text or "").strip() or None
+        r = legal.gazette.notices_raw(txt, noticetypes=noticetypes, insolvency=insolvency,
+                                      start_date=start_date, end_date=end_date,
+                                      page=page, page_size=page_size, sort=sort,
+                                      cache=self._c._cache,
+                                      no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        codes = r["params"].get("noticetypes")
+        return self._flat_env(
+            tool="gb_gazette_notices",
+            input={"text": txt, "noticetypes": noticetypes, "insolvency": bool(insolvency),
+                   "start_date": start_date, "end_date": end_date,
+                   "page": result["page"], "page_size": result["page_size"], "sort": sort},
+            reason=(f"The Gazette: {result['total']:,} notices match, {result['count']} rows on page {result['page']}"
+                    + (f", text \"{txt}\"" if txt else "")
+                    + (f", codes {codes}" if codes else "")
+                    + (f", published {start_date or '…'}→{end_date or '…'}" if start_date or end_date else "")
+                    + " — title = the company name on corporate insolvency codes (2432 liquidator, 2410 administrator, 2431 cessation); placed_by = liquidator/administrator or the edition; geo = the registered office"
+                    if result["rows"] else
+                    f"The Gazette zero rows on page {result['page']} of {result['total']:,} matches (past the last page?) "
+                    "or nothing matches the filters — an empty result is a legitimate answer; drop filters or go back to page 1"),
+            result=result,
+            evidence=[{"quote": f"{x['title'] or '—'} ({x['category'] or x['notice_code'] or '—'}) "
+                               f"· {x['published'] or '—'} · placed by {x['placed_by'] or '—'}",
+                       "url": x["url"] or "https://www.thegazette.co.uk/notice/" + str(x["notice_id"] or "")}
+                      for x in result["rows"][:5]],
+            provider_id="gazette", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def ie_revenue_defaulters(self, part=None, *, year=None, month=None,
+                              execution=None, no_cache=None):
+        """legal ie_revenue_defaulters: Irish Revenue List of Defaulters (revenue.ie, keyless; the
+        statutory quarterly publication, current year on the index). One part per call — part 1 =
+        penalties determined by a court (issue type / fine / sentence / charges), part 2 = Revenue
+        settlements (tax / interest / penalties / total / unpaid): TWO row schemas under one
+        publication, `kind` says which; individuals + companies in one register; money as ints
+        (comma-thousands stripped, decimals/annotations dropped); names/addresses are published by
+        statute — the co_sic precedent."""
+        self._lg_only("ie_revenue_defaulters")
+        r = legal.ie_revenue.defaulters_raw(part, year=year, month=month,
+                                            cache=self._c._cache,
+                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if result["rows"]:
+            tail = (f"statutory quarterly publication, part {result['part']} = "
+                    + ("court-determined penalties (fine + sentence + charges)"
+                       if result["kind"] == "court_penalties" else
+                       "Revenue settlements (Total = the settlement, Unpaid = still outstanding)"))
+            reason = (f"Irish Revenue defaulters {result['quarter']} part {result['part']}: "
+                      f"{result['count']} rows — {tail}; "
+                      f"quarters on the index: {', '.join(result['available_quarters'])}")
+        else:
+            reason = (f"Irish Revenue defaulters {result['quarter']} part {result['part']} is empty "
+                      "(a quarter with no entries above the disclosure threshold — a legitimate answer)")
+        if result["kind"] == "court_penalties":
+            evidence = [{"quote": f"{x['name'] or '—'} ({x['occupation'] or '—'}) "
+                                  + (f"· fine €{x['fine_amount']:,}" if x["fine_amount"] is not None else "· fine —")
+                                  + (f", {x['sentence_imposed']}" if x["sentence_imposed"] else ""),
+                         "url": "https://www.revenue.ie/en/corporate/press-office/list-of-defaulters/index.aspx"}
+                        for x in result["rows"][:5]]
+        else:
+            evidence = [{"quote": f"{x['name'] or '—'} ({x['occupation'] or '—'}, {x['county'] or '—'}) "
+                                 + (f"· Total €{x['total']:,}" if x["total"] is not None else "· Total —")
+                                 + (f", unpaid €{x['unpaid']:,}" if x["unpaid"] else ""),
+                         "url": "https://www.revenue.ie/en/corporate/press-office/list-of-defaulters/index.aspx"}
+                        for x in result["rows"][:5]]
+        return self._flat_env(
+            tool="ie_revenue_defaulters",
+            input={"part": result["part"], "year": year, "month": month,
+                   "quarter": result["quarter"]},
+            reason=reason,
+            result=result,
+            evidence=evidence,
+            provider_id="ie_revenue", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def in_sebi_orders(self, category="member_orders", *, search=None, from_date=None,
+                       to_date=None, page=1, execution=None, no_cache=None):
+        """legal in_sebi_orders: SEBI enforcement orders (sebi.gov.in/sebiweb AJAX fragment;
+        the legal domain's first IN face). 11 order categories verbatim (--category; default
+        = Chairperson/Members, 6,433 orders; AO holds 12,020). search is the site's own entity
+        filter ("Adani" → 17); fromDate/toDate are DD-MM-YYYY (the upstream form's own
+        format). One stateless POST per page (next=n + zero-based doDirect — the channel the
+        site's own pager uses); a page past the last answers the CLEAN empty page
+        ("No record(s) available.", nextDel=0) — no snap-back. Rows: date verbatim
+        ("Nov 03, 2026") + title + the order PDF url."""
+        self._lg_only("in_sebi_orders")
+        r = legal.in_sebi.orders_raw(category, search=search, from_date=from_date,
+                                     to_date=to_date, page=page,
+                                     cache=self._c._cache,
+                                     no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        top = (rows or [None])[0]
+        total_s = f"{r['total']:,}" if isinstance(r["total"], int) else "—"
+        if rows:
+            reason = (f"SEBI orders ({r['category_name']}): {total_s} orders"
+                      + (f" matching \"{r['params']['search']}\"" if r["params"]["search"] else "")
+                      + (f", {r['params']['fromDate']}..{r['params']['toDate']}"
+                         if r["params"]["fromDate"] or r["params"]["toDate"] else "")
+                      + f", page {r['page']}/{r['pages'] or '—'}"
+                      + (", more pages" if r["has_more"] else "")
+                      + f", top {top['date']} — {top['title'][:70]}")
+        elif r["pages"] is not None and r["page"] > r["pages"]:
+            reason = (f"SEBI orders ({r['category_name']}): the clean empty page — page {r['page']} "
+                      f"is past the last ({r['pages']}); the fragment answers "
+                      "\"No record(s) available.\" (nextDel=0), no snap-back")
+        else:
+            reason = (f"SEBI orders ({r['category_name']}): zero hits"
+                      + (f" for \"{r['params']['search']}\"" if r["params"]["search"] else "")
+                      + " — a legitimate answer (the filter is the site's own)")
+        return self._flat_env(
+            tool="in_sebi_orders",
+            input={"category": r["category"], "search": search, "from_date": from_date,
+                   "to_date": to_date, "page": r["page"]},
+            reason=reason,
+            result={k: x for k, x in r.items() if k != "_meta"},
+            evidence=[{"quote": f"{x['date']} · {x['title']}", "url": x["url"]}
+                      for x in rows[:5]],
+            provider_id="in_sebi", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def us_occ_enforcements(self, year=None, *, month=None, all_year=False,
+                            execution=None, no_cache=None):
+        """legal us_occ_enforcements: US OCC monthly bank-enforcement releases (occ.gov, keyless;
+        the by-year news-release listing → the "Enforcement Actions" releases → the body). TWO
+        body schemas under one face, `form` says which — sentences (2024+): one row per bank
+        action (cmp_amount scaled from the "$750 million" wording; docket No. AA-ENF-YYYY-NN is
+        the EASearch join key) plus IAP = institution-affiliated-party prohibition rows (names
+        are statutory public disclosures — the co_sic precedent); tables (≤2020): per-section
+        order rows (No./Name-Bank-City/State/Date). Default = the latest release of the year;
+        --month picks by month name (2026-era titles carry it, earlier listings' dates do)."""
+        self._lg_only("us_occ_enforcements")
+        r = legal.occ.enforcements_raw(year, month=month, all_year=all_year,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        sel = [s["nr"] for s in result["selected"]]
+        rel_url = {s["nr"]: "https://www.occ.gov" + s["path"] for s in result["selected"]}
+        if result["rows"]:
+            reason = (f"OCC {result['year']} enforcement actions: {result['count']} rows from "
+                      f"{len(sel)} release(s) ({', '.join(sel)}), form={result['form']} — docket "
+                      f"No. AA-ENF-* is the official key (joins the EASearch database, 1989+, out "
+                      f"of SDK scope); cmp_amount is scaled from the \"$750 million\" wording; "
+                      f"IAP = institution-affiliated party (individual prohibition orders — names "
+                      f"published by statute, the co_sic precedent)")
+        else:
+            reason = (f"OCC {result['year']} enforcement actions: {len(sel)} release(s) "
+                      f"({', '.join(sel)}) parsed to the {result['form']} shape but carried zero "
+                      "action rows — a legitimate answer only if the release genuinely holds none; "
+                      "check upstream before trusting it")
+        return self._flat_env(
+            tool="us_occ_enforcements",
+            input={"year": result["year"], "month": month, "all_year": bool(all_year),
+                   "releases": sel, "form": result["form"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": ((x.get("name") or x.get("who") or "—")
+                                 + (f" ({x['city']}, {x['state']})"
+                                    if x.get("city") or x.get("state") else "")
+                                 + (f" · CMP ${x['cmp_amount']:,}" if x.get("cmp_amount") else "")
+                                 + (f" · {x['role']}" if x.get("role") else "")
+                                 + (f" · dockets {'/'.join(x['dockets'])}" if x.get("dockets") else "")
+                                 + (f" · {x['order_type']} {x['date']}" if x.get("order_type") else "")
+                                 + f" · {x['release_nr']}"),
+                       "url": rel_url.get(x.get("release_nr"),
+                                          "https://www.occ.gov/news-events/newsroom/news-issuances-by-year/news-releases.html")}
+                      for x in result["rows"][:5]],
+            provider_id="occ", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # —— 0.3.31 CFPB consumer-complaint faces (dictionary slot: cfpb between ca_sema and co_sic) ——
+    def cfpb_complaints(self, search_term=None, *, field=None, company=None, product=None,
+                        issue=None, state=None, zip_code=None, submitted_via=None, timely=None,
+                        company_response=None, company_public_response=None, tags=None,
+                        date_received_min=None, date_received_max=None,
+                        company_received_min=None, company_received_max=None,
+                        frm=None, size=10, sort=None, search_after=None, aggregations=False,
+                        execution=None, no_cache=None):
+        """legal cfpb_complaints: US CFPB consumer complaints (consumerfinance.gov; keyless, CC0).
+
+        The complaint search (the corpus: ~18.9M complaints, re-indexed daily). Two company channels
+        with different semantics: `search_term` is the FUZZY one (with field=company it matches
+        company names loosely), while the `company` filter is EXACT and case-sensitive — the
+        corpus' own spelling ("TRANSUNION INTERMEDIATE HOLDINGS, INC."), not the brand; resolve a
+        brand with cfpb_suggest_company first. The row is the 15 official complaint fields."""
+        self._lg_only("cfpb_complaints")
+        r = legal.cfpb.complaints_raw(search_term, field=field, company=company, product=product,
+                                       issue=issue, state=state, zip_code=zip_code,
+                                       submitted_via=submitted_via, timely=timely,
+                                       company_response=company_response,
+                                       company_public_response=company_public_response, tags=tags,
+                                       date_received_min=date_received_min,
+                                       date_received_max=date_received_max,
+                                       company_received_min=company_received_min,
+                                       company_received_max=company_received_max,
+                                       frm=frm, size=size, sort=sort, search_after=search_after,
+                                       aggregations=aggregations,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        url = ("https://www.consumerfinance.gov/data-research/consumer-complaints/"
+               "search/api/v1/?" + urllib.parse.urlencode(result["params"], doseq=True))
+        corpus = result["total_record_count"]
+        corpus_s = f"{corpus:,}" if isinstance(corpus, int) else "?"
+        if result["rows"]:
+            reason = (f"CFPB consumer complaint database: {result['total']:,} complaints match, "
+                      f"{result['count']} rows returned (corpus {corpus_s}, "
+                      f"last updated {result['last_updated']}"
+                      + (f", relation={result['relation']}" if result["relation"] else "") + ") — "
+                      "the company filter is exact and case-sensitive (the corpus' own spelling, "
+                      "not the brand: resolve one with cfpb_suggest_company); search_term is the "
+                      "fuzzy channel, field=company narrows it to the company field")
+        else:
+            reason = (f"CFPB consumer complaint database: {result['total']:,} complaints match, zero "
+                      "rows returned — if you filtered by company, remember the filter is EXACT "
+                      "and case-sensitive (a brand name is not the corpus key: resolve one with "
+                      "cfpb_suggest_company)")
+        return self._flat_env(
+            tool="cfpb_complaints",
+            input={"search_term": search_term, "field": field, "company": company,
+                   "product": product, "issue": issue, "state": state, "zip_code": zip_code,
+                   "submitted_via": submitted_via, "timely": timely,
+                   "company_response": company_response,
+                   "company_public_response": company_public_response, "tags": tags,
+                   "date_received_min": date_received_min, "date_received_max": date_received_max,
+                   "company_received_min": company_received_min,
+                   "company_received_max": company_received_max,
+                   "frm": result["frm"], "size": result["size"], "sort": sort,
+                   "search_after": search_after, "aggregations": bool(aggregations)},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": (f"{x.get('company') or '—'} · {x.get('product') or '—'}"
+                                 + (f" / {x.get('sub_product')}" if x.get("sub_product") else "")
+                                 + f" · {x.get('issue') or '—'} · received {x.get('date_received') or '—'}"
+                                 + (f" · {x.get('state')}" if x.get("state") else "")
+                                 + (f" · {x.get('company_response')}" if x.get("company_response") else "")),
+                       "url": url}
+                      for x in result["rows"][:5]],
+            provider_id="cfpb", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def cfpb_suggest_company(self, text=None, *, size=10, execution=None, no_cache=None):
+        """legal cfpb_suggest_company: the CFPB company typeahead (consumerfinance.gov; keyless).
+
+        Resolves a company name to the corpus' own spelling — the key the complaints face's
+        `company=` filter (exact, case-sensitive) needs. The upstream returns a bare array of
+        company strings."""
+        self._lg_only("cfpb_suggest_company")
+        r = legal.cfpb.suggest_company_raw(text, size=size, cache=self._c._cache,
+                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        url = ("https://www.consumerfinance.gov/data-research/consumer-complaints/"
+               "search/api/v1/_suggest_company/?" + urllib.parse.urlencode(result["params"]))
+        if result["suggestions"]:
+            reason = (f"CFPB company typeahead: {result['count']} company strings match "
+                      f"'{result['text']}' — these are the corpus' own spellings; pass one to "
+                      "cfpb_complaints --company (that filter is exact and case-sensitive, so the "
+                      "brand name itself will not match)")
+        else:
+            reason = (f"CFPB company typeahead: no company string matches '{result['text']}' — "
+                      "the typeahead only knows companies that appear in the complaint corpus")
+        return self._flat_env(
+            tool="cfpb_suggest_company",
+            input={"text": result["text"], "size": result["params"].get("size")},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": s, "url": url} for s in result["suggestions"][:5]],
+            provider_id="cfpb", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # —— 0.3.36 TR SPK enforcement faces (dictionary slot: tr_spk between sipri and us_occ) ——
+
+    def tr_spk_fines(self, name=None, *, year=None, limit=20, execution=None, no_cache=None):
+        """legal tr_spk_fines: SPK administrative fines (ws.spk.gov.tr; the legal domain's first
+        TR face). The WHOLE register ships in ONE keyless GET — 2,281 rows 2016→, cached 24h
+        and scanned locally (upstream publishes no query surface; the POST filter body is
+        silently ignored). Rows are the 14 upstream columns verbatim; 1,281 of 2,281 subjects
+        are INDIVIDUALS (mkkSicilNo masked); davaBilgisi Var = a lawsuit stage rides
+        yargilamaAsamasi; tutar = the fine in TL. name = contains over unvan; year = the
+        Board-decision year."""
+        self._lg_only("tr_spk_fines")
+        nm = str(name or "").strip() or None
+        r = legal.tr_spk.fines_raw(nm, year=year, limit=limit,
+                                   cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        cen = result["census"]
+        if result["rows"]:
+            reason = (f"SPK administrative fines: {result['total_matched']} of {result['scanned_rows']:,} rows matched"
+                      + (f" (name contains \"{nm}\")" if nm else "")
+                      + (f", karar year {year}" if year else "")
+                      + f" — {cen['persons']:,} of {result['scanned_rows']:,} subjects are individuals (mkkSicilNo arrives masked),"
+                      + f" karar years {cen['year_min']}→{cen['year_max']}, dava Var {cen['dava_var']:,};"
+                      + " tutar is the fine in TL; teblig cites the communiqué clause (yasa/madde are near-always null);"
+                      + " zero hits = no SPK fine on record")
+        else:
+            reason = (f"SPK administrative fines: zero hits on the {result['scanned_rows']:,}-row register"
+                      + (f" (name contains \"{nm}\")" if nm else "")
+                      + (f", karar year {year}" if year else "")
+                      + " — a legitimate answer = clean screening (drop filters to enumerate from the head)")
+        return self._flat_env(
+            tool="tr_spk_fines",
+            input={"name": nm, "year": year, "limit": result["limit_applied"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x['unvan'] or '—'} · karar {x['kurulKararNo']} "
+                               f"{(x['kurulKararTarihi'] or '')[:10]} · ₺{x['tutar']:,.2f}"
+                               + (f" · {str(x['teblig'] or '')[:60]}" if x["teblig"] else ""),
+                       "url": "https://idariyaptirimlar.spk.gov.tr/idariparacezalari"}
+                      for x in result["rows"][:5]],
+            provider_id="tr_spk", metas=[r["_meta"]],
+        )
+
+    def tr_spk_bans(self, name=None, *, type=None, limit=20, execution=None, no_cache=None):
+        """legal tr_spk_bans: SPK capital-market trading bans (ws.spk.gov.tr IslemYasaklari).
+        Both walls in one call — persons (295, mkkSicilNo masked) + companies (3, mersisNo the
+        16-digit MERSIS key), each company auto-enriched with its ban edges (pay = the banned
+        equity's issuer, payKodu = the BIST ticker, karar no/date — the substance of the ban).
+        name = contains over person name / company name / the banned issuer (screening the
+        issuer hits the banned party); type = person|company. The person-detail endpoint's key
+        is the UNMASKED MKK number, which the public list masks — not shippable, so person rows
+        stay two-column."""
+        self._lg_only("tr_spk_bans")
+        nm = str(name or "").strip() or None
+        r = legal.tr_spk.bans_raw(nm, type=type, limit=limit,
+                                  cache=self._c._cache,
+                                  no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k not in ("_meta", "_metas")}
+        metas = r.get("_metas") or [r["_meta"]]
+        sc = result["scanned"]
+        if result["rows"]:
+            reason = (f"SPK trading bans: {result['total_matched']} of {sc['persons'] + sc['companies']} rows matched"
+                      + f" ({sc['persons']} persons + {sc['companies']} companies on the walls"
+                      + (f", type {type}" if type else "") + ")"
+                      + (f", name contains \"{nm}\"" if nm else "")
+                      + " — company rows carry bans = one edge per banned equity (pay the issuer, payKodu the BIST"
+                        " ticker); person rows stay two-column (the unmasked MKK key the detail endpoint needs is"
+                        " not public); zero hits = no SPK ban on record")
+        else:
+            reason = (f"SPK trading bans: zero hits on the {sc['persons']}-person + {sc['companies']}-company walls"
+                      + (f" (name contains \"{nm}\"" if nm else "")
+                      + (f"{', ' if nm else '('}type {type}" if type else "")
+                      + ") — a legitimate answer = clean screening (drop filters to enumerate both walls)")
+        ev = []
+        for x in result["rows"][:5]:
+            if x["kind"] == "person":
+                ev.append({"quote": f"{x['isimSoyisim'] or '—'} · mkk {x['mkkSicilNo'] or '—'} (masked)",
+                           "url": "https://idariyaptirimlar.spk.gov.tr/islemyasaklari"})
+            else:
+                edges = "; ".join(f"{b.get('payKodu') or '?'} ({(b.get('pay') or '')[:40]}) karar "
+                                  f"{b.get('kurulKararNo')} {(b.get('kurulKararTarihi') or '')[:10]}"
+                                  for b in (x.get("bans") or []))
+                ev.append({"quote": f"{x['unvani'] or '—'} · MERSIS {x['mersisNo']}"
+                                   + (f" · banned: {edges}" if edges else " · no ban edges resolved"),
+                           "url": "https://idariyaptirimlar.spk.gov.tr/islemyasaklari"})
+        return self._flat_env(
+            tool="tr_spk_bans",
+            input={"name": nm, "type": type, "limit": result["limit_applied"]},
+            reason=reason,
+            result=result,
+            evidence=ev,
+            provider_id="tr_spk", metas=metas,
+        )

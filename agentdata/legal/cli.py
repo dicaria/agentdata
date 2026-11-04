@@ -5,6 +5,8 @@ passed in as a parameter to avoid a cli <-> domain-cli cycle); FLAT = flat dispa
 """
 import argparse
 
+from . import in_sebi  # the 11-category choice list rides the provider's verbatim map
+
 def register(v, g):
     # Flat commands (2026-10-23 ruling: verb layer abolished across all domains, <domain> <source>_<dataset> direct; new capabilities are born flat)
     # —— 0.3.21 debarment-roster line (afdb/ca_sema/idb/wb, dictionary slots: afdb first, ca_sema second) ——
@@ -30,6 +32,48 @@ def register(v, g):
     fb.add_argument("--name", default=None, help="Designated name (substring, case-insensitive, over name + aliases)")
     fb.add_argument("--country", default=None, help="Country, substring over the bilingual cell (Syria and Syrie both hit)")
     fb.add_argument("--limit", type=int, default=20, help="Rows to return (default 20, ≤100 local payload wall; total_matched echoes the full count)")
+
+    # —— 0.3.31 CFPB consumer-complaint faces (dictionary slot: cfpb between ca_sema and co_sic) ——
+    f_cfpb = v.add_parser("cfpb_complaints", parents=[g()],
+                          help="US CFPB consumer complaints search (consumerfinance.gov CCDB, ~18.9M complaints)",
+                          description="US CFPB consumer-complaint database search (keyless, CC0; the corpus is "
+                                      "re-indexed daily). TWO company channels with different semantics: "
+                                      "--search-term is the FUZZY one (with --field company it matches company "
+                                      "names loosely), while --company is EXACT and case-sensitive — the corpus' "
+                                      "own spelling ('TRANSUNION INTERMEDIATE HOLDINGS, INC.'), not the brand; "
+                                      "resolve a brand with cfpb_suggest_company first. Array filters are "
+                                      "repeatable (--state TX --state CA). --aggregations opts into the upstream "
+                                      "aggregation block (a corpus-wide value census, ~380KB/~20s upstream)")
+    f_cfpb.add_argument("--search-term", default=None, help="Full-text term (upstream param: search_term; fuzzy)")
+    f_cfpb.add_argument("--field", default=None, choices=["company", "all"], help="Field the search term hits (upstream param: field; only with --search-term)")
+    f_cfpb.add_argument("--company", action="append", default=None, help="Company, EXACT + case-sensitive (upstream param: company; repeatable; the corpus' own spelling)")
+    f_cfpb.add_argument("--product", action="append", default=None, help="Product (upstream param: product; repeatable; free text)")
+    f_cfpb.add_argument("--issue", action="append", default=None, help="Issue (upstream param: issue; repeatable; free text)")
+    f_cfpb.add_argument("--state", action="append", default=None, help="State code, e.g. TX (upstream param: state; repeatable; uppercased locally)")
+    f_cfpb.add_argument("--zip-code", action="append", default=None, help="ZIP code (upstream param: zip_code; repeatable)")
+    f_cfpb.add_argument("--submitted-via", action="append", default=None, help="Submission channel: Web/Referral/Phone/Postal mail/Fax/Email (upstream param: submitted_via; repeatable)")
+    f_cfpb.add_argument("--timely", action="append", default=None, help="Timely response: Yes/No (upstream param: timely; repeatable)")
+    f_cfpb.add_argument("--company-response", action="append", default=None, help="Company response (upstream param: company_response; repeatable)")
+    f_cfpb.add_argument("--company-public-response", action="append", default=None, help="Company public response (upstream param: company_public_response; repeatable)")
+    f_cfpb.add_argument("--tags", action="append", default=None, help="Tag (upstream param: tags; repeatable)")
+    f_cfpb.add_argument("--date-received-min", default=None, help="Received on/after YYYY-MM-DD (upstream param: date_received_min)")
+    f_cfpb.add_argument("--date-received-max", default=None, help="Received on/before YYYY-MM-DD (upstream param: date_received_max)")
+    f_cfpb.add_argument("--company-received-min", default=None, help="Company received on/after YYYY-MM-DD (upstream param: company_received_min)")
+    f_cfpb.add_argument("--company-received-max", default=None, help="Company received on/before YYYY-MM-DD (upstream param: company_received_max)")
+    f_cfpb.add_argument("--frm", type=int, default=None, help="Row offset (upstream param: frm; 0-100000)")
+    f_cfpb.add_argument("--size", type=int, default=10, help="Page size (upstream param: size; 1-100, default 10)")
+    f_cfpb.add_argument("--sort", default=None, choices=["relevance_desc", "relevance_asc", "created_date_desc", "created_date_asc"], help="Sort (upstream param: sort)")
+    f_cfpb.add_argument("--search-after", default=None, help="Pagination token (upstream param: search_after; '<score>_<id>' from break_points)")
+    f_cfpb.add_argument("--aggregations", action="store_true", help="Ask for the upstream aggregation block (upstream param: no_aggs=false; corpus-wide value census, ~380KB/~20s upstream)")
+
+    f_cfpb_s = v.add_parser("cfpb_suggest_company", parents=[g()],
+                             help="US CFPB company typeahead (consumerfinance.gov — resolves the exact company key)",
+                             description="CFPB company typeahead (keyless): resolves a company name to the corpus' "
+                                         "own spelling — the key the complaints face's --company filter (exact, "
+                                         "case-sensitive) needs. The upstream returns a bare array of company "
+                                         "strings. Empty result = the company is not in the complaint corpus")
+    f_cfpb_s.add_argument("--text", default=None, help="Company name to resolve (upstream param: text; required)")
+    f_cfpb_s.add_argument("--size", type=int, default=10, help="Max suggestions (upstream param: size; 1-100, default 10)")
 
     f0 = v.add_parser("co_sic_sanctions", parents=[g()],
                       help="Colombia SIC firm sanctions (datos.gov.co Socrata 73dx-n59j)",
@@ -153,6 +197,27 @@ def register(v, g):
     f10.add_argument("--start", type=int, default=None, help="Offset (upstream param: start)")
     f10.add_argument("--limit", type=int, default=20, help="Rows (maps to upstream rows; 1-50 hard wall — 51/200 silently yield 50, probed 2026-10-26)")
 
+    # —— 0.3.27 gazette face (dictionary slot: gb_gazette between gb_ec_loans and gb_tna_caselaw; registration order == FLAT order) ——
+    fg = v.add_parser("gb_gazette_notices", parents=[g()],
+                      help="The Gazette notice search (London/Edinburgh/Belfast official record; insolvency preset)",
+                      description="The Gazette search face (keyless, OGL; 3.58M notices digitised from 1992): "
+                                  "event filtering is by notice code — --noticetypes (+-joined upstream; the "
+                                  "noticecode= param is SILENTLY IGNORED, probed 2026-11-03) or --insolvency "
+                                  "(the corporate-insolvency chapter: 2404/2408/2410/2411/2414/2421-2424/2431/"
+                                  "2432/2607/2702). title = the company name on corporate insolvency codes; "
+                                  "placed_by = liquidator/administrator or the edition; geo:Point = the registered "
+                                  "office. At least one filter required — a bare search is the 4,887,099-notice "
+                                  "bulk wall"
+                                  )
+    fg.add_argument("--text", default=None, help="Full-text contains (upstream param: text)")
+    fg.add_argument("--noticetypes", default=None, help="Notice code(s), +- or comma-joined (upstream param: noticetypes; e.g. 2410+2432 — noticecode= is ignored upstream)")
+    fg.add_argument("--insolvency", action="store_true", default=False, help="The corporate-insolvency code chapter preset (union'd with --noticetypes; 2432 liquidator alone = 157,792 live rows)")
+    fg.add_argument("--start-date", dest="start_date", default=None, help="Publish window start YYYY-MM-DD (upstream param: start-publish-date)")
+    fg.add_argument("--end-date", dest="end_date", default=None, help="Publish window end YYYY-MM-DD (upstream param: end-publish-date)")
+    fg.add_argument("--page", type=int, default=1, help="Page (upstream param: results-page)")
+    fg.add_argument("--page-size", dest="page_size", type=int, default=20, help="Rows per page (upstream param: results-page-size; 1-100 hard max, probed 2026-11-03)")
+    fg.add_argument("--sort", default=None, choices=["latest-date", "oldest-date"], help="Sort (upstream param: sort-by; upstream default latest-date)")
+
     # —— 0.3.8 legal caselaw line: TNA Find Case Law two faces (atom search + Akoma Ntoso single record, live-probed 2026-10-29; dictionary-order slots between gb_ec_loans and lda; ISO-prefixed 0.3.13) ——
 
     f11 = v.add_parser("gb_tna_caselaw_judgment", parents=[g()],
@@ -204,6 +269,49 @@ def register(v, g):
     f_idb.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: offset; total echoes the register size)")
     f_idb.add_argument("--sort", default=None, help="Sort, e.g. 'From desc' (upstream param: sort)")
 
+    # —— 0.3.27 IE defaulters face (dictionary slot: ie_revenue between idb and lda; registration order == FLAT order) ——
+    f15 = v.add_parser("ie_revenue_defaulters", parents=[g()],
+                       help="Irish Revenue List of Defaulters (statutory quarterly tax-defaulters publication)",
+                       description="Irish Revenue defaulters register (keyless): the statutory quarterly "
+                                   "publication — TWO row schemas under one list: part 1 = penalties "
+                                   "determined by a court (Issue Type/Fine/Sentence/Charges), part 2 = "
+                                   "Revenue settlements (Name/Address/County/Occupation + Tax/Interest/"
+                                   "Penalties/Total/Unpaid as ints, comma-thousands stripped). One part per "
+                                   "call (--part 1|2); --year + --month select the quarter (march/june/"
+                                   "september/december, give both or neither) and default to the latest on "
+                                   "the index (current year only). Names/addresses are published by statute "
+                                   "— the co_sic precedent; CSV carries a UTF-8 BOM and trailing-space "
+                                   "headers (normalised)")
+    f15.add_argument("--part", type=int, default=1, help="List part, 1 or 2 (1 = court penalties, 2 = Revenue settlements)")
+    f15.add_argument("--year", type=int, default=None, help="Publication year (with --month; default = latest quarter on the index)")
+    f15.add_argument("--month", default=None, choices=["march", "june", "september", "december"], help="Quarter (with --year; give both or neither)")
+
+    # —— 0.3.35 IN SEBI orders face (dictionary slot: in_sebi between ie_revenue and lda; registration order == FLAT order) ——
+    f16 = v.add_parser("in_sebi_orders", parents=[g()],
+                       help="SEBI enforcement orders (11 categories; AJAX fragment channel)",
+                       description="www.sebi.gov.in/sebiweb enforcement orders: the public listing "
+                                   "IGNORES GET paging params — the channel is the stateless AJAX "
+                                   "fragment POST (next=n + zero-based doDirect + the site's full "
+                                   "16-field body; one uniform shape serves search/dates/categories). "
+                                   "11 categories verbatim (default member_orders = Orders of "
+                                   "Chairperson/Members, 6,433; ao_orders holds 12,020); --search is "
+                                   "the site's own entity filter (Adani → 17); --from-date/--to-date "
+                                   "are DD-MM-YYYY (the upstream form's own format); a page past the "
+                                   "last answers the CLEAN empty page ('No record(s) available.', "
+                                   "nextDel=0) — no snap-back. Rows: date verbatim (Nov 03, 2026) + "
+                                   "title + the order PDF url")
+    f16.add_argument("--category", default="member_orders", choices=list(in_sebi.CATEGORIES),
+                     help="Order category, 11 verbatim (the choice list maps slug→smid; default "
+                          "member_orders = Orders of Chairperson/Members)")
+    f16.add_argument("--search", default=None,
+                     help="Entity filter (upstream param: search; the site's own filter — Adani → 17 records; maxlength 200)")
+    f16.add_argument("--from-date", dest="from_date", default=None,
+                     help="Window start (upstream param: fromDate; format DD-MM-YYYY — the form's own)")
+    f16.add_argument("--to-date", dest="to_date", default=None,
+                     help="Window end (upstream param: toDate; format DD-MM-YYYY — the form's own)")
+    f16.add_argument("--page", type=int, default=1,
+                     help="Page, 1-based (upstream param: doDirect = page-1, zero-based; past the last = the clean empty page)")
+
     f13 = v.add_parser("lda_filings", parents=[g()],
                       help="US lobbying filings (LDA; client/registrant dual name face)",
                       description="LDA lobbying-disclosure filings: client_name (lobbied company) / registrant_name (lobbying firm) / filing_year all upstream-verbatim (may combine); page_size hard-clamped 25 — upstream silently returns 25 rows for larger asks (probed 2026-10-26); iterate with --page (true offset pagination)")
@@ -223,6 +331,71 @@ def register(v, g):
     f14.add_argument("--type", default="delivered", choices=["delivered", "orders"], help="Measure (upstream param: type; delivered=trend-indicator, orders=orders placed)")
     f14.add_argument("--page", type=int, default=1, help="Page number (upstream param: pageNo)")
     f14.add_argument("--limit", type=int, default=20, help="Rows (upstream param: pageSize; 1-100 cap, upstream probed 2026-10-20)")
+
+    # —— 0.3.36 TR SPK enforcement faces (dictionary slot: tr_spk between sipri and us_occ; registration order == FLAT order) ——
+    f_tr1 = v.add_parser("tr_spk_bans", parents=[g()],
+                         help="SPK capital-market trading bans (persons + companies with banned-ticker edges)",
+                         description="ws.spk.gov.tr IslemYasaklari: BOTH walls in one call — "
+                                     "persons (295, mkkSicilNo masked '28***449********') + "
+                                     "companies (3, mersisNo the 16-digit MERSIS key), each "
+                                     "company auto-enriched with its ban edges (pay = the banned "
+                                     "equity's issuer, payKodu = the BIST ticker, karar no/date "
+                                     "— the substance of the ban; 3 detail GETs on a cold call, "
+                                     "then 24h cache). Person rows stay two-column: the person-"
+                                     "detail endpoint's key is the UNMASKED MKK number, which "
+                                     "the public list masks (pinned 2026-11-04). --name contains-"
+                                     "matches person name / company name / the banned issuer "
+                                     "(screening the issuer hits the banned party)")
+    f_tr1.add_argument("--name", default=None,
+                       help="Subject name — substring, case-insensitive (over isimSoyisim / unvani / the banned issuer pay)")
+    f_tr1.add_argument("--type", default=None, choices=["person", "company"],
+                       help="Wall filter (person | company; default both)")
+    f_tr1.add_argument("--limit", type=int, default=20,
+                       help="Rows to return (local payload wall 1-100, default 20; total_matched echoes the full count)")
+
+    f_tr2 = v.add_parser("tr_spk_fines", parents=[g()],
+                         help="SPK administrative fines (whole register one-shot: 2,281 rows 2016→, local scan)",
+                         description="ws.spk.gov.tr TumIdariParaCezalari: the WHOLE fine register "
+                                     "ships in ONE keyless GET (1.3MB, 2,281 rows, karar years "
+                                     "2016→2026), cached 24h and scanned locally — upstream "
+                                     "publishes no query surface (the POST filter body {\"yil\":…} "
+                                     "is silently ignored; the by-year GET sibling is redundant). "
+                                     "Rows are the 14 upstream columns verbatim; 1,281 of 2,281 "
+                                     "subjects are INDIVIDUALS (mkkSicilNo arrives masked — names "
+                                     "published in the official register, the co_sic/SEBI PII "
+                                     "posture); davaBilgisi Var 682 rides a yargilamaAsamasi "
+                                     "lawsuit stage; tutar = the fine in TL (9,321 … "
+                                     "362,123,139.86); teblig cites the communiqué clause "
+                                     "(yasa/madde near-always null); aciklama carries embedded "
+                                     "newlines, verbatim")
+    f_tr2.add_argument("--name", default=None,
+                       help="Subject name — substring, case-insensitive (over unvan; company or person)")
+    f_tr2.add_argument("--year", type=int, default=None,
+                       help="Board-decision year, 4 digits (local filter over kurulKararTarihi; 2016-2026 span)")
+    f_tr2.add_argument("--limit", type=int, default=20,
+                       help="Rows to return (local payload wall 1-100, default 20; total_matched echoes the full count)")
+
+    # —— 0.3.28 OCC enforcement face (dictionary slot: us_occ between sipri and wb; registration order == FLAT order) ——
+    f_occ = v.add_parser("us_occ_enforcements", parents=[g()],
+                         help="US OCC bank-enforcement releases (monthly news releases; sentence + table schemas)",
+                         description="OCC (Office of the Comptroller of the Currency) monthly "
+                                     "enforcement-actions news releases (keyless): the by-year "
+                                     "news-release listing picks the Enforcement Actions titles "
+                                     "(~11-12 a year; listings verified 2005-2026); default = the "
+                                     "latest release of the year. TWO body schemas under one face, "
+                                     "`form` says which: sentences (2024+) = one row per action with "
+                                     "cmp_amount scaled from the '$750 million' wording + docket No. "
+                                     "(AA-ENF-YYYY-NN — the official key, joins the EASearch "
+                                     "database 1989+, out of SDK scope) + IAP prohibition rows "
+                                     "(institution-affiliated parties; names are statutory public "
+                                     "disclosures — the co_sic precedent); tables (≤2020) = "
+                                     "per-section order rows (No./Name-Bank-City/State/Date). "
+                                     "--month selects by month name in any era (2026-era titles carry "
+                                     "it, earlier listings' MM/DD/YYYY dates do); --all walks every "
+                                     "release of the year")
+    f_occ.add_argument("--year", type=int, default=None, help="Listing year, 2005-current (default = the current year)")
+    f_occ.add_argument("--month", default=None, help="Release month, full name January..December (default = the latest of the year)")
+    f_occ.add_argument("--all", dest="all_year", action="store_true", help="Walk every enforcement release of the year")
 
     # —— 0.3.21 debarment-roster line cont. (dictionary slot: wb last) ——
     f_wb = v.add_parser("wb_debarred_firms", parents=[g()],
@@ -245,6 +418,20 @@ FLAT = {
     # 0.3.21 debarment-roster line: afdb/ca_sema head slots, idb/wb tail slots (dictionary order)
     "afdb_debarred_entities": lambda a: {"name": a.name, "type": a.type, "basis": a.basis, "limit": a.limit},
     "ca_sema_sanctions": lambda a: {"name": a.name, "country": a.country, "limit": a.limit},
+    # 0.3.31 CFPB consumer-complaint faces (dictionary slot: cfpb between ca_sema and co_sic)
+    "cfpb_complaints": lambda a: {"search_term": a.search_term, "field": a.field,
+                                   "company": a.company, "product": a.product, "issue": a.issue,
+                                   "state": a.state, "zip_code": a.zip_code,
+                                   "submitted_via": a.submitted_via, "timely": a.timely,
+                                   "company_response": a.company_response,
+                                   "company_public_response": a.company_public_response, "tags": a.tags,
+                                   "date_received_min": a.date_received_min,
+                                   "date_received_max": a.date_received_max,
+                                   "company_received_min": a.company_received_min,
+                                   "company_received_max": a.company_received_max,
+                                   "frm": a.frm, "size": a.size, "sort": a.sort,
+                                   "search_after": a.search_after, "aggregations": a.aggregations},
+    "cfpb_suggest_company": lambda a: {"text": a.text, "size": a.size},
     "co_sic_sanctions": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset, "order": a.order},
     "courtlistener_opinions_search": lambda a: {"q": a.q, "case_name": a.case_name,
                                                 "court": a.court, "judge": a.judge,
@@ -267,6 +454,10 @@ FLAT = {
     "gb_ec_donations": lambda a: {"query": a.query, "from_": a.from_, "to": a.to,
                                   "limit": a.limit, "start": a.start},
     "gb_ec_loans": lambda a: {"query": a.query, "limit": a.limit, "start": a.start},
+    # 0.3.27 gazette face (dictionary slot: gb_gazette between gb_ec_loans and gb_tna_caselaw)
+    "gb_gazette_notices": lambda a: {"text": a.text, "noticetypes": a.noticetypes, "insolvency": a.insolvency,
+                                     "start_date": a.start_date, "end_date": a.end_date,
+                                     "page": a.page, "page_size": a.page_size, "sort": a.sort},
     # 0.3.8 TNA caselaw two faces (eight upstream-verbatim params; court/tribunal append into lists for explode)
     "gb_tna_caselaw_judgment": lambda a: {"document_uri": a.document_uri},
     "gb_tna_caselaw_search": lambda a: {"query": a.query, "court": a.court, "tribunal": a.tribunal,
@@ -275,12 +466,22 @@ FLAT = {
                                      "minimum_availability": a.minimum_availability},
     "idb_debarred_entities": lambda a: {"q": a.q, "filters": a.filters, "limit": a.limit,
                                         "offset": a.offset, "sort": a.sort},
+    # 0.3.27 IE defaulters face (dictionary slot: ie_revenue between idb and lda)
+    "ie_revenue_defaulters": lambda a: {"part": a.part, "year": a.year, "month": a.month},
+    # 0.3.35 IN SEBI orders face (dictionary slot: in_sebi between ie_revenue and lda)
+    "in_sebi_orders": lambda a: {"category": a.category, "search": a.search,
+                                 "from_date": a.from_date, "to_date": a.to_date, "page": a.page},
     "lda_filings": lambda a: {"client_name": a.client_name, "registrant_name": a.registrant_name,
                               "filing_year": a.filing_year, "limit": a.limit, "page": a.page,
                               "ordering": a.ordering},
     "sipri_trades_search": lambda a: {"filters": a.filters, "supplier": a.supplier,
                                    "recipient": a.recipient, "type": a.type,
                                    "page": a.page, "limit": a.limit},
+    # 0.3.36 TR SPK enforcement faces (dictionary slot: tr_spk between sipri and us_occ)
+    "tr_spk_bans": lambda a: {"name": a.name, "type": a.type, "limit": a.limit},
+    "tr_spk_fines": lambda a: {"name": a.name, "year": a.year, "limit": a.limit},
+    # 0.3.28 OCC enforcement face (dictionary slot: us_occ between sipri and wb)
+    "us_occ_enforcements": lambda a: {"year": a.year, "month": a.month, "all_year": a.all_year},
     "wb_debarred_firms": lambda a: {"name": a.name, "country": a.country, "type": a.type, "limit": a.limit},
 }
 
@@ -292,6 +493,8 @@ COUNTRY = {
     # 0.3.21: MDB debarment rosters = GLOBAL (cross-national registers, wb_procnotices precedent); CA SEMA = CA
     "afdb_debarred_entities": "GLOBAL",
     "ca_sema_sanctions": "CA",
+    "cfpb_complaints": "US",
+    "cfpb_suggest_company": "US",
     "co_sic_sanctions": "CO",
     "courtlistener_opinions_search": "US",
     "csl_screening_list": "US",
@@ -303,10 +506,16 @@ COUNTRY = {
     "gb_cma_cases": "GB",
     "gb_ec_donations": "GB",
     "gb_ec_loans": "GB",
+    "gb_gazette_notices": "GB",
     "gb_tna_caselaw_judgment": "GB",
     "gb_tna_caselaw_search": "GB",
     "idb_debarred_entities": "GLOBAL",
+    "ie_revenue_defaulters": "IE",
+    "in_sebi_orders": "IN",
     "lda_filings": "US",
     "sipri_trades_search": "GLOBAL",
+    "tr_spk_bans": "TR",
+    "tr_spk_fines": "TR",
+    "us_occ_enforcements": "US",
     "wb_debarred_firms": "GLOBAL",
 }

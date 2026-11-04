@@ -160,7 +160,7 @@ def trade_raw(reporter, *, period=None, partner=None, cmd=None, flow=None, type_
     par = _resolve_area(partner if partner not in (None, "") else "W00",
                          "--partner (the partner area; '0' = the World aggregate)",
                          cache=cache, no_cache=no_cache)
-    mr = int(max_records or 500)
+    mr = int(max_records) if max_records is not None else 500   # `or` would swallow 0 into the default
     if not 1 <= mr <= _PREVIEW_CAP:
         raise SdkError("usage_error", provider="un_comtrade",
                        detail=f"maxRecords must be 1-{_PREVIEW_CAP} (the public preview cap)")

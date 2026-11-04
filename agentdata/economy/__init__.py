@@ -6,5 +6,5 @@ company: these faces emit no company fact and occupy no rec_type; they exist so 
 domains can normalise against real numbers (TAM denominators, amount conversion, income-band
 buyer screens).
 """
-from . import (bis, ecb, eurostat, fred, ilo_stat, imf_sdmx,  # noqa: F401
-               un_comtrade, unsd_sdg, wb, who_xmart)
+from . import (bis, bls, comext, ecb, eurostat, fred, ilo_stat, imf_sdmx,  # noqa: F401
+               oecd_sdmx, un_comtrade, unsd_sdg, wb, who_xmart)

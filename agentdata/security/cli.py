@@ -13,17 +13,28 @@ def register(v, g):
                     help="Only entries with known ransomware campaign use (local filter)")
     f1.add_argument("--limit", type=int, default=50, help="Rows to return (default 50; full catalog ~1,756 rows — page instead of dumping)")
 
-    f2 = v.add_parser("osv_vulns", parents=[g()],
+    f2 = v.add_parser("euvd_exploited", parents=[g()],
+                      description="ENISA EU KEV rolling window — vulnerabilities currently exploited in the wild per EU tracking (realtime, local execution; the window refreshes continuously; the 399,311-row full EUVD↔CVE mapping is a raw-side 12MB dump, not this face; --limit is a local slice)")
+    f2.add_argument("--limit", type=int, default=50, help="Rows to return (default 50; the rolling window is small but grows)")
+
+    f3 = v.add_parser("euvd_vulnerability", parents=[g()],
+                      description="ENISA EUVD single-vulnerability full record by CVE or EUVD code (realtime, local execution; richer than the NVD public face — CVSS vector+version, EPSS inline, exploitedSince, CVE+GHSA aliases, vendor×product×version ranges, EU member-state CSAF advisories; dates are Java-format upstream and ISO-normalized locally; unknown id = 404 carried as not-found)")
+    f3.add_argument("--id", required=True,
+                    help="CVE or EUVD code (e.g. CVE-2024-3400 or EUVD-2024-31989)")
+
+    f4 = v.add_parser("osv_vulns", parents=[g()],
                       description="Open-source package vulnerability query (realtime, local execution; OSV /v1/query POST; ecosystem is a closed set validated locally because upstream silently returns empty for unknown values; version omitted = all known vulns for the package)")
-    f2.add_argument("--package", required=True, help="Package name (e.g. lodash)")
-    f2.add_argument("--ecosystem", required=True,
+    f4.add_argument("--package", required=True, help="Package name (e.g. lodash)")
+    f4.add_argument("--ecosystem", required=True,
                     help="OSV ecosystem (npm/PyPI/Go/Maven/crates.io/RubyGems/NuGet/Packagist/Debian/Alpine/Linux/OSS-Fuzz/Hex/Pub/Conda/Android/GitHub Actions)")
-    f2.add_argument("--version", default=None, help="Package version (omit = all known vulns)")
-    f2.add_argument("--page-token", dest="page_token", default=None,
+    f4.add_argument("--version", default=None, help="Package version (omit = all known vulns)")
+    f4.add_argument("--page-token", dest="page_token", default=None,
                     help="Continuation token from a prior response's result.next_page_token (upstream paginates at >1000 vulns or >20s)")
 
 FLAT = {
     "cisa_kev_catalog": lambda a: {"cve": a.cve, "ransomware": a.ransomware, "limit": a.limit},
+    "euvd_exploited": lambda a: {"limit": a.limit},
+    "euvd_vulnerability": lambda a: {"id": a.id},
     "osv_vulns": lambda a: {"package": a.package, "ecosystem": a.ecosystem,
                             "version": a.version, "page_token": a.page_token},
 }
@@ -33,5 +44,7 @@ FLAT = {
 # institutions covering global phenomena = GLOBAL; vocabulary = ISO-3166 alpha-2 + EU + GLOBAL) — the root cli.py merges this into _JURISDICTION; the success envelope carries a jurisdiction chapter
 COUNTRY = {
     "cisa_kev_catalog": "US",
+    "euvd_exploited": "EU",
+    "euvd_vulnerability": "EU",
     "osv_vulns": "GLOBAL",
 }

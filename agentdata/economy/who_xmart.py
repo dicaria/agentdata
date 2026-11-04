@@ -91,7 +91,7 @@ def indicator_directory_raw(*, filter=None, top=500, skip=0, search=None,
     from ..transport import call_provider  # noqa: F401  (kept for symmetry with the other ops)
 
     f = str(filter).strip() if filter else None
-    tp = int(top or 500)
+    tp = int(top) if top is not None else 500   # `or` would swallow 0 into the default
     sk = int(skip or 0)
     if tp < 1 or tp > 5000:
         raise SdkError("usage_error", provider="who_xmart", detail="$top must be 1-5000")
@@ -124,7 +124,7 @@ def indicator_values_raw(entity_set, *, filter=None, top=500, skip=0,
         raise SdkError("usage_error", provider="who_xmart",
                        detail="who_xmart_values needs the entity set (IND_URI_API's last path "
                               "segment, e.g. RELAY_TBPPM) — resolve it with who_xmart_indicators")
-    tp = int(top or 500)
+    tp = int(top) if top is not None else 500   # same: 0 is rejected, not defaulted
     sk = int(skip or 0)
     if tp < 1 or tp > 5000:
         raise SdkError("usage_error", provider="who_xmart", detail="$top must be 1-5000")

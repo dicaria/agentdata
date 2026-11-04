@@ -103,7 +103,7 @@ def wdi_values_raw(country, indicator, *, date=None, per_page=100, cache=None, n
         raise SdkError("usage_error", provider="wb",
                        detail="The World Bank API rejects several indicator codes in one call "
                               "(upstream \"120 Invalid value\") — pass one --indicator per call")
-    pp = int(per_page or 100)
+    pp = int(per_page) if per_page is not None else 100   # `or` would swallow 0 into the default (the silent-clamp family)
     if not 1 <= pp <= _PER_PAGE_CAP:
         raise SdkError("usage_error", provider="wb", detail=f"per_page must be 1-{_PER_PAGE_CAP}")
     params = {"format": "json", "per_page": pp}
@@ -144,7 +144,7 @@ def wdi_indicators_raw(*, source=2, page=1, per_page=500, search=None,
     from ..transport import call_provider
 
     src = str(source if source is not None else 2).strip() or "2"
-    pp = int(per_page or 500)
+    pp = int(per_page) if per_page is not None else 500   # same: 0 is rejected, not defaulted
     if not 1 <= pp <= _PER_PAGE_CAP:
         raise SdkError("usage_error", provider="wb", detail=f"per_page must be 1-{_PER_PAGE_CAP}")
     pg = int(page or 1)
@@ -193,7 +193,7 @@ def countries_raw(*, page=1, per_page=100, cache=None, no_cache=False):
     (the buyer-screen dimension; income level = the World Bank CLASS grouping)."""
     from ..transport import call_provider
 
-    pp = int(per_page or 100)
+    pp = int(per_page) if per_page is not None else 100   # same: 0 is rejected, not defaulted
     if not 1 <= pp <= _PER_PAGE_CAP:
         raise SdkError("usage_error", provider="wb", detail=f"per_page must be 1-{_PER_PAGE_CAP}")
     pg = int(page or 1)

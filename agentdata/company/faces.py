@@ -743,4 +743,430 @@ class CompanyFaces:
                                                  "dongCode": s["biz_no"][3:5]}},
         )
 
+    def nzco_companies(self, *, q, entity_types=None, start=None, limit=None,
+                       execution=None, no_cache=None):
+        """company nzco_companies: NZ Companies Register search (name substring over the whole
+        register index; the canonical parameter set is required — a bare ?q= answers an empty
+        match). Rows carry the dual official keys (company number + 16-digit NZBN), the register's
+        own status word (Registered / Removed — not "Active"), the entity type and the registered
+        address. Paging uses the pager's own vocabulary: start=<row offset> + limit 5|15 (both
+        observed live; other page sizes unpinned and not shipped); has_next reads the pager
+        offsets. entity_types narrows via the filter form's own checkbox codes (LTD/UNLTD/COOP =
+        NZ companies, ASIC/NON_ASIC = overseas)."""
+        self._co_only("nzco_companies")
+        r = company.nzco.companies_raw(q, entity_types=entity_types, start=start, limit=limit,
+                                       cache=self._c._cache,
+                                       no_cache=no_cache if no_cache is not None else self._c.no_cache)
+        rows = r["rows"]
+        reason = (f"NZ Companies Office: '{r['params']['q']}' → {r['count']} companies"
+                  + (f" (rows {r['start'] + 1}..{r['start'] + r['count']}, {r['limit']}/page,"
+                     + (" more pages)" if r["has_next"] else " last page)") if rows else ")")
+                  + (f", entityTypes={r['entity_types']}" if r["entity_types"] != "ALL" else ""))
+        return self._flat_env(
+            tool="nzco_companies",
+            input={"q": r["params"]["q"], "entity_types": r["entity_types"],
+                   "start": r["start"], "limit": r["limit"]},
+            reason=reason,
+            result={"count": r["count"], "rows": rows, "start": r["start"], "limit": r["limit"],
+                    "entity_types": r["entity_types"], "has_next": r["has_next"]},
+            evidence=[{"quote": f"{x['company_number']} {x['name']} — NZBN {x['nzbn']} ({x['status']})",
+                       "url": "https://app.companiesoffice.govt.nz/companies/app/ui/pages/companies/search"}
+                      for x in rows[:5]],
+            provider_id="nzco", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def nzco_directors(self, *, company_number, execution=None, no_cache=None):
+        """company nzco_directors: NZ company current directors by company number — the page H1
+        confirms the company (name + number + status; a mismatch would refuse to attribute rows)
+        and each director row carries the full legal name, the residential address (statutorily
+        public in NZ, partially masked since the privacy-law change — captured verbatim) and the
+        appointment date in the register's own wording. Ceased/former appointments render in a
+        different section (ceasedDate rows) and stay out of this face."""
+        self._co_only("nzco_directors")
+        r = company.nzco.directors_raw(company_number, cache=self._c._cache,
+                                       no_cache=no_cache if no_cache is not None else self._c.no_cache)
+        rows = r["rows"]
+        reason = (f"NZ Companies Office: {r['company_name'] or '(page H1 unreadable)'} "
+                  f"({r['company_number']}{', ' + r['status'] if r['status'] else ''}) → "
+                  f"{r['count']} current directors — names and residential addresses are the "
+                  f"register's statutory public record")
+        return self._flat_env(
+            tool="nzco_directors", input={"company_number": r["company_number"]},
+            reason=reason,
+            result={"company_name": r["company_name"], "company_number": r["company_number"],
+                    "status": r["status"], "count": r["count"], "rows": rows},
+            evidence=[{"quote": (f"{x['name']} — appointed {x['appointment_date']}"
+                                + (f", {x['address']}" if x["address"] else "")),
+                       "url": ("https://app.companiesoffice.govt.nz/companies/app/ui/pages/"
+                               f"companies/{r['company_number']}/directors")}
+                      for x in rows[:5]],
+            provider_id="nzco", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # ---------- 0.3.32 CZ ARES economic-entities register batch (CZ master + name search) ----------
+
+    def cz_ares_ekonomicke_subjekty(self, *, ico, execution=None, no_cache=None):
+        """company cz_ares_ekonomicke_subjekty: Czech ARES economic-entities register, single record by
+        IČO (GET /ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/{ico}). The IČO is validated against
+        the upstream's own regex [0-9]{8} and a malformed one is refused locally (upstream would answer
+        400 VSTUP_NEVALIDNI_FORMAT_ICO); an unknown but well-formed IČO answers 404 NENALEZENO and is
+        carried as upstream_not_found — a clean round trip, not an error. The record carries the
+        structured address with the full administrative code ladder (kodAdresnihoMista = the RUIÁN
+        address-point code, the address-graph join key), the legal-form code, the VAT key (dic =
+        CZ<ico>), the founding and last-update dates, the CZ-NACE 2008 code list and the 16-register
+        status matrix (seznamRegistraci — every register's own state)."""
+        self._co_only("cz_ares_ekonomicke_subjekty")
+        r = company.cz_ares.detail_raw(ico, cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        reg = r["register_status"]
+        active = sum(1 for v in reg.values() if v == "AKTIVNI")
+        addr = r["address"] or {}
+        reason = (f"CZ ARES: IČO {r['ico']} → {r['name'] or '(no name)'}"
+                  f" (legal form {r['legal_form'] or '—'}, VAT {r['vat'] or '—'}, "
+                  f"primary source {r['primary_source'] or '—'}, founded {r['founded_at'] or '—'}, "
+                  f"updated {r['updated_at'] or '—'})"
+                  f" — {active}/{len(reg)} registers active"
+                  + (f", address point code {addr.get('kodAdresnihoMista')}" if addr.get("kodAdresnihoMista") else "")
+                  + (f", {len(r['nace_2008'])} NACE-2008 codes" if r["nace_2008"] else "")
+                  + "; the 16-register matrix is per-register state, not one company status")
+        return self._flat_env(
+            tool="cz_ares_ekonomicke_subjekty", input={"ico": r["params"]["ico"]},
+            reason=reason,
+            result={k: v for k, v in r.items() if k != "_meta"},
+            evidence=[{"quote": (f"{r['ico']} {r['name'] or '—'} — {r['address_text'] or '—'}"
+                                 f" (form {r['legal_form'] or '—'}, VAT {r['vat'] or '—'})"),
+                       "url": f"https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/{r['ico']}"}],
+            provider_id="cz_ares", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def cz_ares_ekonomicke_subjekty_vyhledat(self, *, obchodni_jmeno, pocet=10, start=0,
+                                             execution=None, no_cache=None):
+        """company cz_ares_ekonomicke_subjekty_vyhledat: Czech ARES name search (POST
+        /ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat — the search endpoint is POST-only).
+        The envelope carries pocetCelkem = the real total. **The upstream folds the record names to ASCII
+        but not the query**: a diacritic in the query is dropped and the match set shifts, so the face
+        folds the query itself and echoes both forms. **The rows do not share one join key**: `ico` is
+        present only for the rows whose primary source carries the trade-register identifier, and an
+        RZP-primary row carries only the ARES surrogate icoId ("ARES_00358750") — which the
+        single-record face's [0-9]{8} validator refuses, so those rows are not joinable from here."""
+        self._co_only("cz_ares_ekonomicke_subjekty_vyhledat")
+        r = company.cz_ares.vyhledat_raw(obchodni_jmeno, pocet=pocet, start=start,
+                                         cache=self._c._cache,
+                                         no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        joined = sum(1 for x in rows if x.get("ico"))
+        reason = (f"CZ ARES name search: {r['query_name_original']!r} → {r['total'] if r['total'] is not None else '—'} "
+                  f"matches (this page {r['count']}, start={r['start']}, pocet={r['pocet']})"
+                  + (f"; query folded to {r['params']['obchodniJmeno']!r} for the upstream's ASCII index" if r["params"]["obchodniJmeno"] != r["query_name_original"] else "")
+                  + (f"; {joined}/{len(rows)} rows carry a joinable ico (the rest are RZP-primary surrogate rows)"
+                     if rows and joined < len(rows) else "")
+                  + " — a 404 by ico is a legal answer, not an error")
+        return self._flat_env(
+            tool="cz_ares_ekonomicke_subjekty_vyhledat",
+            input={"obchodni_jmeno": r["query_name_original"], "pocet": r["pocet"], "start": r["start"]},
+            reason=reason,
+            result={k: v for k, v in r.items() if k != "_meta"},
+            evidence=[{"quote": (f"{x.get('ico') or x.get('ico_id') or '—'} {x.get('name') or '—'} — "
+                                 f"{x.get('address_text') or '—'} (source {x.get('primary_source') or '—'})"),
+                       "url": "https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat"}
+                      for x in rows[:5]],
+            provider_id="cz_ares", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # ---------- 0.3.33 offshore Channel-Islands registers batch (GG GFSC feeds + JE JFSC search) ----------
+
+    def gg_gfsc_regulated_entities(self, name=None, *, licence=None, status=None, surrendered=None,
+                                   ref=None, limit=20, execution=None, no_cache=None):
+        """company gg_gfsc_regulated_entities: Guernsey GFSC regulated-entities register (full-feed
+        local scan). The feed ships its display fields as HTML <a> links — stripped here to
+        ref/name/licence plus the register's own detail path. **One row per licence group**: the
+        same entity appears on 2+ rows when its groups sit in different states (26 such refs;
+        1818 Venture Capital = an Investment Licensee row surrendered=False + a revoked Primary
+        Licensee row surrendered=True) — read entities_matched for the entity count.
+        surrendered is a "0"/"1" string on the wire → bool. Status null (41% of rows) = the
+        register states nothing, not missing data. Refs are not uniformly 7-digit — legacy 5-6-digit
+        refs exist; --ref matches the digit string exactly with no length assumption."""
+        self._co_only("gg_gfsc_regulated_entities")
+        st = str(status).strip().upper() or None if status is not None else None
+        r = company.gg_gfsc.regulated_entities_raw(name, licence=licence, status=st,
+                                                   surrendered=surrendered, ref=ref, limit=limit,
+                                                   cache=self._c._cache,
+                                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        top = (rows or [None])[0]
+        dup_note = (f", {r['total_matched']} rows = {r['entities_matched']} distinct entities"
+                    f" (one row per licence group)" if r["total_matched"] != r["entities_matched"] else "")
+        return self._flat_env(
+            tool="gg_gfsc_regulated_entities",
+            input={"name": name, "licence": licence, "status": st, "surrendered": surrendered,
+                   "ref": ref, "limit": r["limit_applied"]},
+            reason=(f"GG GFSC regulated register: scanned {r['scanned_rows']} feed rows, "
+                    f"{r['total_matched']} matched{dup_note}"
+                    + (f", top hit {top['ref']} {top['name']} ({top['licence'] or '—'})" if top
+                       else " (zero hits is a legal answer)")
+                    + (f", surrendered={'yes' if surrendered else 'no'}" if surrendered is not None else "")),
+            result={k: v for k, v in r.items() if k != "_meta"},
+            evidence=[{"quote": f"{x['ref'] or '—'} {x['name'] or '—'} — {x['licence'] or '—'}"
+                                + (" [surrendered]" if x["surrendered"] else ""),
+                       "url": f"https://www.gfsc.gg{x['detail_path']}" if x["detail_path"]
+                              else "https://www.gfsc.gg/commission/regulated-entities"}
+                      for x in rows[:5]],
+            provider_id="gg_gfsc", metas=[r["_meta"]],
+            query={"source": "raw",
+                   "upstream": {"feed": "/gfsc-company/feed/regulated", "local_scan": r["params"]}},
+        )
+
+    def gg_gfsc_registered_businesses(self, name=None, *, category=None, ref=None, limit=20,
+                                      execution=None, no_cache=None):
+        """company gg_gfsc_registered_businesses: Guernsey GFSC registered (prescribed) businesses
+        (full-feed local scan, 133 rows): Accountant 74 / Estate Agent 22 / Money Service Providers
+        20 / Legal Professional 17 — the Registration of Prescribed Businesses face. 23 refs also
+        appear on the regulated feed (dual-listed entities); same HTML-strip + detail-path rescue
+        as the regulated face."""
+        self._co_only("gg_gfsc_registered_businesses")
+        r = company.gg_gfsc.registered_businesses_raw(name, category=category, ref=ref, limit=limit,
+                                                      cache=self._c._cache,
+                                                      no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="gg_gfsc_registered_businesses",
+            input={"name": name, "category": category, "ref": ref, "limit": r["limit_applied"]},
+            reason=(f"GG GFSC prescribed-business register: scanned {r['scanned_rows']} feed rows, "
+                    f"{r['total_matched']} matched"
+                    + (f", top hit {top['ref']} {top['name']} ({top['category'] or '—'})" if top
+                       else " (zero hits is a legal answer)")),
+            result={k: v for k, v in r.items() if k != "_meta"},
+            evidence=[{"quote": f"{x['ref'] or '—'} {x['name'] or '—'} — {x['category'] or '—'}",
+                       "url": f"https://www.gfsc.gg{x['detail_path']}" if x["detail_path"]
+                              else "https://www.gfsc.gg/commission/registered-entities"}
+                      for x in rows[:5]],
+            provider_id="gg_gfsc", metas=[r["_meta"]],
+            query={"source": "raw",
+                   "upstream": {"feed": "/gfsc-company/feed/registeredbusiness", "local_scan": r["params"]}},
+        )
+
+    def in_sebi_default_brokers(self, execution=None, no_cache=None):
+        """company in_sebi_default_brokers: SEBI defaulters & expelled stock brokers
+        (sebi.gov.in/sebiweb BrokerAction; the negative register, ONE 1.2MB page — no paging,
+        no search). Cards: Name / Trade Name / Registration No. (INB…) / Exchange Name / Status
+        (Defaulter | Expelled | "Defaulter and expelled" — 80/215/150 of 445 pinned
+        2026-11-04). One entity may span multiple cards (one per exchange)."""
+        self._co_only("in_sebi_default_brokers")
+        r = company.in_sebi_intm.default_brokers_raw(
+            cache=self._c._cache,
+            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        top = (rows or [None])[0]
+        statuses = {}
+        for x in rows:
+            if x.get("status"):
+                statuses[x["status"]] = statuses.get(x["status"], 0) + 1
+        stat_s = ", ".join(f"{k} {v}" for k, v in sorted(statuses.items())) or "—"
+        return self._flat_env(
+            tool="in_sebi_default_brokers",
+            input={},
+            reason=(f"SEBI defaulters & expelled brokers register: {r['count']} cards in one page "
+                    f"({stat_s})"
+                    + (f", top {top['name'] or '—'} ({top.get('registration_no') or '—'}, "
+                       f"{top.get('exchange') or '—'})" if top else "")),
+            result={k: v for k, v in r.items() if k != "_meta"},
+            evidence=[{"quote": f"{x['name'] or '—'} ({x.get('registration_no') or '—'}, "
+                                f"{x.get('exchange') or '—'}) — {x.get('status') or '—'}",
+                       "url": "https://www.sebi.gov.in/sebiweb/broker/BrokerAction.do?doBroker=yes"}
+                      for x in rows[:5]],
+            provider_id="in_sebi_intm", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def in_sebi_intermediaries(self, category="sb_equity", *, search=None, regno=None,
+                               execution=None, no_cache=None):
+        """company in_sebi_intermediaries: SEBI registered intermediaries by category
+        (sebi.gov.in/sebiweb; 37 categories verbatim, default = equity-segment stock brokers).
+        **Exactly one of search (substring over names — MOTILAL → 7 cards) or regno (the exact
+        registration-number lookup, INB030484617)** — an empty search over a full category
+        times out server-side (5,011 equity brokers), the wall carries that evidence. Cards
+        are title/value pairs whose FIELD SET VARIES BY CATEGORY (CRA cards carry Contact
+        Person/Correspondence Address and no Exchange; regno formats differ per class —
+        INB…/INZ…/IN/CRA/…); every pair rides, unknown labels verbatim. One entity spans
+        multiple cards (one per exchange — the register's own multi-row shape)."""
+        self._co_only("in_sebi_intermediaries")
+        r = company.in_sebi_intm.intermediaries_raw(category, search=search, regno=regno,
+                                                    cache=self._c._cache,
+                                                    no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        top = (rows or [None])[0]
+        via = (f"name search \"{r['query']}\"" if r["mode"] == "search"
+               else f"regNo exact lookup {r['query']}")
+        if rows:
+            keys = [k for k in (top.get("registration_no"), top.get("exchange")) if k]
+            reason = (f"SEBI intermediaries — {r['category_name']}: {r['count']} cards via {via}, "
+                      f"top {top.get('name') or '—'}"
+                      + (f" ({', '.join(keys)})" if keys else ""))
+        else:
+            reason = (f"SEBI intermediaries — {r['category_name']}: zero cards via {via} "
+                      "— a legitimate answer (the filter is the site's own)")
+        return self._flat_env(
+            tool="in_sebi_intermediaries",
+            input={"category": r["category"], "search": search, "regno": regno},
+            reason=reason,
+            result={k: v for k, v in r.items() if k != "_meta"},
+            evidence=[{"quote": f"{x.get('name') or '—'} ({x.get('registration_no') or '—'}, "
+                                f"{x.get('exchange') or x.get('type') or '—'})",
+                       "url": "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognised=yes"}
+                      for x in rows[:5]],
+            provider_id="in_sebi_intm", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def je_jfsc_regulated_entities(self, *, keyword, page_size=20, page=1,
+                                   execution=None, no_cache=None):
+        """company je_jfsc_regulated_entities: Jersey JFSC regulated-entities register (Umbraco
+        site-search POST). **NoResults is a result count, not a zero flag** — Keyword "Barclays"
+        answers NoResults=1 with one row (Barclays Bank plc, Jersey Branch, five law sections).
+        Rows are site-search rows (Title/Url/Rank); the official licence text rides in
+        Properties[0].LawSection verbatim and is parsed into law/code/ref triplets (the raw text is
+        kept alongside). Refiners are not exposed — the upstream facet values are space-joined
+        lowercase keys, a lossy spelling that would break on any reword (rasff precedent).
+        keyword is required; the empty-keyword POST is the full-register enumeration, unpinned
+        here (harvest-side)."""
+        self._co_only("je_jfsc_regulated_entities")
+        r = company.je_jfsc.regulated_entities_raw(keyword, page_size=page_size, page=page,
+                                                   cache=self._c._cache,
+                                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="je_jfsc_regulated_entities",
+            input={"keyword": r["params"]["Keyword"], "page_size": r["params"]["PageSize"],
+                   "page": r["params"]["PageNumber"]},
+            reason=(f"JE JFSC register: \"{r['params']['Keyword']}\" → {r['total'] if r['total'] is not None else '—'} "
+                    f"hits (page {r['page']}/{r['pages'] or '—'}"
+                    + (", more pages" if r["has_more"] else "") + ")"
+                    + (f", top hit {top['name'] or '—'} (entity {top['entity_id'] or '—'}, "
+                       f"{len(top['law_sections'])} law sections)" if top
+                       else " (zero hits is a legal answer — the total is NoResults=0)")
+                    + " — the row's LawSection carries the official licence refs verbatim"),
+            result={k: v for k, v in r.items() if k != "_meta"},
+            evidence=[{"quote": (f"{x['name'] or '—'} — {x['law_section_text'] or '—'}"),
+                       "url": x["url"] or "https://www.jerseyfsc.org/industry/regulated-entities/"}
+                      for x in rows[:5]],
+            provider_id="je_jfsc", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def kz_gbd_ul_companies(self, *, text=None, page=1, count=20, execution=None, no_cache=None):
+        """company kz_gbd_ul_companies: Kazakhstan GBD_UL legal-entities master register
+        (data.egov.kz getdata; the company master register's 19th jurisdiction, first Central-Asian).
+        Bilingual column pairs verbatim (nameru/namekz, okedru/okedkz, statusru/statuskz,
+        addressru/addresskz); bin is the 12-digit hard key but the pre-BIN-era rows (page 1's
+        1995-1999 registrants) carry bin=null — the register's own statement. datereg is
+        tri-modal (bare date / +06:00 pre-2024 / +05:00 unified KZ) and travels verbatim.
+        getdata sits behind a portal-session cookie gate (bootstrap = the dataset page itself);
+        count is hard-clamped to 20 upstream; column/order sorts are silently ignored (not
+        shipped); a page past the last snaps to the last page — has_more reads the echoed page."""
+        self._co_only("kz_gbd_ul_companies")
+        r = company.kz_gbd_ul.companies_raw(text, page=page, count=count,
+                                            cache=self._c._cache,
+                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        top = (rows or [None])[0]
+        total_s = f"{r['total']:,}" if isinstance(r["total"], int) else "—"
+        return self._flat_env(
+            tool="kz_gbd_ul_companies",
+            input={"text": r["text"], "page": r["params"]["page"], "count": r["params"]["count"]},
+            reason=(f"KZ GBD_UL register: {total_s} entities"
+                    + (f" matching \"{r['text']}\"" if r["text"] else "")
+                    + f", page {r['page'] or '—'}/{r['pages'] or '—'}"
+                    + (", more pages" if r["has_more"] else "")
+                    + (f", top hit bin {top['bin'] or '— (pre-BIN era)'} {top['nameru'] or '—'}" if top
+                       else " (zero hits is a legal answer)")),
+            result={k: v for k, v in r.items() if k != "_meta"},
+            evidence=[{"quote": f"{x['bin'] or '—'} {x['nameru'] or '—'} — {x['statusru'] or '—'}"
+                                + (f" ({x['datereg']})" if x["datereg"] else ""),
+                       "url": "https://data.egov.kz/datasets/view?index=gbd_ul"}
+                      for x in rows[:5]],
+            provider_id="kz_gbd_ul", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
     # ---------- 0.2.0 flat panel commands (esg: source-qualified names + upstream param names + our defaults) ----------
+
+    # —— 0.3.36 TR SPK listed-companies directory (dictionary slot: tr_spk_listed between ted and usaspending) ——
+
+    def tr_spk_listed(self, name=None, *, segment="all", mersis=None, limit=20,
+                      execution=None, no_cache=None):
+        """company tr_spk_listed: SPK publicly-listed companies directory (ws.spk.gov.tr
+        HalkaAcikSirket; the company domain's first TR face). Two one-shot walls — Borsa 628
+        exchange-traded + BorsaDisi 121 non-exchange, cached 24h and scanned locally. mersisNo
+        = the 16-digit MERSIS key (8 rows ship it empty -> null); mkkSicilNo arrives as "" or
+        null inconsistently (both -> null); the lifecycle status rides INLINE in unvani
+        ("(İFLAS NEDENİYLE) TASFİYE HALİNDE …" — 1 Borsa / 15 BorsaDisi rows; no separate
+        status column). --mersis (the single-record channel) adds tur/faaliyetDurumu/street
+        adres the lists lack — and sirketVarmi LIES (a MERSIS outside the register also answers
+        true, with an all-null shell; found mirrors unvani instead)."""
+        self._co_only("tr_spk_listed")
+        nm = str(name or "").strip() or None
+        r = company.tr_spk_borsa.listed_raw(nm, segment=segment, mersis=mersis, limit=limit,
+                                            cache=self._c._cache,
+                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        if mersis not in (None, ""):   # the single-record channel
+            result = {k: x for k, x in r.items() if k != "_meta"}
+            sirket = result["sirket"]
+            if result["found"]:
+                reason = (f"SPK listed-company record for MERSIS {result['mersis']}: {sirket['unvani']}"
+                          + (f" — {sirket['faaliyetDurumu']}" if sirket["faaliyetDurumu"] else "")
+                          + (f", {sirket['tur']}" if sirket["tur"] else "")
+                          + " — tur/faaliyetDurumu/adres exist only on this channel, not on the lists;"
+                            " sirketVarmi is NOT an existence signal (it answers true outside the register too)")
+            else:
+                reason = (f"MERSIS {result['mersis']} is NOT on the SPK listed-companies register: the channel "
+                          f"answered sirketVarmi={result['sirketVarmi']} with an ALL-NULL sirket shell — the flag "
+                          "lies (pinned 2026-11-04); the null shell is the honest negative signal (the entity may "
+                          "still exist in the TR trade registry, just not as a listed company)")
+            return self._flat_env(
+                tool="tr_spk_listed",
+                input={"mersis": result["mersis"], "segment": None, "name": None},
+                reason=reason,
+                result=result,
+                evidence=[{"quote": (f"{sirket['unvani'] or '—'} · MERSIS {sirket['mersisNo'] or result['mersis']}"
+                                     + (f" · {sirket['faaliyetDurumu']}" if sirket["faaliyetDurumu"] else "")
+                                     + (f" · {sirket['adres'] or ''}" if sirket["adres"] else "")),
+                           "url": f"https://ws.spk.gov.tr/HalkaAcikSirket/api/Sirket/{result['mersis']}"}],
+                provider_id="tr_spk_borsa", metas=[r["_meta"]],
+                query={"source": "raw", "upstream": r["params"]},
+            )
+        result = {k: x for k, x in r.items() if k not in ("_meta", "_metas")}
+        metas = r.get("_metas") or [r["_meta"]]
+        sc = result["scanned"]
+        seg_s = " + ".join(f"{k} {v}" for k, v in sc.items())
+        if result["rows"]:
+            reason = (f"SPK listed companies: {result['total_matched']} of {sum(sc.values())} rows matched"
+                      + f" ({seg_s})"
+                      + (f", segment {segment}" if segment != "all" else "")
+                      + (f", name contains \"{nm}\"" if nm else "")
+                      + " — mersisNo is the 16-digit MERSIS join key (a few rows ship it null); the lifecycle"
+                        " status rides INLINE in unvani ((İFLAS NEDENİYLE) TASFİYE HALİNDE … on 16 rows);"
+                        " mkkSicilNo joins the MKK register")
+        else:
+            reason = (f"SPK listed companies: zero hits on the {sum(sc.values())}-row directory ({seg_s})"
+                      + (f", name contains \"{nm}\"" if nm else "")
+                      + " — a legitimate answer (drop filters to enumerate the directory)")
+        return self._flat_env(
+            tool="tr_spk_listed",
+            input={"name": nm, "segment": segment, "mersis": None,
+                   "limit": result["limit_applied"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x['unvani'] or '—'} · MERSIS {x['mersisNo'] or '—'}"
+                                + (f" · {x['adresIl']}" if x["adresIl"] else ""),
+                       "url": (f"https://ws.spk.gov.tr/HalkaAcikSirket/api/Sirket/{x['mersisNo']}"
+                               if x["mersisNo"] else
+                               "https://ws.spk.gov.tr/HalkaAcikSirket/api/Sirketler/Borsa")}
+                      for x in result["rows"][:5]],
+            provider_id="tr_spk_borsa", metas=metas,
+        )

@@ -48,6 +48,67 @@ class SecurityFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    def euvd_vulnerability(self, *, id, execution=None, no_cache=None):
+        """security euvd_vulnerability: ENISA EUVD point lookup by CVE or EUVD code (the real API
+        host euvdservices.enisa.europa.eu hides behind the SPA shell — /api/v1/* on the public host
+        answers shell HTML; record richer than the NVD public face: CVSS vector+score+version, EPSS
+        inline, exploitedSince, CVE+GHSA aliases, structured vendor×product×version ranges, and
+        attached EU member-state CSAF advisories; dates arrive in Java "MMM d, yyyy, h:mm:ss AM"
+        format and are ISO-normalized locally; unknown id = HTTP 404 carried as upstream_not_found
+        — probed 2026-11-03)."""
+        self._security_only("euvd_vulnerability")
+        r = security.euvd.vulnerability_raw(id, cache=self._c._cache,
+                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        row = r["row"]
+        top_adv = (row["advisories"] or [None])[0]
+        top_prod = (row["products"] or [{}])[0]
+        exploited = "in the wild since " + row["exploited_since"][:10] if row["exploited_since"] else "no in-the-wild exploitation recorded"
+        return self._flat_env(
+            tool="euvd_vulnerability",
+            input={"id": r["params"]["id"]},
+            reason=(f"EUVD {row['euvd_id']} ({', '.join(row['aliases'][:2]) or 'no aliases'}): "
+                    f"CVSS {row['base_score']} ({row['base_score_version']}), EPSS {row['epss']}, {exploited}"
+                    + (f", {len(row['advisories'])} EU member-state advisory(ies)"
+                       + (f" (top: {top_adv['id']} / {top_adv['source']})" if top_adv else "") if row["advisories"] else "")),
+            result=row,
+            evidence=[{"quote": f"{top_prod.get('vendor') or '—'} {top_prod.get('product') or '—'} {top_prod.get('version') or ''}".strip()
+                                + f" — CVSS {row['base_score']}, EPSS {row['epss']}",
+                       "url": f"https://euvd.enisa.europa.eu/vulnerabilities/{row['euvd_id']}"}]
+                     + [{"quote": f"CSAF advisory {a['id']} ({a['source']}, {a['date_published'] or '—'})",
+                         "url": f"https://euvd.enisa.europa.eu/vulnerabilities/{row['euvd_id']}"}
+                          for a in row["advisories"][:2]],
+            provider_id="euvd", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def euvd_exploited(self, *, limit=50, execution=None, no_cache=None):
+        """security euvd_exploited: the ENISA EU KEV rolling window — vulnerabilities currently
+        exploited in the wild per ENISA/CSA network tracking (probed 2026-11-02: 4 rows; the window
+        grows continuously). The full 399,311-row euvd_id↔cve_id mapping is a raw-side 12MB dump,
+        NOT this face; limit is a local slice (cisa kev posture)."""
+        self._security_only("euvd_exploited")
+        r = security.euvd.exploited_raw(limit=limit,
+                                        cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        top = rows[0] if rows else None
+        return self._flat_env(
+            tool="euvd_exploited",
+            input={"limit": int(limit)},
+            reason=(f"EU KEV rolling window: {r['total']} in-the-wild exploited vulnerabilit{'y is' if r['total'] == 1 else 'ies are'} currently tracked by ENISA"
+                    + (f", returning {len(rows)}" if len(rows) < r["total"] else "")
+                    + (f" — top concern {top['euvd_id']} ({', '.join(top['aliases'][:1]) or '—'}) CVSS {top['base_score']}, exploited since {(top['exploited_since'] or '')[:10]}"
+                       if top else " — the window is currently empty")),
+            result={"count": r["count"], "total": r["total"], "vulnerabilities": rows},
+            evidence=[{"quote": f"{v['euvd_id']} ({', '.join(v['aliases'][:1]) or '—'}): "
+                                f"{(v['vendors'] or ['—'])[0]} — CVSS {v['base_score']}, EPSS {v['epss']}, "
+                                f"exploited since {(v['exploited_since'] or '—')[:10]}",
+                       "url": f"https://euvd.enisa.europa.eu/vulnerabilities/{v['euvd_id']}"}
+                      for v in rows[:5]],
+            provider_id="euvd", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {}},
+        )
+
     def cisa_kev_catalog(self, *, cve=None, ransomware=None, limit=50,
                          execution=None, no_cache=None):
         """security cisa_kev_catalog: the CISA catalog of vulnerabilities exploited in the wild (static feed

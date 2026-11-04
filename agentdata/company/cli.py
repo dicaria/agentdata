@@ -5,6 +5,8 @@ passed in as a parameter to avoid a cli ↔ domain-cli cycle); FLAT = the flat d
 """
 import argparse
 
+from . import in_sebi_intm  # the 37-category choice list rides the provider's verbatim map
+
 def register(v, g):
     # —— Flat panel commands (company main face: source-qualified names + upstream params under original names + our defaults; the only face family since 0.3.0) ——
     f1 = v.add_parser("ch_zefix_firm", parents=[g()],
@@ -28,6 +30,21 @@ def register(v, g):
     f_co.add_argument("--limit", type=int, default=20, help="Rows per page (upstream param: $limit; 1-500 our politeness cap)")
     f_co.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: $offset; >=0)")
     f_co.add_argument("--order", default=None, help="Order clause (upstream param: $order; column [ASC|DESC], no NULLS syntax)")
+    # —— 0.3.32 CZ ARES economic-entities register batch ——
+    f_cz = v.add_parser("cz_ares_ekonomicke_subjekty", parents=[g()],
+                        help="Czech economic-entities register record by IČO (ARES; --ico eight digits)",
+                        description="ARES single record: IČO [0-9]{8} (validated locally, upstream 400s anything else); structured address with the RUIÁN address-point code, legal form, VAT key (CZ<ico>), NACE-2008 codes and the 16-register status matrix; unknown-but-well-formed IČO → 404 = upstream_not_found")
+    f_cz.add_argument("--ico", required=True,
+                      help="IČO, exactly eight digits (upstream path param: ico; the ARES surrogate id 'ARES_…' is NOT an IČO)")
+    f_cz2 = v.add_parser("cz_ares_ekonomicke_subjekty_vyhledat", parents=[g()],
+                         help="Czech economic-entities register name search (ARES POST vyhledat)",
+                         description="ARES name search (POST-only): the upstream folds record names to ASCII but not the query — the query is folded here so the match set is the upstream's own; the rows are heterogeneous (ico present only on ROS-family rows, RZP-primary rows carry the unjoinable ARES surrogate icoId)")
+    f_cz2.add_argument("--obchodni-jmeno", dest="obchodni_jmeno", required=True,
+                       help="Name word to search (upstream body param: obchodniJmeno; folded to ASCII for the upstream index)")
+    f_cz2.add_argument("--pocet", type=int, default=10,
+                       help="Rows per page (upstream body param: pocet; 1-100 our politeness cap, default 10)")
+    f_cz2.add_argument("--start", type=int, default=0,
+                       help="Row offset (upstream body param: start; >=0)")
     f3 = v.add_parser("fdic_institutions", parents=[g()],
                       help="US insured-bank master record (FDIC BankFind; --search/--filters raw channels)",
                       description="FDIC institutions: ES search × structured filters are combinable raw channels (search 'NAME:\"…\"' / filters 'CERT:n'); no upstream limit wall (10,000 verified)")
@@ -75,6 +92,29 @@ def register(v, g):
                      help="Window start YYYY-MM-DD or full ISO datetime (upstream param: updatedFrom; bare date gets T00:00:00Z)")
     f7.add_argument("--updated-to", dest="updated_to", default=None,
                      help="Window end (upstream param: updatedTo; bare date gets T23:59:59Z)")
+    # —— 0.3.33 offshore Channel-Islands registers batch (GG GFSC + JE JFSC) ——
+    f_gg2 = v.add_parser("gg_gfsc_registered_businesses", parents=[g()],
+                         help="Guernsey registered (prescribed) businesses (GFSC full feed, local scan)",
+                         description="GFSC Registration of Prescribed Businesses (133 rows): Accountant 74 / Estate Agent 22 / Money Service Providers 20 / Legal Professional 17; 23 refs also appear on the regulated feed (dual-listed entities); same HTML-strip + detail-path rescue as the regulated face")
+    f_gg2.add_argument("--name", default=None, help="Business name — client-side contains filter")
+    f_gg2.add_argument("--category", default=None,
+                       help="Prescribed-business category — contains filter (Accountant / Estate Agent / Money Service Providers / Legal Professional)")
+    f_gg2.add_argument("--ref", default=None, help="GFSC ref, digits — exact match (no length assumption)")
+    f_gg2.add_argument("--limit", type=int, default=20, help="Rows to return (local payload wall 1-100; default 20)")
+    f_gg = v.add_parser("gg_gfsc_regulated_entities", parents=[g()],
+                        help="Guernsey regulated-entities register (GFSC full feed, local scan; --licence contains)",
+                        description="GFSC regulated entities: the feed ships display fields as HTML links — stripped to ref/name/licence + the register's own detail path. One row per licence group (the same entity on 2+ rows when its groups sit in different states: 26 such refs — entities_matched counts distinct refs); licence labels embed commas ('Secondary Licensee, Pension Provider' is ONE group); surrendered is a '0'/'1' string on the wire → bool; Status null = the register states nothing (1,571 rows); refs not uniformly 7-digit (legacy 5-6-digit)")
+    f_gg.add_argument("--name", default=None, help="Entity name — client-side contains filter (the feed has no query surface)")
+    f_gg.add_argument("--licence", default=None,
+                      help="Licence-group label — contains filter over Filters (labels embed commas: filter on the token, e.g. 'Insurer' or 'Pension Provider')")
+    f_gg.add_argument("--status", default=None, choices=["active", "inactive"],
+                      help="Register status — exact filter (null-status rows, 41 percent of the feed, match neither)")
+    f_gg.add_argument("--surrendered", action=argparse.BooleanOptionalAction, default=None,
+                      help="Surrendered flag filter (the revoked/surrendered licence-group rows)")
+    f_gg.add_argument("--ref", default=None,
+                      help="GFSC ref, digits — exact match, no length assumption (legacy refs are 5-6 digits)")
+    f_gg.add_argument("--limit", type=int, default=20,
+                      help="Rows to return (local payload wall 1-100 after the full-feed scan; default 20)")
     f8 = v.add_parser("gleif_direct_parent", parents=[g()],
                       help="LEI→direct parent (GLEIF dedicated endpoint)",
                       description="Direct parent card; 404 = honestly no parent (not an error)")
@@ -102,11 +142,56 @@ def register(v, g):
                        help="LEI→ultimate parent (GLEIF dedicated endpoint)",
                        description="Ultimate parent card (top of the control chain); 404 = honestly no parent (not an error)")
     f11.add_argument("--lei", required=True, help="LEI, 20 chars ISO 17442 (upstream path param: lei)")
+    # —— 0.3.35 IN SEBI registers batch (dictionary slot: in_sebi_* between gg_gfsc and je_jfsc) ——
+    f_in1 = v.add_parser("in_sebi_default_brokers", parents=[g()],
+                         help="SEBI defaulters & expelled stock brokers (the whole negative register, one page)",
+                         description="sebi.gov.in/sebiweb BrokerAction: ONE 1.2MB page, 445 cards, no "
+                                     "paging, no search. Cards: Name/Trade Name/Registration No. (INB…)/"
+                                     "Exchange Name/Status (Defaulter 80 | Expelled 215 | Defaulter and "
+                                     "expelled 150, pinned 2026-11-04); one entity may span multiple "
+                                     "cards (one per exchange)")
+    f_in2 = v.add_parser("in_sebi_intermediaries", parents=[g()],
+                         help="SEBI registered intermediaries by category (--search XOR --regno)",
+                         description="sebi.gov.in/sebiweb recognised-intermediaries register: 37 "
+                                     "categories verbatim (default = equity-segment stock brokers). "
+                                     "Exactly one of --search (substring over names; MOTILAL → 7 cards) "
+                                     "or --regno (exact registration-number lookup, INB030484617 → the "
+                                     "multi-exchange row set) — an empty search over a full category "
+                                     "TIMES OUT server-side (5,011 equity brokers). Card field set "
+                                     "varies by category (CRA cards carry Contact Person/Correspondence "
+                                     "Address, no Exchange; regno formats differ per class — INB…/INZ…/"
+                                     "IN/CRA/…); every title/value pair rides, unknown labels verbatim")
+    f_in2.add_argument("--category", default="sb_equity",
+                       choices=list(in_sebi_intm.CATEGORIES),
+                       help="Intermediary category, 37 verbatim (default sb_equity = Registered Stock "
+                            "Brokers in equity segment; the choice list maps slug→intmId)")
+    f_in2.add_argument("--search", default=None,
+                       help="Name substring over the category (upstream param: search; e.g. MOTILAL → 7 cards)")
+    f_in2.add_argument("--regno", default=None,
+                       help="Exact registration-number lookup (upstream param: regNo; e.g. INB030484617 → the multi-exchange rows)")
+    f_jf = v.add_parser("je_jfsc_regulated_entities", parents=[g()],
+                        help="Jersey regulated-entities register search (JFSC Umbraco API POST)",
+                        description="JFSC regulated entities: site-search rows (Title/Url/Rank) + the official licence text verbatim in LawSection ('Banking (DC) (ref. DC0076), …' → law/code/ref triplets, raw kept). NoResults is a RESULT COUNT, not a zero flag (Keyword Barclays → NoResults=1); Refiners not exposed (space-joined lowercase keys — unstable, rasff precedent); keyword required (empty keyword = whole-register enumeration, unpinned)")
+    f_jf.add_argument("--keyword", required=True,
+                      help="Entity-name keyword (upstream body param: Keyword; required — the empty-keyword POST enumerates the whole register)")
+    f_jf.add_argument("--page-size", dest="page_size", type=int, default=20,
+                      help="Rows per page (upstream body param: PageSize; 1-100 our politeness cap, default 20)")
+    f_jf.add_argument("--page", type=int, default=1,
+                      help="Page, 1-based (upstream body param: PageNumber; walk while page < pages)")
     f_kr = v.add_parser("kr_hometax_biz_status", parents=[g()],
                        help="Korean biz registration status, single lookup (hometax 휴폐업/과세유형; --biz-no)",
                        description="NTS hometax anonymous single-BRN status: four states all legal answers — active (일반/간이/과세특례 taxpayer), closed (ISO closure date extracted), unregistered (result=S, not an error), error; txprNm is always null upstream (no owner-name leak)")
     f_kr.add_argument("--biz-no", dest="biz_no", required=True,
                      help="10-digit business registration number (사업자등록번호; 3-2-5 hyphens optional, e.g. 124-81-00998)")
+    # —— 0.3.34 KZ GBD_UL master register (data.egov.kz portal-session face) ——
+    f_kz = v.add_parser("kz_gbd_ul_companies", parents=[g()],
+                        help="Kazakhstan legal-entities master register (GBD_UL; --text server-side name filter)",
+                        description="data.egov.kz GBD_UL: bilingual column pairs verbatim (nameru/namekz, okedru/okedkz, statusru/statuskz, addressru/addresskz); bin = the 12-digit hard key but page 1's pre-BIN-era rows (1995-1999) carry bin=null; datereg is tri-modal (bare / +06:00 pre-2024 / +05:00 unified KZ) and verbatim; count is hard-clamped to 20 upstream (walled here); column/order sorts are silently ignored (not shipped); a page past the last silently snaps to the last page — has_more reads the echoed page; the channel needs a portal-session cookie (bootstrapped transparently, reused 15 min)")
+    f_kz.add_argument("--text", default=None,
+                     help="Name filter — server-side substring over nameru (upstream param: text; omit = the whole register, 1M+ entities)")
+    f_kz.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream param: page; past-the-last snaps to the last page — no empty-page signal)")
+    f_kz.add_argument("--count", type=int, default=20,
+                     help="Rows per page (upstream param: count; 1-20 — the upstream's own hard clamp: count=100 answers 20 rows)")
     f12 = v.add_parser("no_brreg_enheter", parents=[g()],
                        help="Norwegian registry master record (Enhetsregisteret; --navn search XOR --organisasjonsnummer single)",
                        description="Brønnøysund Enhetsregisteret: navn search with HAL pagination (page/size, 0-based) or orgnr single record; navn is the Norwegian upstream param (?name= 400s)")
@@ -120,6 +205,22 @@ def register(v, g):
                        description="Role groups (DAGL CEO / STYR board / REVI auditor): persons carry name+birth date (no national id in the public face), corporate roles (auditors) carry org number; avregistrert=true = retired")
     f13.add_argument("--organisasjonsnummer", dest="organisasjonsnummer", required=True,
                      help="9-digit org number (upstream path param; spaces ok)")
+    # —— 0.3.30 NZ Companies Office register faces (nzco_companies search + nzco_directors) ——
+    f20 = v.add_parser("nzco_companies", parents=[g()],
+                       help="NZ Companies Register search (Companies Office; dual keys: company number + NZBN)",
+                       description="Name substring over the register index — the canonical parameter set is required (a bare ?q= answers an empty match, pinned). Rows: company number + 16-digit NZBN + the register's own status word (Registered/Removed, not 'Active') + entity type + registered address. Paging = the pager's own start=<row offset> + limit 5|15 (both observed live; other sizes unpinned, not shipped); has_next reads the pager offsets")
+    f20.add_argument("--q", required=True, help="Name substring (the register also matches by company number inside the name index)")
+    f20.add_argument("--entity-types", dest="entity_types", default="ALL",
+                     choices=["ALL", "LTD", "UNLTD", "COOP", "ASIC", "NON_ASIC"],
+                     help="Filter form's own checkbox codes: LTD/UNLTD/COOP = NZ companies, ASIC/NON_ASIC = overseas (default ALL)")
+    f20.add_argument("--start", type=int, default=0, help="Row offset (the pager's own start=; page N = (N-1)*limit)")
+    f20.add_argument("--limit", type=int, default=15, choices=[5, 15],
+                     help="Rows per page (both observed in the live pager; other sizes unpinned and not shipped)")
+    f21 = v.add_parser("nzco_directors", parents=[g()],
+                       help="NZ company current directors by company number (Companies Office directors tab)",
+                       description="Current appointments: full legal name + residential address (statutorily public in NZ, partially masked since the privacy-law change — captured verbatim) + appointment date in the register's wording. The page H1 confirms the company (name+number+status; a mismatch refuses to attribute rows). Ceased/former appointments render in a different section and stay out; find the number with nzco_companies (e.g. 104799 = Air New Zealand Limited)")
+    f21.add_argument("--company-number", dest="company_number", required=True,
+                     help="NZ company number, digits only (from nzco_companies rows)")
     f14 = v.add_parser("ror_organizations", parents=[g()],
                       help="Research-org record (ROR v2; --query search XOR --ror-id single record)",
                       description="Research Organization Registry: query → candidates (fixed 20/page, --page walks), or ror_id → authoritative single record")
@@ -147,6 +248,29 @@ def register(v, g):
     f17.add_argument("--fields", default=None, help="Comma list of eForms fields (upstream param: fields; wrong names 400 with the full 1,833-field dump)")
     f17.add_argument("--limit", type=int, default=10, help="Notices per page (upstream param: limit; 1-250 hard wall, default 10)")
     f17.add_argument("--page", type=int, default=1, help="Page number (upstream param: page)")
+    # —— 0.3.36 TR SPK listed-companies directory (dictionary slot: tr_spk_listed between ted and usaspending) ——
+    f_tr = v.add_parser("tr_spk_listed", parents=[g()],
+                        help="SPK publicly-listed companies (Borsa 628 + BorsaDisi 121 one-shot walls, local scan)",
+                        description="ws.spk.gov.tr HalkaAcikSirket: two one-shot walls — Borsa "
+                                    "(exchange-traded, 628) + BorsaDisi (non-exchange, 121), "
+                                    "cached 24h and scanned locally. mersisNo = the 16-digit "
+                                    "MERSIS join key (a few rows ship it null); the lifecycle "
+                                    "status rides INLINE in unvani ('(İFLAS NEDENİYLE) TASFİYE "
+                                    "HALİNDE …' on 16 rows — no separate status column); "
+                                    "mkkSicilNo joins the MKK register (arrives as '' or null "
+                                    "inconsistently — both null here). --mersis switches to the "
+                                    "single-record channel (tur/faaliyetDurumu/street adres, "
+                                    "which the lists lack) — sirketVarmi LIES: a MERSIS outside "
+                                    "the register also answers true with an all-null shell "
+                                    "(pinned 2026-11-04); 'found' mirrors unvani instead")
+    f_tr.add_argument("--name", default=None,
+                      help="Company name — substring, case-insensitive (over unvani; no upstream query surface)")
+    f_tr.add_argument("--segment", default="all", choices=["all", "borsa", "borsadisi"],
+                      help="Wall filter (all = both one-shot lists, default; borsa = exchange-traded 628; borsadisi = 121)")
+    f_tr.add_argument("--mersis", default=None,
+                      help="MERSIS number, exactly 16 digits — the single-record channel (XOR with --name/--segment)")
+    f_tr.add_argument("--limit", type=int, default=20,
+                      help="Rows to return (local payload wall 1-100, default 20; total_matched echoes the full count)")
     f18 = v.add_parser("usaspending_spending_by_award", parents=[g()],
                       help="US federal awards by recipient (USAspending spending_by_award POST)",
                       description="Federal contracts/grants: recipient name (array upstream, scalar auto-wrapped); award-type codes, time window (single end auto-completed), fields all upstream-verbatim")
@@ -177,6 +301,10 @@ FLAT = {
     # 0.3.11 CO RUES + KR hometax dual-country batch
     "co_rues_companies": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset,
                           "order": a.order},
+    # 0.3.32 CZ ARES economic-entities register batch
+    "cz_ares_ekonomicke_subjekty": lambda a: {"ico": a.ico},
+    "cz_ares_ekonomicke_subjekty_vyhledat": lambda a: {"obchodni_jmeno": a.obchodni_jmeno,
+                                          "pocet": a.pocet, "start": a.start},
     "fdic_institutions": lambda a: {"search": a.search, "filters": a.filters,
                             "limit": a.limit},
     "fi_ytj_companies": lambda a: {"name": a.name, "business_id": a.business_id},
@@ -188,6 +316,12 @@ FLAT = {
     "gb_fts_release_packages": lambda a: {"name": a.name, "stages": a.stages, "limit": a.limit,
                                  "cursor": a.cursor, "updated_from": a.updated_from,
                                  "updated_to": a.updated_to},
+    # 0.3.33 offshore Channel-Islands registers batch
+    "gg_gfsc_registered_businesses": lambda a: {"name": a.name, "category": a.category,
+                                                "ref": a.ref, "limit": a.limit},
+    "gg_gfsc_regulated_entities": lambda a: {"name": a.name, "licence": a.licence,
+                                             "status": a.status, "surrendered": a.surrendered,
+                                             "ref": a.ref, "limit": a.limit},
     "gleif_direct_parent": lambda a: {"lei": a.lei},
     "gleif_lei_records": lambda a: {"lei": a.lei},
     "gleif_lei_records_search": lambda a: {"filter_entity_legal_name": a.filter_entity_legal_name,
@@ -196,10 +330,21 @@ FLAT = {
                                            "filter_entity_status": a.filter_entity_status,
                                            "page_number": a.page_number},
     "gleif_ultimate_parent": lambda a: {"lei": a.lei},
+    # 0.3.35 IN SEBI registers batch
+    "in_sebi_default_brokers": lambda a: {},
+    "in_sebi_intermediaries": lambda a: {"category": a.category, "search": a.search,
+                                         "regno": a.regno},
+    "je_jfsc_regulated_entities": lambda a: {"keyword": a.keyword, "page_size": a.page_size,
+                                             "page": a.page},
     "kr_hometax_biz_status": lambda a: {"biz_no": a.biz_no},
+    # 0.3.34 KZ GBD_UL master register batch
+    "kz_gbd_ul_companies": lambda a: {"text": a.text, "page": a.page, "count": a.count},
     "no_brreg_enheter": lambda a: {"navn": a.navn, "organisasjonsnummer": a.organisasjonsnummer,
                           "page": a.page, "size": a.size},
     "no_brreg_roller": lambda a: {"organisasjonsnummer": a.organisasjonsnummer},
+    "nzco_companies": lambda a: {"q": a.q, "entity_types": a.entity_types,
+                                 "start": a.start, "limit": a.limit},
+    "nzco_directors": lambda a: {"company_number": a.company_number},
     "ror_organizations": lambda a: {"query": a.query, "ror_id": a.ror_id, "page": a.page,
                                     "all_status": a.all_status},
     "sec_fulltext_search": lambda a: {"q": a.q, "forms": a.forms, "startdt": a.startdt,
@@ -207,6 +352,9 @@ FLAT = {
     "sec_submissions": lambda a: {"cik": a.cik},
     "ted_notices_search": lambda a: {"query": a.query,
                               "fields": a.fields, "limit": a.limit, "page": a.page},
+    # 0.3.36 TR SPK listed-companies directory (dictionary slot: tr_spk_listed between ted and usaspending)
+    "tr_spk_listed": lambda a: {"name": a.name, "segment": a.segment,
+                                "mersis": a.mersis, "limit": a.limit},
     "usaspending_spending_by_award": lambda a: {"recipient_search_text": a.recipient_search_text,
                                      "award_type_codes": a.award_type_codes,
                                      "start_date": a.start_date, "end_date": a.end_date,
@@ -222,22 +370,33 @@ COUNTRY = {
     "ch_zefix_firm": "CH",
     "ch_zefix_firm_search": "CH",
     "co_rues_companies": "CO",
+    "cz_ares_ekonomicke_subjekty": "CZ",
+    "cz_ares_ekonomicke_subjekty_vyhledat": "CZ",
     "fdic_institutions": "US",
     "fi_ytj_companies": "FI",
     "fr_recherche_search": "FR",
     "gb_contracts_finder_published_notices": "GB",
     "gb_fts_release_packages": "GB",
+    "gg_gfsc_registered_businesses": "GG",
+    "gg_gfsc_regulated_entities": "GG",
     "gleif_direct_parent": "GLOBAL",
     "gleif_lei_records": "GLOBAL",
     "gleif_lei_records_search": "GLOBAL",
     "gleif_ultimate_parent": "GLOBAL",
+    "in_sebi_default_brokers": "IN",
+    "in_sebi_intermediaries": "IN",
+    "je_jfsc_regulated_entities": "JE",
     "kr_hometax_biz_status": "KR",
+    "kz_gbd_ul_companies": "KZ",
     "no_brreg_enheter": "NO",
     "no_brreg_roller": "NO",
+    "nzco_companies": "NZ",
+    "nzco_directors": "NZ",
     "ror_organizations": "GLOBAL",
     "sec_fulltext_search": "US",
     "sec_submissions": "US",
     "ted_notices_search": "EU",
+    "tr_spk_listed": "TR",
     "usaspending_spending_by_award": "US",
     "vies_vat": "EU",
 }
