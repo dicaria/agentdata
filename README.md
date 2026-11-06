@@ -3,17 +3,16 @@
 [![PyPI](https://img.shields.io/pypi/v/agentdata)](https://pypi.org/project/agentdata/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/dicaria/agentdata/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![Commands](https://img.shields.io/badge/141_commands-8_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
+[![Commands](https://img.shields.io/badge/166_commands-8_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
 
-**One Python client and CLI over 141 public datasets — company registries,
+**One Python client and CLI over 166 public datasets — company registries,
 sanctions lists, procurement awards, drug approvals — with no API keys and no
 accounts.**
 
 Government data holds the decisive facts about companies, but it is scattered
-across nearly a hundred public APIs, each with its own pagination, rate
-limits, and undocumented quirks. **agentdata puts 141 of those datasets behind
-one interface**: a pure-standard-library client and CLI across 21
-jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
+across 112 public APIs, each with its own pagination, rate
+limits, and undocumented quirks. **agentdata puts 166 of those datasets behind
+one interface**: a pure-standard-library client and CLI across 27 jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
 and caching are built in.
 
 ## Install
@@ -22,18 +21,18 @@ and caching are built in.
 python -m pip install agentdata
 ```
 
-For a reproducible install, pin the release: `python -m pip install agentdata==0.3.36`.
+For a reproducible install, pin the release: `python -m pip install agentdata==0.3.49`.
 
 Prefer not to touch PyPI? Install straight from a release tarball:
 
 ```bash
-python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.36.tar.gz
+python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.49.tar.gz
 ```
 
 Or via git (pin a tag for reproducible installs):
 
 ```bash
-python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.36
+python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.49
 ```
 
 Or track the latest release (convenience for agents and scripts — a fresh
@@ -64,14 +63,15 @@ dataset, parameters kept under their upstream names. Every row below works as
 
 | Question | Commands |
 |---|---|
-| Is this company sanctioned? | `legal csl_screening_list` · `legal co_sic_sanctions` · `legal wb_debarred_firms` · `legal ca_sema_sanctions` |
-| Do consumers complain about this company? | `legal cfpb_complaints` · `legal cfpb_suggest_company` |
+| Is this company sanctioned? | `legal csl_screening_list` · `legal co_sic_sanctions` · `legal wb_debarred_firms` · `legal ca_sema_sanctions` · `legal ru_cbr_warning_list` |
+| Do consumers complain about this company? | `legal cfpb_complaints` · `legal cfpb_suggest_company` · `legal br_bacen_complaints` |
 | Who owns or controls it? | `company gleif_direct_parent` · `company no_brreg_roller` · `company fr_recherche_search` |
 | Did it win public contracts? | `procurement br_pncp_contracts` · `procurement ungm_contract_awards` · `procurement wb_procnotices` |
 | Is its drug or device approved — or recalled? | `healthcare fda_drug_approvals` · `healthcare gb_mhra_alerts` · `healthcare fda_drug_recalls` |
 | What does this facility or fleet emit? | `esg climatetrace_sources` · `esg thetis_mrv_datasets` · `esg paris_mou_detentions` |
-| Pull a company card from a national registry | `company ch_zefix_firm` · `company co_rues_companies` · `company kr_hometax_biz_status` · `company kz_gbd_ul_companies` · `company cz_ares_ekonomicke_subjekty` · `company in_sebi_intermediaries` |
+| Pull a company card from a national registry | `company ch_zefix_firm` · `company co_rues_companies` · `company kr_hometax_biz_status` · `company kz_gbd_ul_companies` · `company cz_ares_ekonomicke_subjekty` · `company in_sebi_intermediaries` · `company tr_spk_listed` · `company tr_bddk_institutions` · `company ru_cbr_credit_orgs` · `company br_bacen_institutions` · `company br_bacen_branches` · `company br_bacen_domains` · `company br_bacen_dasfn` |
 | Has its broker been expelled, or its regulator fined it? | `legal in_sebi_orders` · `company in_sebi_default_brokers` |
+| Has the regulator fined it, banned it, or put it under a special regime? | `legal tr_spk_fines` · `legal tr_spk_bans` · `legal br_bacen_regimes` |
 | How big is the country it operates in? | `economy wb_wdi_values` · `economy eurostat_table` · `economy fred_series` |
 | Convert an EUR amount, or read a bilateral trade flow | `economy ecb_fx_rates` · `economy un_comtrade_trade` |
 
@@ -163,7 +163,7 @@ You can — and then you get to rediscover what is already pinned here:
 - **Quirks are pre-solved, not rediscovered.** Every command encodes traps we
   hit against the live API: anti-forgery token dances, Socrata parameters that
   are silently ignored, registries that clamp your page size without an error.
-- **One envelope across all 141 commands.** Query echo, `reason`, `evidence`,
+- **One envelope across all 166 commands.** Query echo, `reason`, `evidence`,
   source metadata, `jurisdiction` — your code parses one shape.
 - **Upstream parameter names, verbatim.** What the official API docs call a
   parameter is what the SDK takes — no invented vocabulary to unlearn.
@@ -174,18 +174,229 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Coverage
 
-**141 datasets · 97 upstream providers · 21 jurisdictions:** US 41 · global 40 · EU 15 · UK 12 · Canada 5 · Colombia 3 · India 3 · Türkiye 3 · Australia 2 · Switzerland 2 · Czechia 2 · Guernsey 2 · Norway 2 · New Zealand 2 · Brazil 1 · Finland 1 · France 1 · Ireland 1 · Jersey 1 · Korea 1 · Kazakhstan 1.
+**166 datasets · 115 upstream providers · 27 jurisdictions:** US 46 · global 40 · EU 15 · UK 12 · Brazil 7 · Canada 6 · Türkiye 4 · Colombia 3 · ES 3 · India 3 · AT 2 · Australia 2 · Switzerland 2 · Czechia 2 · DE 2 · Guernsey 2 · Norway 2 · New Zealand 2 · RU 2 · SG 2 · Finland 1 · France 1 · Ireland 1 · Jersey 1 · JP 1 · Korea 1 · Kazakhstan 1.
 
 | Domain | Commands | Sources |
 |---|---|---|
-| `company` | 32 | GLEIF, SEC EDGAR, FDIC, USAspending, TED, VIES, Zefix (CH), Brreg (NO), YTJ (FI), RUES (CO), Hometax (KR), ARES (CZ), SEBI intermediaries (IN), GBD_UL (KZ), GFSC (GG), JFSC (JE), ROR |
-| `healthcare` | 31 | FDA approvals, recalls & shortages, ClinicalTrials.gov, RxNav, DailyMed, UK MHRA, Health Canada, EUDAMED, RASFF & Safety Gate (EU), TGA (AU), Europe PMC, MeSH |
-| `legal` | 27 | US sanctions (CSL, OCC), eCFR, Federal Register, CourtListener, LDA filings, DG COMP, UK CMA & Electoral Commission, The Gazette, SEBI orders (IN), MDB debarment (WB/AfDB/IDB), Canada SEMA, CFPB complaints, SIPRI |
-| `economy` | 18 | World Bank WDI, Eurostat, ECB rates, FRED, BLS, WHO xMart, UN Comtrade, ILOSTAT, BIS, IMF, OECD, EU Comext |
-| `esg` | 12 | Climate TRACE, EITI, EU ETS (EUTL), THETIS-MRV, EPA FRS, Paris MoU, EU Air Safety List |
+| `healthcare` | 31 | US FDA approvals & recalls, ClinicalTrials.gov, RxNav, DailyMed, AccessGUDID, UK MHRA alerts, Health Canada DPD & MDALL, EUDAMED, RASFF & Safety Gate (EU), TGA (AU), Europe PMC, MeSH |
+| `legal` | 32 | US consolidated screening list, eCFR, Federal Register, LDA filings, CourtListener, DG COMP, UK CMA cases, UK Electoral Commission, The Gazette, Irish Revenue defaulters, US OCC enforcement, TNA case law, SIPRI, SIC sanctions (CO), MDB debarment rosters (WB/AfDB/IDB), Canada SEMA, CFPB consumer complaints, SEBI enforcement orders (IN), SPK administrative fines & trading bans (TR), CBR illegal-finance warning register (RU), BACEN special regimes & complaint rankings (BR), RIS case law & consolidated federal law (AT) |
+| `company` | 52 | GLEIF, SEC EDGAR, FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses |
+| `economy` | 18 | World Bank WDI, Eurostat, ECB reference rates, FRED, WHO xMart, UN Comtrade, ILOSTAT, BLS, BIS, IMF, OECD, Comext |
+| `esg` | 12 | Climate TRACE, EITI, EU ETS (EUTL), THETIS-MRV (EU shipping), EPA FRS, Paris MoU, EU Air Safety List |
 | `research` | 10 | OpenAlex, NIH RePORTER, NSF, Crossref, UKRI GtR, iCite, bioRxiv, OpenCitations |
-| `procurement` | 7 | PNCP (BR), SECOP II (CO), UNGM, World Bank, NY Authorities / MTA / OGS (US) |
+| `procurement` | 7 | PNCP (BR), SECOP II (CO), UNGM, World Bank, New York Authorities / MTA / OGS (US) |
 | `security` | 4 | OSV, CISA KEV, ENISA EUVD |
+
+## Full command index
+
+Nine entry points — `agentdata` plus one command per domain — and 166 dataset
+commands under them: one command per upstream dataset, parameters kept under
+their upstream names. The block below is the complete index, grouped by domain
+in the same order as the Chinese [README.md](README.md). Every line is a
+runnable command.
+
+```bash
+# healthcare (31)
+agentdata healthcare rxnav_rxcui_by_name --name atorvastatin
+agentdata healthcare rxnav_rxcui_atc --rxcui 83367
+agentdata healthcare mesh_descriptor --label aspirin
+agentdata healthcare gudid_devices --di 10198459305313
+agentdata healthcare eudamed_devices_udi_di_data --primary-di 00191506004682
+agentdata healthcare epmc_search --search 'AFF:"AstraZeneca"' --page-size 40
+agentdata healthcare ctgov_studies --query.term 'AREA[LeadSponsorName]("Pfizer")' --page-size 3
+agentdata healthcare ctgov_studies --query.titles aspirin --agg-filters phase:3 --page-size 3
+agentdata healthcare dailymed_spls --search atorvastatin
+agentdata healthcare fda_drug_shortages --search 'openfda.manufacturer_name.exact:"Fresenius Kabi USA, LLC" AND status:Current' --limit 3
+agentdata healthcare fda_drug_recalls --search 'recalling_firm.exact:"SV Labs Toronto Corporation"'
+agentdata healthcare fda_device_recalls --search 'recalling_firm:"Sedecal"' --limit 5
+agentdata healthcare fda_food_recalls --search 'classification:"Class I" AND status:Ongoing' --limit 5
+agentdata healthcare fda_crl_letters --search 'company_name:"InnoPharma"'
+agentdata healthcare fda_drug_approvals --search 'sponsor_name:"TEVA"' --limit 5
+agentdata healthcare fda_drug_catalog --search 'labeler_name:"pfizer"' --limit 5
+agentdata healthcare fda_orangebook --search 'products.application_full_name:"Teva"' --limit 5
+agentdata healthcare fda_device_510k --search 'applicant:"Medtronic"' --limit 5
+agentdata healthcare fda_device_pma --search 'applicant:"Medtronic"' --limit 5
+agentdata healthcare fda_device_registrations --search 'registration.name:"PLANET (ANHUI) INTERNATIONAL"' --limit 5
+agentdata healthcare fda_device_classification --search 'device_name:"syringe"' --limit 5
+agentdata healthcare gb_mhra_alerts --q Abbott --count 3
+agentdata healthcare gb_mhra_alert --slug class-2-medicines-recall-xeal-pharma-clopidogrel-oral-liquids-all-strengths-el-26-a-slash-43
+agentdata healthcare au_tga_artg --query '"Sun Pharma ANZ Pty Ltd"' --limit 5
+
+agentdata healthcare au_tga_manufacturers --state QLD
+agentdata healthcare ca_dpd_companies --limit 5
+agentdata healthcare ca_dpd_drug_products --status 3 --limit 5
+agentdata healthcare ca_mdall_companies --limit 5
+agentdata healthcare ca_mdall_licence --licence-id 111577
+agentdata healthcare rasff_notifications --subject aflatoxin --items-per-page 5
+agentdata healthcare safety_gate_alerts --year 2026 --limit 5
+agentdata healthcare safety_gate_report --report-id 10000329 --limit 5
+
+# company (52)
+agentdata company gleif_lei_records --lei 5493001KJTIIGC8Y1R12
+agentdata company gleif_lei_records_search --filter-entity-legal-name Nestle --filter-entity-jurisdiction CH --page-size 5
+agentdata company gleif_direct_parent --lei 5493001KJTIIGC8Y1R12
+agentdata company gleif_ultimate_parent --lei 5493001KJTIIGC8Y1R12
+agentdata company fdic_institutions --filters CERT:628
+agentdata company sec_submissions --cik 320193
+agentdata company ror_organizations --query EMBL
+agentdata company vies_vat --vat DE811907980
+agentdata company usaspending_spending_by_award --recipient-search-text "Lockheed Martin" --start-date 2024-01-01 --end-date 2024-12-31 --limit 3
+agentdata company ted_notices_search --query 'organisation-name-buyer=Siemens* AND organisation-country-buyer=DEU' --limit 5
+agentdata company gb_fts_release_packages --name nhs --updated-from 2026-10-01 --updated-to 2026-10-27 --limit 5
+agentdata company gb_contracts_finder_published_notices --name council --published-from 2026-10-20 --published-to 2026-10-27 --limit 5
+agentdata company sec_fulltext_search --q "artificial intelligence" --forms 8-K --limit 5
+agentdata company ch_zefix_firm_search --name "Nestle" --max-entries 3
+agentdata company ch_zefix_firm --ehraid 347554
+agentdata company no_brreg_enheter --navn equinor --size 2
+agentdata company no_brreg_roller --organisasjonsnummer 923609016
+agentdata company nzco_companies --q "air new zealand" --limit 15
+agentdata company nzco_directors --company-number 104799
+agentdata company fi_ytj_companies --name nokia
+agentdata company fr_recherche_search --q danone
+agentdata company fr_recherche_search --q "552032534" --per-page 25 --etat-administratif A
+agentdata company co_rues_companies --where "razon_social like '%BANCOL%'" --limit 5
+agentdata company kr_hometax_biz_status --biz-no 124-81-00998
+agentdata company kz_gbd_ul_companies --text "ВЕЛЛЕТ" --count 5
+agentdata company cz_ares_ekonomicke_subjekty --ico 45274649
+agentdata company cz_ares_ekonomicke_subjekty_vyhledat --obchodni-jmeno "ČEZ" --pocet 5
+agentdata company gg_gfsc_registered_businesses --category accountant --limit 5
+agentdata company gg_gfsc_regulated_entities --licence "Investment Licensee" --status active --limit 5
+agentdata company je_jfsc_regulated_entities --keyword Barclays --page-size 5
+agentdata company in_sebi_intermediaries --category sb_equity --search MOTILAL
+agentdata company in_sebi_default_brokers
+agentdata company tr_spk_listed --segment borsadisi --name AKSEL
+agentdata company tr_spk_listed --mersis 0470003286100012
+agentdata company ru_cbr_credit_orgs --name "ДЕМО" --status active --limit 5
+agentdata company ru_cbr_credit_orgs --ogrn 1037700000001
+agentdata company br_bacen_institutions --family banco --segmento múltiplo --limit 5
+agentdata company br_bacen_branches --if-name CAIXA --uf SP --limit 5
+agentdata company br_bacen_domains --tipo none --limit 5
+agentdata company br_bacen_dasfn --api pix_saque --limit 5
+agentdata company tr_bddk_institutions --category bankalar --limit 5
+agentdata company tr_bddk_institutions --status exited --limit 5
+agentdata company de_inso_search --state NW --date-from 2026-11-02 --date-to 2026-11-02 --limit 5
+agentdata company de_inso_register_lookup --register-court "Düsseldorf" --register-type HRB --register-number 101036 --date-from 2026-11-02 --date-to 2026-11-02 --limit 5
+agentdata company jp_fsa_licensed --category crypto_exchanges --limit 5
+agentdata company jp_fsa_licensed --category trust_agents --name 北洋 --limit 5
+agentdata company ca_ccaa_records --province QC --limit 5
+agentdata company ca_ccaa_records --name "MTE Logistix"
+agentdata company ca_ccaa_records --monitor KPMG --province AB --limit 5
+agentdata company es_borme_day --date 2026-11-04 --limit 5
+agentdata company es_borme_day --date 2026-11-04 --kind A --limit 3
+agentdata company es_borme_notice --id BORME-A-2026-181 --order 2
+agentdata company es_borme_notice --id BORME-C-2026-5782
+agentdata company es_cnmv_entities --category securities_firms --limit 5
+agentdata company es_cnmv_entities --category securities_firms --nif A-83217281
+agentdata company es_cnmv_entities --category eea_investment_firms_passport --name Goldman --limit 3
+agentdata company sg_datagovsg_datasets --limit 5
+agentdata company sg_datagovsg_datasets --q ACRA --limit 5
+agentdata company sg_datagovsg_dataset_download --id d_3f960c10fed6145404ca7b821f263b87
+agentdata company sg_datagovsg_dataset_download --id d_b1d2b840ab9e993570c037b706b39bb8
+agentdata company tx_tdlr_licenses --limit 3
+agentdata company tx_tdlr_licenses --where "license_type='Cosmetology Operator' and business_county='TRAVIS'" --limit 3
+agentdata company wa_doh_credentials --limit 3
+agentdata company wa_doh_credentials --where "credentialtype='Physician And Surgeon License' and status='Active'" --limit 3
+agentdata company chi_bacp_licenses --where "license_description='Consumption on Premises - Incidental Activity' and license_status='AAI'" --limit 3
+agentdata company lacity_registrations --where "naics like '7213%' and council_district='10'" --limit 3
+agentdata company nyc_dcwp_licenses --where "business_category='Secondhand Dealer - General' and license_status='Active'" --limit 3
+
+# economy (18)
+agentdata economy bis_sdmx_series --flow WS_CBPOL --key M.US --start 2026-01-01
+agentdata economy bls_series --series CUUR0000SA0,LNS14000000,CES0000000001 --start-year 2025 --end-year 2026
+agentdata economy comext_flows --reporter DE --partner CN --product 85 --time 2024
+agentdata economy ecb_fx_rates --currency USD --start 2026-10-01 --end 2026-10-31
+agentdata economy eurostat_table --table nama_10_a64 --geo DE --time 2023
+agentdata economy fred_series --series GDP --start 2024-01-01 --end 2026-11-01
+agentdata economy ilo_stat_indicator --indicator EMP_TEMP_SEX_ECO_NB_A --ref-area USA --time-from 2020 --time-until 2024
+agentdata economy imf_sdmx_series --flow WEO --country USA --indicator NGDP_RPCH --start 2023 --end 2026
+agentdata economy oecd_sdmx_series --flow OECD.ECO.MAD,DSD_EO@DF_EO,1.5 --key DEU.. --start 2024 --end 2027
+agentdata economy un_comtrade_trade --reporter USA --period 2023 --partner DEU --cmd TOTAL --flow X
+agentdata economy unsd_sdg_indicators --search poverty
+agentdata economy unsd_sdg_series --series DC_ODA_POVLG --geo China --time 2020
+agentdata economy wb_countries --per-page 300
+agentdata economy wb_ids_indicators --search "external debt"
+agentdata economy wb_wdi_indicators --source 2 --search GDP
+agentdata economy wb_wdi_values --country CHN --indicator NY.GDP.MKTP.CD --date 2020:2023
+agentdata economy who_xmart_indicators --search tuberculosis --top 20
+agentdata economy who_xmart_values --indicator TB_ppm_enrol_tx_prct --geo PAK --year 2023
+
+# esg (12)
+agentdata esg eiti_companies --name Equinor
+agentdata esg eiti_payments --name Equinor
+agentdata esg climatetrace_owners --name Gazprom
+agentdata esg climatetrace_sources --owner-ids E100000001492 --year 2023 --limit 20
+agentdata esg epa_frs_facilities --state-code DE --city-name MILTON --size 3
+agentdata esg euasl_datasets
+agentdata esg eutl_datasets
+agentdata esg thetis_mrv_datasets
+agentdata esg paris_mou_detentions
+agentdata esg paris_mou_bans
+agentdata esg paris_mou_low_performance_companies
+agentdata esg paris_mou_inspections --period-min 01/12/2025 --period-max 31/12/2025 --ism-company-imo-number 0052193
+
+# legal (32)
+agentdata legal afdb_debarred_entities --name "CHINA RAILWAY" --limit 3
+agentdata legal ca_sema_sanctions --country Syria --limit 3
+agentdata legal co_sic_sanctions --limit 3 --order "fecha_emitida DESC"
+agentdata legal csl_screening_list --name "VTB BANK" --limit 3
+agentdata legal ecfr_search --q asbestos --limit 5
+agentdata legal ecfr_titles
+agentdata legal dgcomp_cases_search --name Google --instrument SA
+agentdata legal idb_debarred_entities --q SHANDONG --limit 3
+agentdata legal lda_filings --client-name "Google LLC" --limit 25
+agentdata legal gb_ec_donations --query Sainsbury --limit 3
+agentdata legal gb_ec_loans --query bank --limit 2
+agentdata legal sipri_trades_search --supplier "United States" --type delivered --limit 3
+agentdata legal federalregister_documents --q asbestos --startdt 2026-01-01 --enddt 2026-09-30 --limit 3
+agentdata legal courtlistener_opinions_search --q asbestos
+agentdata legal gb_cma_cases --q google --count 5
+agentdata legal gb_cma_case --slug nexfibre-slash-substantial-merger-inquiry
+agentdata legal gb_tna_caselaw_search --party Barclays --per-page 3
+agentdata legal gb_tna_caselaw_judgment --document-uri ewhc/admin/2026/2298
+agentdata legal wb_debarred_firms --name "CHINA RAILWAY" --country CN --limit 3
+agentdata legal gb_gazette_notices --insolvency --text "acme" --page-size 5
+agentdata legal ie_revenue_defaulters --part 1
+agentdata legal us_occ_enforcements --year 2026 --month October
+agentdata legal cfpb_complaints --search-term Discover --field company --size 3
+agentdata legal cfpb_suggest_company --text Discover
+agentdata legal in_sebi_orders --search Adani
+agentdata legal tr_spk_fines --name "FERUDUN" --year 2025
+agentdata legal tr_spk_bans --type company
+agentdata legal ru_cbr_warning_list --violation pyramid --limit 5
+agentdata legal ru_cbr_warning_list --site t.me --type internet_project --limit 5
+agentdata legal br_bacen_regimes --cnpj 33171211
+agentdata legal br_bacen_complaints --name ITAU --limit 5
+agentdata legal br_bacen_complaints --tipo consortiums --name ADEMICON
+agentdata legal at_ris_judgments --court Justiz --case-number "2 Ob 52/16k" --limit 3
+agentdata legal at_ris_statutes --q GmbH --limit 3
+
+# research (10)
+agentdata research nih_reporter_projects --org-name "Stanford University" --fiscal-year 2024 --limit 3
+agentdata research nih_reporter_publications --appl-ids 10491636
+agentdata research nsf_awards --keyword "rare earth" --rpp 3
+agentdata research openalex_institutions --search pfizer --per-page 3
+agentdata research openalex_works --search aspirin --per-page 3
+agentdata research crossref_works --funder 10.13039/100000001 --award-number OAC-1730655
+agentdata research gb_gtr_projects --q lithium --s 10
+agentdata research icite_pubs --pmid 26017442
+agentdata research biorxiv_details --from-date 2026-10-01 --to-date 2026-10-07
+agentdata research opencitations_citations --doi 10.1038/nature12373
+
+# security (4)
+agentdata security cisa_kev_catalog --limit 5
+agentdata security euvd_exploited --limit 5
+agentdata security euvd_vulnerability --id CVE-2024-3400
+agentdata security osv_vulns --package lodash --ecosystem npm
+
+# procurement (7)
+agentdata procurement br_pncp_contracts --data-inicial 20260901 --data-final 20260930 --pagina 1
+agentdata procurement co_secop_contracts --where "upper(nombre_entidad) like '%MINISTERIO%'" --limit 5
+agentdata procurement wb_procnotices --rows 5
+agentdata procurement ny_abo_contracts --where "upper(vendor_name) like '%DELTA%'" --limit 5
+agentdata procurement ny_mta_procurements --where "upper(vendor_name) like '%SKANSKA%'" --limit 5
+agentdata procurement ungm_contract_awards --supplier DELTA
+agentdata procurement ny_ogs_payments --where "upper(vendor) like '%HIGHLAND%'" --limit 5
+```
 
 ## Caching
 
@@ -213,6 +424,73 @@ runs on the same machine — that is by design.
   maintainer setup, package checks, and PyPI releases
 - Hosted-corpus per-domain guides: contact **contact@dicaria.com**
 
+## Releases
+
+The complete batch log — every release back to 0.1.0 — is kept in the Chinese
+[README.md](README.md#版本). The five most recent batches:
+
+**0.3.49 — company US city-license Socrata trio (+3 faces, 163→166; company 49→52).**
+`chi_bacp_licenses` reads the Chicago business-licensing register
+(data.cityofchicago.org `r5kz-chrr`: 1,210,956 rows, full history back to
+1997), `lacity_registrations` reads the LA City register (data.lacity.org
+`6rrh-rzua`: 632,799 rows), and `nyc_dcwp_licenses` reads the NYC DCWP
+consumer-affairs license book (data.cityofnewyork.us `w7w3-xahh`: 72,452
+rows). All three are SoQL verbatim channels — the `co_rues` contract — and
+the state-axis ruling of 0.3.48 extends to the city axis: faces are named on
+the host/locality stem, and `lacity` is deliberately not `la_` (LA is
+ISO-3166 Laos; SDK prefixes are country codes). Chicago refreshes daily via
+payment_date (TTL 24h); NYC's book lags ~2.5 months (TTL 7d); the LA table
+is a registration book, not a license book. Socrata system columns
+(`:@computed_region_*`) pass through verbatim — and drift per row on the LA
+host (5↔6), while the NYC host ships none.
+**0.3.48 — company US state-license Socrata twin (+2 faces, 161→163; company 47→49).**
+`tx_tdlr_licenses` reads the Texas TDLR all-licenses register (data.texas.gov
+`7358-krk7`: 966,778 rows × 26 view columns — 18 real + 8 Socrata
+`:@computed_region_*` system columns) and `wa_doh_credentials` reads the
+Washington DOH health-care credential register (data.wa.gov `qxh8-f4bd`:
+2,468,860 rows, refreshed daily — the count moved +1 past the research probe
+the same day). Both are SoQL verbatim channels (raw `$where`, `$limit`
+1-500, `$order` without NULLS, no total echo and none faked) — the `co_rues`
+contract — and the SDK's first US sub-national state-axis faces, named on
+state-code prefixes. Socrata omits null fields per row, so a bare individual
+row ships 9 keys while an establishment row carries the whole
+business-address family — the individual-vs-establishment duality lives in
+the data, not the schema. The WA birthyear column is stripped from every row
+(the PII red line: birth year + full name is exactly the combination the
+house rules rule out — names stay, birth years do not).
+**0.3.47 — legal AT RIS OGD pair (+2 faces, 159→161; legal 30→32).**
+`at_ris_judgments` / `at_ris_statutes` read the Austrian federal legal
+information system's open-data API (data.bka.gv.at, OGD API v2.6) — the
+SDK's first AT jurisdiction: sixteen Judikatur shards (1,008,601 documents;
+Vwgh alone 357,857 and drifting daily) plus the consolidated Bundesrecht
+(442,058 documents). The gate is a parameter wall, not a rate line:
+`Applikation` is case-sensitive (VWGH is answered by an HTTP 200 whose error
+body self-exposes the schema dictionary, and the boolean-flag form is
+silently ignored and quietly answers the Justiz shard — the deadliest of the
+three postures, so an exact-case 16-value closed set sits before the wire),
+page size is an upstream constant (20), and beyond the last page the
+upstream answers HTTP 500 rather than an empty page.
+**0.3.46 — company SG data.gov.sg platform pair (+2 faces, 157→159; company 45→47).**
+`sg_datagovsg_datasets` / `sg_datagovsg_dataset_download` read the Singapore
+national open-data platform (api-open.data.gov.sg — the one clean host;
+www.data.gov.sg and api-production answer Cloudflare 403 to non-browser
+agents and are never touched) — the SDK's first SG jurisdiction. The catalog
+honours only `?page=` (q/pageSize/agency are silently ignored — they are
+local filters), beyond the last page answers 200 with empty rows and zeroed
+totals (beyond_range), and the download is a two-step mint whose signed URL
+is a 1-hour S3 signature parsed out of the signature itself; the file body
+rides the batch line (coordinates-only — the ACRA master alone is 234 MB).
+**0.3.45 — company ES BORME daily-gazette pair (+2 faces, 155→157; company 43→45).**
+`es_borme_day` / `es_borme_notice` read Spain's mercantile-registry gazette
+on www.boe.es: one day page plus one notice XML per id, composed by the
+caller into a machine-readable twin. The no-publication day (weekends, gazette
+holidays) is an HTTP 404 declared via a structured `published=false` — never
+an error, never retried — and a future date is refused locally so "not yet
+published" never masquerades as "no issue". The day row's id prefix is the
+only authoritative section marker (A = registered acts, B = «Otros actos»,
+C = legal notices) — the row title cannot be kind-guessed. A-notice bodies
+carry no NIF; joins ride the company name plus the «Datos registrales» sheet
+string.
 ## License and terms
 
 - The **code** in this repository is licensed under the license in
@@ -227,7 +505,8 @@ runs on the same machine — that is by design.
   [GitHub issues](https://github.com/dicaria/agentdata/issues) or
   **contact@dicaria.com** (see
   [CONTRIBUTING.md](https://github.com/dicaria/agentdata/blob/main/CONTRIBUTING.md))
-- Hosted-corpus credentials and service inquiries: **contact@dicaria.com**
+- Hosted-corpus credentials: self-serve — sign up at <https://dicaria.com/console> and
+  create an API key; service inquiries: **contact@dicaria.com**
 - Security reports: **contact@dicaria.com** — please don't open a public
   issue; see [SECURITY.md](https://github.com/dicaria/agentdata/blob/main/SECURITY.md)
 - Conduct issues: **contact@dicaria.com** (see

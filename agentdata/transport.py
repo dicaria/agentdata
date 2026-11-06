@@ -24,6 +24,12 @@ is capability/error/cache vectors + real transport verification).
   Content-Type: application/json); control parameters (apiKey/pageNumber and the like) go into the query
   string. First used by dgcomp (webgate ES). The curl channel has no multipart surface, so the
   POST+curl interception stands.
+- bytes channel (extension 9, the RU CBR wave): when an op declares accept='bytes', http_json returns
+  the body as a lossless latin-1 string (1 byte = 1 char; the provider layer re-encodes
+  .encode('latin-1') to recover the original bytes and parses the document itself — zipfile/xlsx).
+  urllib channel only: the curl subprocess text-decodes its body, so binary payloads would be
+  corrupted (intercepted as usage_error, same as POST+curl). First used by ru_cbr_warning
+  (UniDbQuery DownloadExcel xlsx, 0.3.37).
 """
 import json
 import math
@@ -286,10 +292,25 @@ def build_url(base: str, path_tmpl: str, params: dict, query: bool = True, path_
             continue
         token = "{%s}" % k
         if token in path:
-            path = path.replace(token, urllib.parse.quote(str(v), safe=path_safe))
+            # absolute-URL op (extension 10): a substituted value that is ITSELF a full http(s)://
+            # URL goes in raw — it came from an upstream catalog response and is already a legal
+            # URL string; quoting would mangle its own query segment (ic.gc.ca's CCAA archives
+            # carry '.../$file/x.xlsx'). First used by ca_osb (0.3.43): the CKAN catalog lives on
+            # open.canada.ca while the resource URL it hands back (the CCAA XLSX) lives on
+            # ised-isde.canada.ca and rolls quarterly.
+            if str(v).startswith(("http://", "https://")):
+                path = path.replace(token, str(v))
+            else:
+                path = path.replace(token, urllib.parse.quote(str(v), safe=path_safe))
         elif query:
             qs[k] = v
-    url = base.rstrip("/") + (path if path.startswith("/") else "/" + path)
+    # absolute-URL op (extension 10), host side: when the SUBSTITUTED path is a full http(s)://
+    # URL the provider baseUrl is not prefixed; a relative path keeps the base-prefixed
+    # behaviour (every existing op).
+    if path.startswith(("http://", "https://")):
+        url = path
+    else:
+        url = base.rstrip("/") + (path if path.startswith("/") else "/" + path)
     if qs:
         # when the path already carries a query string (the ukec shape with the full parameter set baked
         # into the path) append with & — a second "?" would turn the query and everything after it into
@@ -311,7 +332,7 @@ def multipart_json_field(field: str, obj) -> tuple[bytes, str]:
 
 
 def http_json(url: str, timeout: float, body: dict | None = None, multipart=None, urlencoded=None,
-              extra_headers: dict | None = None):
+              extra_headers: dict | None = None, raw_bytes: bool = False):
     """urllib channel -> {'ok', 'status', 'retry_after', 'json'} (a non-JSON body is left for the status code to judge).
     body not None -> POST JSON; multipart=(bytes, content_type) -> extension (4) form-channel POST;
     urlencoded=bytes -> extension (7) form-urlencoded channel POST (body = standard form encoding)
@@ -343,13 +364,15 @@ def http_json(url: str, timeout: float, body: dict | None = None, multipart=None
         sc = e.headers.get_all("Set-Cookie") or []
         e.close()
     try:
-        doc = json.loads(raw.decode("utf-8", "replace"))
+        doc = None if raw_bytes else json.loads(raw.decode("utf-8", "replace"))
     except (ValueError, UnicodeDecodeError):
         doc = None
     ra = float(ra) if ra is not None else None
-    # the full text is brought back: accept:'text' ops (HTML surfaces, e.g. TGA eBS Domino SearchView) pass through on this channel and the provider parses them itself
+    # the full text is brought back: accept:'text' ops (HTML surfaces, e.g. TGA eBS Domino SearchView) pass through on this channel and the provider parses them itself;
+    # accept:'bytes' ops (extension 9) get the body as a lossless latin-1 string — .encode('latin-1') at the
+    # provider layer restores the exact bytes (utf-8-replace would corrupt a ZIP with U+FFFD)
     return {"ok": 200 <= status < 300, "status": status, "retry_after": ra, "json": doc,
-            "text": raw.decode("utf-8", "replace"),
+            "text": raw.decode("latin-1") if raw_bytes else raw.decode("utf-8", "replace"),
             "body_head": raw[:160].decode("utf-8", "replace"),
             "set_cookie": sc}
 
@@ -379,12 +402,15 @@ def curl_json(url: str, timeout: float):
 
 
 def _send(url: str, transport: str, timeout: float, body: dict | None = None, multipart=None,
-          urlencoded=None, extra_headers: dict | None = None):
+          urlencoded=None, extra_headers: dict | None = None, raw_bytes: bool = False):
     # extra_headers (ext 8) rides the urllib channel only and is passed as a kwarg only when declared
     # (absent = zero disturbance to the existing four-argument/http_json patch signature — same
-    # discipline as multipart/urlencoded); the curl subprocess has no per-request header surface
-    # (intercepted before call_provider)
+    # discipline as multipart/urlencoded); raw_bytes (ext 9) likewise rides only when declared; the curl
+    # subprocess has no per-request header surface and text-decodes its body (intercepted before
+    # call_provider for both)
     kw = {"extra_headers": extra_headers} if extra_headers else {}
+    if raw_bytes:
+        kw["raw_bytes"] = True
     if body is not None:  # POST only via the urllib channel (call_provider already intercepts curl+POST)
         return http_json(url, timeout, body, **kw)
     if multipart is not None:  # extension (4) form channel (urllib only as well; curl+POST is intercepted)
@@ -395,8 +421,10 @@ def _send(url: str, transport: str, timeout: float, body: dict | None = None, mu
         if transport == "curl":
             from .errors import SdkError
             raise SdkError("usage_error", detail="extra_headers is urllib-channel only (the curl subprocess has no per-request header surface)")
-        return http_json(url, timeout, extra_headers=extra_headers)
-    return curl_json(url, timeout) if transport == "curl" else http_json(url, timeout)
+        return http_json(url, timeout, **kw)
+    if transport == "curl":
+        return curl_json(url, timeout)
+    return http_json(url, timeout, **kw)
 
 
 def cache_key_for(op: str, params: dict) -> str:
@@ -438,6 +466,9 @@ def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = F
     if is_post and opdef.get("transport", "urllib") == "curl":
         raise SdkError("usage_error", provider=provider["id"],
                        detail="POST read semantics currently support the urllib channel only (the curl subprocess has no JSON/multipart/urlencoded body-parameter surface)")
+    if opdef.get("accept") == "bytes" and opdef.get("transport", "urllib") == "curl":
+        raise SdkError("usage_error", provider=provider["id"],
+                       detail="accept='bytes' (extension 9) supports the urllib channel only (the curl subprocess text-decodes its body — a binary payload would be corrupted)")
     multipart = None
     urlenc = None
     if is_form:
@@ -451,7 +482,12 @@ def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = F
                         path_safe=opdef.get("path_safe", ""))
         if is_post and opdef.get("urlencoded") is True:
             body = None
-            urlenc = urllib.parse.urlencode(params).encode("utf-8")
+            # the path-template parameters travel in the path, not in the form body (the JSON
+            # branch below already does this): the de_inso postback names the portal's session
+            # in the path ("{action}" -> "/ap/suche.jsf;jsessionid=…") and the upstream form
+            # has no such field — sending it again would put an unknown key into the form body
+            urlenc = urllib.parse.urlencode(
+                {k: v for k, v in params.items() if ("{%s}" % k) not in opdef["path"]}).encode("utf-8")
         else:
             body = {k: v for k, v in params.items() if ("{%s}" % k) not in opdef["path"]} if is_post else None
     # (3) circuit-breaker gate: open = refused locally (prevents the IP being collectively banned), error
@@ -478,27 +514,37 @@ def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = F
                 # the sixth — every other path keeps the four-argument call shape (the golden vectors
                 # patch the four-argument _send signature); extra_headers (ext 8) rides the seventh
                 # argument only when declared (absent = zero disturbance — same discipline as above)
+                send_kw = {"raw_bytes": True} if opdef.get("accept") == "bytes" else {}
                 with _host_slot(host, conc):  # (5) host concurrency cap
                     if extra_headers:
                         if opdef.get("transport", "urllib") == "curl":
                             raise SdkError("usage_error", provider=provider["id"],
                                            detail="extra_headers is urllib-channel only for now (the curl subprocess has no per-request header surface)")
-                        r = _send(url, "urllib", opdef.get("timeout", 20.0), body, multipart, urlenc, extra_headers)
+                        r = _send(url, "urllib", opdef.get("timeout", 20.0), body, multipart, urlenc,
+                                  extra_headers, **send_kw)
                     elif multipart is not None:
-                        r = _send(url, opdef.get("transport", "urllib"), opdef.get("timeout", 20.0), None, multipart)
+                        r = _send(url, opdef.get("transport", "urllib"), opdef.get("timeout", 20.0),
+                                  None, multipart, **send_kw)
                     elif urlenc is not None:
-                        r = _send(url, opdef.get("transport", "urllib"), opdef.get("timeout", 20.0), None, None, urlenc)
+                        r = _send(url, opdef.get("transport", "urllib"), opdef.get("timeout", 20.0),
+                                  None, None, urlenc, **send_kw)
                     else:
-                        r = _send(url, opdef.get("transport", "urllib"), opdef.get("timeout", 20.0), body)
+                        r = _send(url, opdef.get("transport", "urllib"), opdef.get("timeout", 20.0),
+                                  body, **send_kw)
             except (subprocess.TimeoutExpired, urllib.error.URLError, OSError) as e:
                 last_was_limited, last_err = False, e
                 if i < attempts:
                     time.sleep(_backoff_wait(i))
                 continue
-            if r["ok"] and (r["json"] is not None if opdef.get("accept") != "text" else isinstance(r.get("text"), str)):
+            _accept = opdef.get("accept")
+            if r["ok"] and (isinstance(r.get("text"), str) and (len(r["text"]) > 0 if _accept == "bytes" else True)
+                            if _accept in ("text", "bytes") else r["json"] is not None):
                 # accept:'text': an HTML-surface op (a 2xx HTML page is the expected payload, not a WAF
-                # challenge); payload = the raw string, parsed at the provider layer (aligned with Node)
-                payload = r["text"] if opdef.get("accept") == "text" else r["json"]
+                # challenge); payload = the raw string, parsed at the provider layer (aligned with Node).
+                # accept:'bytes' (ext 9): same pass-through shape; an empty body FAILS (a real document is
+                # never 0 bytes — the ilo_stat empty-200 lesson; the generic non-JSON branch below would
+                # blame a WAF, so the empty case is judged here)
+                payload = r["text"] if _accept in ("text", "bytes") else r["json"]
                 clean_round_trip = True
                 if not no_cache and cache is not None:
                     cache.set(provider["id"], cache_key, payload, ttl)
@@ -508,6 +554,14 @@ def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = F
                 return {"ok": True, "data": payload, "from_cache": False,
                         "fetched_at": now_iso(), "provider": provider["id"],
                         "set_cookie": r.get("set_cookie") or []}
+            if r["ok"] and _accept == "bytes":
+                # 2xx but 0 bytes on a bytes op — a real document is never empty (the ilo_stat empty-200
+                # lesson: a wrong client stack can answer a clean 200 with 0 bytes); judge it here so the
+                # message doesn't blame a WAF the way the generic non-JSON branch below does
+                raise SdkError("upstream_unavailable", provider=provider["id"], status=r["status"],
+                               detail=(f"Upstream {r['status']} returned an EMPTY body where a binary document "
+                                       f"was expected (accept='bytes'); verify the client stack/egress and retry, "
+                                       f"do not re-pin the channel blindly"))
             if r["ok"]:
                 # 2xx but not JSON — the typical AWS WAF bot challenge (202 + x-amzn-waf-action HTML).
                 # The gating holds on both the client stack and the egress IP (measured 2026-10-16:

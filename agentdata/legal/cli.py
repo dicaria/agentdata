@@ -22,6 +22,80 @@ def register(v, g):
     fa.add_argument("--basis", default=None, help="Debarment basis, substring over Basis — filter on the bank token (WBG/ADB/IDB/EBRD; punctuation upstream is inconsistent)")
     fa.add_argument("--limit", type=int, default=20, help="Rows to return (default 20, ≤100 local payload wall; total_matched echoes the full count)")
 
+    # —— 0.3.47 AT RIS OGD faces (dictionary slot: at_ris between afdb and br_bacen; legal's first AT face) ——
+    fa0j = v.add_parser("at_ris_judgments", parents=[g()],
+                        help="Austrian case law — RIS Judikatur over the keyless OGD API v2.6 (data.bka.gv.at, ~1.01M documents / 16 court shards)",
+                        description="RIS Judikatur (keyless, CC BY 4.0): 16 exact-case court shards — Justiz "
+                                    "(OGH/OLG/LG/BG merged, default) 138,516 / Vwgh 357,753 / Bvwg 292,078 / Lvwg "
+                                    "78,286 / AsylGH 53,113 / Uvs 25,939 / Vfgh 24,177 / Normenliste 14,676 / Verg "
+                                    "8,143 / Dok 4,873 / Ubas 4,052 / Pvak 2,550 / Dsk 1,891 / Gbk 1,067 / Bks 745 / "
+                                    "Umse 742 (census 2026-11-03, daily drift). Applikation is CASE-SENSITIVE "
+                                    "(Vwgh answers 200; VWGH is answered by a schema-validation Error body; the "
+                                    "boolean-flag form ?Vwgh=true is silently ignored and quietly answers Justiz) — "
+                                    "the local closed-set wall saves the request. Page size is pinned at 20 upstream "
+                                    "(DokumenteProSeite=3/10/50/100 all fail schema validation; --limit is a local "
+                                    "slice); beyond the last page the upstream answers HTTP 500, not an empty page — "
+                                    "read total and page inside ceil(total/20). Rows carry ECLI verbatim and document "
+                                    "coordinates; full texts ride the ogd.ris.bka.gv.at URLs")
+    fa0j.add_argument("--court", default="Justiz",
+                      choices=["Justiz", "Vwgh", "Bvwg", "Lvwg", "AsylGH", "Uvs", "Vfgh", "Normenliste",
+                               "Verg", "Dok", "Ubas", "Pvak", "Dsk", "Gbk", "Bks", "Umse"],
+                      help="Court shard, exact upstream case (16-value closed set; default Justiz = OGH/OLG/LG/BG merged)")
+    fa0j.add_argument("--q", default=None, help="Suchworte full-text search (GmbH → 1,208 Rechtssatz documents)")
+    fa0j.add_argument("--case-number", default=None, help="Geschaeftszahl in the case's own spacing (2 Ob 52/16k → the Rechtssatz family, 27 rows)")
+    fa0j.add_argument("--norm", default=None, help="Norm citation axis")
+    fa0j.add_argument("--date-from", default=None, help="Entscheidungsdatum window start (YYYY-MM-DD)")
+    fa0j.add_argument("--date-to", default=None, help="Entscheidungsdatum window end (YYYY-MM-DD)")
+    fa0j.add_argument("--page", type=int, default=1, help="Seitennummer, 1-based (page size pinned at 20 upstream)")
+    fa0j.add_argument("--limit", type=int, default=20, help="Rows to return (default 20, 1-100 local slice; the upstream page is pinned at 20)")
+
+    fa0s = v.add_parser("at_ris_statutes", parents=[g()],
+                        help="Consolidated Austrian federal law — RIS Bundesrecht/BrKons over the keyless OGD API v2.6 (442,058 documents)",
+                        description="RIS Bundesrecht?Applikation=BrKons (keyless, CC BY 4.0): the consolidated "
+                                    "federal-law shard, 442,058 documents (census 2026-11-03; Suchworte=GmbH → "
+                                    "6,908). Rows are the BrKons projection: NOR id, Kurztitel/Titel, ELI canonical "
+                                    "link, Kundmachungsorgan + Stammnorm/Novellen BGBl citation axes, Typ, "
+                                    "Art/Paragraph, and the validity window — Ausserkrafttretensdatum is present-only "
+                                    "(in-force norms carry none). Page size pinned at 20 upstream; the "
+                                    "beyond-last-page HTTP-500 wall matches Judikatur")
+    fa0s.add_argument("--q", default=None, help="Suchworte full-text search (GmbH → 6,908 documents)")
+    fa0s.add_argument("--page", type=int, default=1, help="Seitennummer, 1-based (page size pinned at 20 upstream)")
+    fa0s.add_argument("--limit", type=int, default=20, help="Rows to return (default 20, 1-100 local slice; the upstream page is pinned at 20)")
+
+    # —— 0.3.38 BR BACEN special-regimes face (dictionary slot: br_bacen between afdb and ca_sema) ——
+    fb0c = v.add_parser("br_bacen_complaints", parents=[g()],
+                        help="Brazil BACEN rdrweb complaint-index ranking — consumer complaints analysed and closed per period (2014→, banks quarterly / consortiums semi-annually)",
+                        description="BACEN rdrweb ranking (keyless, www3.bcb.gov.br): the period catalog "
+                                    "(/rest/ext/ranking, 2014→2026) is the axis — (ano, periodicidade, periodo, "
+                                    "tipo) is validated against it and a ghost combination answers with the "
+                                    "available combos (upstream would answer HTTP 204 with a 0-byte body); defaults "
+                                    "ride the catalog's latest slot for the tipo. One semicolon CSV per period "
+                                    "(cp1252): Índice (comma decimal) is computed only for ranked institutions — "
+                                    "honest blanks become null; schema drifts by era, rows keep the columns the "
+                                    "file carries. tipo=banks (Bancos e financeiras) or consortiums (Consorcios — "
+                                    "CNPJ root on every row)")
+    fb0c.add_argument("--name", default=None, help="Institution/administradora name (substring, case-insensitive)")
+    fb0c.add_argument("--ano", default=None, help="Reference year (default: the catalog's latest; validated against the catalog)")
+    fb0c.add_argument("--periodicidade", default=None, help="Periodicity verbatim from the catalog (TRIMESTRAL/SEMESTRAL/MENSAL/BIMESTRAL), validated WITHIN the resolved year (default: latest slot)")
+    fb0c.add_argument("--periodo", default=None, help="Period number within the year (e.g. 3 = Q3 for TRIMESTRAL), validated within the resolved year+periodicidade (default: latest slot)")
+    fb0c.add_argument("--tipo", default="banks", choices=["banks", "consortiums"],
+                      help="Register branch: banks = Bancos e financeiras, consortiums = Consorcios (default banks)")
+    fb0c.add_argument("--cnpj", default=None, help="8-digit CNPJ root or 14-digit whole key (matched on the first 8 digits)")
+    fb0c.add_argument("--limit", type=int, default=20, help="Rows to return (default 20, ≤100 local payload wall; total_matched echoes the full count)")
+
+    fb0 = v.add_parser("br_bacen_regimes", parents=[g()],
+                       help="Brazil BACEN special-regimes register — institutions under state administration (LIQUIDAÇÃO EXTRAJUDICIAL)",
+                       description="BACEN regimes_especiais (keyless, the legal domain's first BR face): the whole "
+                                   "25-row register is pulled once, cached 24h and scanned locally — every row is "
+                                   "LIQUIDAÇÃO EXTRAJUDICIAL (extrajudicial liquidation), Inicio 2013→2026, with the "
+                                   "liquidation's own contact block (responsavel/emails/telefones). cnpj accepts the "
+                                   "8-digit root or the 14-digit whole key (both on every row). Empty result = no "
+                                   "special regime on record (legitimate answer)")
+    fb0.add_argument("--name", default=None, help="Institution name (substring, case-insensitive, over NomeInstituicao)")
+    fb0.add_argument("--cnpj", default=None, help="8-digit CNPJ root or 14-digit whole key (exact, matched against both)")
+    fb0.add_argument("--uf", default=None, help="2-letter state code (exact, e.g. SP)")
+    fb0.add_argument("--limit", type=int, default=20, help="Rows to return (default 20, ≤100 local payload wall; total_matched echoes the full count)")
+
     fb = v.add_parser("ca_sema_sanctions", parents=[g()],
                       help="Canada SEMA sanctions listings (Global Affairs consolidated list: persons/entities/ships)",
                       description="Canada SEMA sanctions (Consolidated Canadian Autonomous Sanctions List, keyless "
@@ -322,6 +396,44 @@ def register(v, g):
     f13.add_argument("--ordering", default="-dt_posted", help="Sort (upstream param: ordering; default -dt_posted)")
     f13.add_argument("--limit", type=int, default=20, help="Rows (maps to upstream page_size; 1-25 hard wall — larger asks silently yield 25, probed 2026-10-26)")
 
+    # —— 0.3.37 RU CBR warning-list face (dictionary slot: ru_cbr between lda and sipri; registration order == FLAT order) ——
+    f_ruw = v.add_parser("ru_cbr_warning_list", parents=[g()],
+                         help="Bank of Russia warning list (entities with signs of illegal financial activity)",
+                         description="cbr.ru UniDbQuery DownloadExcel export 123126: the WHOLE "
+                                     "warning register ships in ONE keyless xlsx GET (~3.1MB, "
+                                     "27,635 rows, span 2021-02→, nightly rebuild), cached 24h "
+                                     "and scanned locally — upstream publishes no query surface "
+                                     "on the export. Rows are the 12 upstream columns verbatim "
+                                     "(Excel serials → ISO); the violations column carries SIX "
+                                     "canonical kinds (pyramid 14,054 / illegal securities "
+                                     "professional 7,356 / illegal lender 2,567 / investment "
+                                     "solicitation 116 / platform operator 16 / insurance 57 — "
+                                     "rows keep the verbatim Russian wording, --violation splits "
+                                     "the cell on commas/newlines); record_type keeps the "
+                                     "register's own six-kind vocabulary (Интернет-проект 22,798 "
+                                     "/ Юридическое лицо 3,030 / Точка присутствия 924 / Компания "
+                                     "818 / ИП 64 / Прочее 1). ИНН present on only ~3,100 rows "
+                                     "(internet projects ship none); internet-project rows carry "
+                                     "their t.me/*/workers.dev fronts in the ADDRESS column "
+                                     "(--site covers both)")
+    f_ruw.add_argument("--name", default=None,
+                       help="Subject name — substring, case-insensitive (over Название)")
+    f_ruw.add_argument("--inn", default=None,
+                       help="ИНН digit key, exact match (present on only ~3,100 rows)")
+    f_ruw.add_argument("--site", default=None,
+                       help="Site/domain — substring, case-insensitive (over Сайт AND Адрес: internet-project rows list their fronts in Адрес)")
+    f_ruw.add_argument("--violation", default=None,
+                       choices=["pyramid", "illegal_securities_professional", "illegal_lender",
+                                "illegal_investment_solicitation", "illegal_platform_operator",
+                                "illegal_insurance_activity"],
+                       help="Violation kind filter (matched per comma/newline part; rows keep verbatim Russian)")
+    f_ruw.add_argument("--type", default=None,
+                       choices=["internet_project", "legal_entity", "individual_entrepreneur",
+                                "presence_point", "company", "other"],
+                       help="Record type (Тип записи: internet_project | legal_entity | individual_entrepreneur | presence_point | company | other)")
+    f_ruw.add_argument("--limit", type=int, default=20,
+                       help="Rows to return (local payload wall 1-100, default 20; total_matched echoes the full count)")
+
     f14 = v.add_parser("sipri_trades_search", parents=[g()],
                       help="Arms transfers, country level (SIPRI; delivered/orders)",
                       description="SIPRI arms transfers: supplier/recipient country names (sugar — resolves numeric EntityId via the 30-day cached country table; names in the raw filter value1 upstream → 500) XOR --filters raw JSON ({\"field\": \"Supplier\"|\"Recipient\", \"listData\": [EntityId]}); pageSize cap 100; country-level face, not company-level")
@@ -417,6 +529,15 @@ FLAT = {
     # csl_screening_list was the first flat command (Wave 7), ecfr_* Wave 8 (both merged on the main side) — folded into the same dispatch table
     # 0.3.21 debarment-roster line: afdb/ca_sema head slots, idb/wb tail slots (dictionary order)
     "afdb_debarred_entities": lambda a: {"name": a.name, "type": a.type, "basis": a.basis, "limit": a.limit},
+    # 0.3.47 AT RIS OGD faces (dictionary slot: at_ris between afdb and br_bacen; registration order == FLAT order)
+    "at_ris_judgments": lambda a: {"court": a.court, "q": a.q, "case_number": a.case_number,
+                                   "norm": a.norm, "date_from": a.date_from, "date_to": a.date_to,
+                                   "page": a.page, "limit": a.limit},
+    "at_ris_statutes": lambda a: {"q": a.q, "page": a.page, "limit": a.limit},
+    # 0.3.38 BR BACEN special-regimes face (dictionary slot: br_bacen between afdb and ca_sema)
+    "br_bacen_complaints": lambda a: {"name": a.name, "ano": a.ano, "periodicidade": a.periodicidade,
+                                      "periodo": a.periodo, "tipo": a.tipo, "cnpj": a.cnpj, "limit": a.limit},
+    "br_bacen_regimes": lambda a: {"name": a.name, "cnpj": a.cnpj, "uf": a.uf, "limit": a.limit},
     "ca_sema_sanctions": lambda a: {"name": a.name, "country": a.country, "limit": a.limit},
     # 0.3.31 CFPB consumer-complaint faces (dictionary slot: cfpb between ca_sema and co_sic)
     "cfpb_complaints": lambda a: {"search_term": a.search_term, "field": a.field,
@@ -474,6 +595,9 @@ FLAT = {
     "lda_filings": lambda a: {"client_name": a.client_name, "registrant_name": a.registrant_name,
                               "filing_year": a.filing_year, "limit": a.limit, "page": a.page,
                               "ordering": a.ordering},
+    # 0.3.37 RU CBR warning-list face (dictionary slot: ru_cbr between lda and sipri)
+    "ru_cbr_warning_list": lambda a: {"name": a.name, "inn": a.inn, "site": a.site,
+                                      "violation": a.violation, "type": a.type, "limit": a.limit},
     "sipri_trades_search": lambda a: {"filters": a.filters, "supplier": a.supplier,
                                    "recipient": a.recipient, "type": a.type,
                                    "page": a.page, "limit": a.limit},
@@ -492,6 +616,11 @@ FLAT = {
 COUNTRY = {
     # 0.3.21: MDB debarment rosters = GLOBAL (cross-national registers, wb_procnotices precedent); CA SEMA = CA
     "afdb_debarred_entities": "GLOBAL",
+    # 0.3.47 AT RIS OGD: data.bka.gv.at is Austria's federal legal register
+    "at_ris_judgments": "AT",
+    "at_ris_statutes": "AT",
+    "br_bacen_complaints": "BR",
+    "br_bacen_regimes": "BR",
     "ca_sema_sanctions": "CA",
     "cfpb_complaints": "US",
     "cfpb_suggest_company": "US",
@@ -513,6 +642,7 @@ COUNTRY = {
     "ie_revenue_defaulters": "IE",
     "in_sebi_orders": "IN",
     "lda_filings": "US",
+    "ru_cbr_warning_list": "RU",
     "sipri_trades_search": "GLOBAL",
     "tr_spk_bans": "TR",
     "tr_spk_fines": "TR",

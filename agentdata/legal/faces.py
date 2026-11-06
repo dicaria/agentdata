@@ -1077,3 +1077,261 @@ class LegalFaces:
             evidence=ev,
             provider_id="tr_spk", metas=metas,
         )
+
+    # —— 0.3.37 RU CBR warning-list face (dictionary slot: ru_cbr between lda and sipri) ——
+
+    def ru_cbr_warning_list(self, name=None, *, inn=None, site=None, violation=None, type=None,
+                            limit=20, execution=None, no_cache=None):
+        """legal ru_cbr_warning_list: the Bank of Russia warning list of entities with signs of
+        illegal financial activity (www.cbr.ru UniDbQuery DownloadExcel export; the legal
+        domain's first RU face). The WHOLE register ships in ONE keyless xlsx GET (~3.1MB,
+        27,635 rows, span 2021-02→, nightly rebuild), cached 24h and scanned locally (upstream
+        publishes no query surface on the export). Rows are the 12 upstream columns verbatim
+        (Excel serials → ISO); the violations column carries SIX canonical kinds — rows keep the
+        verbatim Russian wording, the filter splits the cell on commas/newlines; record_type
+        keeps the register's own six-kind vocabulary. inn = the exact ИНН digit key (present on
+        only ~3,100 rows — internet projects ship none); site = contains over site AND address
+        (internet-project rows carry their t.me/*/workers.dev fronts in the address column)."""
+        self._lg_only("ru_cbr_warning_list")
+        nm = str(name or "").strip() or None
+        r = legal.ru_cbr_warning.warning_list_raw(nm, inn=inn, site=site, violation=violation,
+                                                  type=type, limit=limit,
+                                                  cache=self._c._cache,
+                                                  no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        cen = result["census"]
+        recap = (f" (name contains \"{nm}\")" if nm else "") \
+            + (f", ИНН {inn}" if inn else "") \
+            + (f", site contains \"{site}\"" if site else "") \
+            + (f", violation={violation}" if violation else "") \
+            + (f", type={type}" if type else "")
+        if result["rows"]:
+            reason = (f"Bank of Russia warning list: {result['total_matched']} of {result['scanned_rows']:,} rows matched"
+                      + recap
+                      + f" — register span {cen['date_min']}→{cen['date_max']}, ИНН present on only {cen['with_inn']:,} rows;"
+                      + " rows keep the verbatim Russian violation wording;"
+                      + " internet-project rows carry their t.me/*/workers.dev fronts in the address column")
+        else:
+            reason = (f"Bank of Russia warning list: zero hits on the {result['scanned_rows']:,}-row register"
+                      + recap
+                      + " — a legitimate answer = no warning on record (drop filters to enumerate from the head)")
+        return self._flat_env(
+            tool="ru_cbr_warning_list",
+            input={"name": nm, "inn": result["params"]["inn"], "site": site,
+                   "violation": violation, "type": type, "limit": result["limit_applied"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{(x['name'] or '—')[:60]} · {x['date'] or '—'} · {x['record_type'] or '—'}"
+                                + (f" · {str(x['violations'])[:60]}" if x["violations"] else ""),
+                       "url": "https://www.cbr.ru/Queries/UniDbQuery/DownloadExcel/123126"}
+                      for x in result["rows"][:5]],
+            provider_id="ru_cbr_warning", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # —— 0.3.38 BR BACEN special-regimes face (dictionary slot: br_bacen between afdb and ca_sema) ——
+
+    def br_bacen_regimes(self, name=None, *, cnpj=None, uf=None, limit=20,
+                         execution=None, no_cache=None):
+        """legal br_bacen_regimes: the BACEN special-regimes register — financial institutions
+        under state administration (olinda.bcb.gov.br regimes_especiais; the legal domain's
+        first BR face). Today one Tipo, LIQUIDAÇÃO EXTRAJUDICIAL (all 25 rows), Inicio
+        02/08/2013→30/04/2026; the register ships whole in one keyless GET, cached 24h, scanned
+        locally. A screening face: match an entity's CNPJ and you know it is being wound down,
+        with the liquidation's own contact block (responsavel/emails/telefones) for
+        verification. cnpj accepts the 8-digit root or the 14-digit whole key — both sit on
+        every row; dates are the register's own dd/mm/yyyy, verbatim."""
+        self._lg_only("br_bacen_regimes")
+        nm = str(name or "").strip() or None
+        r = legal.br_bacen_regimes.regimes_raw(nm, cnpj=cnpj, uf=uf, limit=limit,
+                                               cache=self._c._cache,
+                                               no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k not in ("_meta", "_metas")}
+        metas = r.get("_metas") or [r["_meta"]]
+        cen = result["census"]
+        recap = (f" (name contains \"{nm}\")" if nm else "") \
+            + (f", CNPJ {result['params']['cnpj']}" if result["params"]["cnpj"] else "") \
+            + (f", UF {result['params']['uf']}" if result["params"]["uf"] else "")
+        if result["rows"]:
+            reason = (f"BACEN special-regimes register: {result['total_matched']} of {result['scanned_rows']} rows matched"
+                      + recap
+                      + f" — {cen['by_tipo'].get('LIQUIDAÇÃO EXTRAJUDICIAL', 0)} of {result['scanned_rows']} rows are"
+                      + " LIQUIDAÇÃO EXTRAJUDICIAL (extrajudicial liquidation, the register's only regime today),"
+                      + f" Inicio span {cen['start_date_min']}→{cen['start_date_max']};"
+                      + " responsavel/emails/telefones are the liquidation's own contact block")
+        else:
+            reason = (f"BACEN special-regimes register: zero hits on the {result['scanned_rows']}-row register"
+                      + recap
+                      + " — a legitimate answer = no special regime on record (drop filters to enumerate from the head)")
+        return self._flat_env(
+            tool="br_bacen_regimes",
+            input={"name": nm, "cnpj": result["params"]["cnpj"],
+                   "uf": result["params"]["uf"], "limit": result["limit_applied"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{(x['name'] or '—')[:60]} · {x['tipo']} · from {x['inicio'] or '—'}"
+                                + f" · CNPJ {x['cnpj'] or '—'}",
+                       "url": "https://olinda.bcb.gov.br/olinda/servico/regimes_especiais/versao/v1/odata/Regimes"}
+                      for x in result["rows"][:5]],
+            provider_id="br_bacen_regimes", metas=metas,
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def br_bacen_complaints(self, name=None, *, ano=None, periodicidade=None, periodo=None,
+                            tipo="banks", cnpj=None, limit=20, execution=None, no_cache=None):
+        """legal br_bacen_complaints: the BACEN rdrweb complaint-index ranking (www3.bcb.gov.br
+        /rdrweb/rest/ext/ranking + /arquivo CSV) — consumer complaints against financial
+        institutions that BACEN received, analysed and closed per reference period, 2014→. The
+        period catalog is the axis: (ano, periodicidade, periodo, tipo) is validated against it
+        (a ghost combination answers usage_error with the available combos — upstream would
+        answer HTTP 204 with a 0-byte body); defaults ride the catalog's latest slot for the
+        tipo. tipo=banks (Bancos e financeiras, quarterly) or consortiums (Consorcios,
+        semi-annual — CNPJ on every row). Schema drifts by era; rows keep the columns the file
+        carries; Índice is computed only for ranked institutions (honest blanks → null)."""
+        self._lg_only("br_bacen_complaints")
+        nm = str(name or "").strip() or None
+        r = legal.br_bacen_complaints.complaints_raw(
+            nm, ano=ano, periodicidade=periodicidade, periodo=periodo, tipo=tipo, cnpj=cnpj,
+            limit=limit, cache=self._c._cache,
+            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k not in ("_meta", "_metas")}
+        metas = r.get("_metas") or [r["_meta"]]
+        p = result["params"]
+        cen = result["census"]
+        recap = (f" (name contains \"{nm}\")" if nm else "") \
+            + (f", CNPJ {p['cnpj']}" if p["cnpj"] else "")
+        label = {"banks": "Bancos e financeiras", "consortiums": "Consorcios"}[p["tipo"]]
+        period_note = (f"period {p['ano']} {p['periodicidade']} p{p['periodo']} ({label})"
+                       f", catalog 2014→ latest slot")
+        if result["rows"]:
+            top = result["rows"][0]
+            head = f" · top row: {(top['name'] or '—')[:40]}"
+            head += f" Índice {top['indice'] if top['indice'] is not None else '—'}" \
+                if isinstance(top.get("indice"), (int, float)) else ""
+            reason = (f"BACEN rdrweb complaint-index ranking: {result['total_matched']} of "
+                      f"{result['scanned_rows']} rows matched{recap} — {period_note}"
+                      f"; {cen['with_indice']} of {cen['total']} rows carry an Índice"
+                      f" (max {cen['indice_max']}); {cen['with_cnpj_root']} rows carry a CNPJ root"
+                      + head)
+        else:
+            reason = (f"BACEN rdrweb complaint-index ranking: zero hits on the "
+                      f"{result['scanned_rows']}-row {period_note} panel{recap}"
+                      " — a legitimate answer = no complaint row for that filter (the register"
+                      " lists institutions WITH analysed complaints; drop filters to enumerate)")
+        return self._flat_env(
+            tool="br_bacen_complaints",
+            input={"name": nm, "ano": p["ano"], "periodicidade": p["periodicidade"],
+                   "periodo": p["periodo"], "tipo": p["tipo"], "cnpj": p["cnpj"],
+                   "limit": result["limit_applied"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{(x['name'] or '—')[:60]}"
+                                + (f" · CNPJ {x['cnpj_root']}" if x.get("cnpj_root") else "")
+                                + (f" · Índice {x['indice']}" if x.get("indice") is not None else "")
+                                + (f" · {x['categoria']}" if x.get("categoria") else ""),
+                       "url": f"https://www3.bcb.gov.br/rdrweb/rest/ext/ranking/arquivo"
+                              f"?ano={p['ano']}&periodicidade={p['periodicidade']}"
+                              f"&periodo={p['periodo']}&tipo={label.replace(' ', '%20')}"}
+                      for x in result["rows"][:5]],
+            provider_id="br_bacen_complaints", metas=metas,
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # —— 0.3.47 AT RIS OGD faces (dictionary slot: at_ris between afdb and br_bacen; legal's first AT face) ——
+
+    def at_ris_judgments(self, court="Justiz", *, q=None, case_number=None, norm=None,
+                         date_from=None, date_to=None, page=1, limit=20, execution=None,
+                         no_cache=None):
+        """legal at_ris_judgments: Austrian case law over the RIS OGD API v2.6 (data.bka.gv.at,
+        keyless, CC BY 4.0; the legal domain's first AT face). Judikatur = ~1.01M documents in 16
+        exact-case court shards — Justiz (OGH/OLG/LG/BG merged, the default) 138,516 / Vwgh 357,753
+        / Bvwg 292,078 / Lvwg 78,286 / AsylGH 53,113 / Uvs 25,939 / Vfgh 24,177 / Normenliste
+        14,676 / Verg 8,143 / Dok 4,873 / Ubas 4,052 / Pvak 2,550 / Dsk 1,891 / Gbk 1,067 / Bks 745
+        / Umse 742 (census 2026-11-03, daily drift). q = Suchworte full text; case_number =
+        Geschaeftszahl in the case's own spacing ("2 Ob 52/16k" → the Rechtssatz family, 27 rows);
+        norm = the norm citation axis; date_from/date_to = the Entscheidungsdatum window
+        (YYYY-MM-DD). Rows are the Metadaten projection with ECLI verbatim; Entscheidungstexte
+        keep coordinates only (Geschaeftszahl/DokumentUrl) — the long Beisatz annotations ride the
+        ogd.ris.bka.gv.at document URL, not this face. Page size is pinned at 20 upstream
+        (--limit is a local slice); beyond the last page (ceil(total/20)) the upstream answers
+        HTTP 500 "Die Seitennummer ist höher als die Anzahl der verfügbaren Seiten" — read total
+        from any response and page inside the window."""
+        self._lg_only("at_ris_judgments")
+        r = legal.at_ris.judgments_raw(court, q=q, case_number=case_number, norm=norm,
+                                       date_from=date_from, date_to=date_to, page=page,
+                                       limit=limit,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        cen = result["census"]
+        shard = cen["shard_census_2026_11_03"].get(result["court"])
+        recap = (f" (Suchworte contains \"{q}\")" if q else "") \
+            + (f", Geschaeftszahl {case_number}" if case_number else "") \
+            + (f", Norm {norm}" if norm else "") \
+            + (f", {date_from}→{date_to}" if date_from or date_to else "")
+        if result["rows"]:
+            reason = (f"RIS Judikatur shard {result['court']}: page {result['page']} of "
+                      f"{(result['total'] + 19) // 20 if result['total'] else '?'} "
+                      f"({result['total']:,} documents; census 2026-11-03 {shard:,}, live drift is the "
+                      f"daily refresh){recap} — page size pinned at 20 upstream; rows carry ECLI "
+                      f"verbatim and document coordinates (full texts ride the ogd.ris.bka.gv.at URLs)")
+        else:
+            reason = (f"RIS Judikatur shard {result['court']}: zero rows on page {result['page']}"
+                      f"{recap} — a legitimate answer = no judgment matches on this page; read total "
+                      f"(the shard census is {shard:,}) and page inside ceil(total/20), or drop "
+                      f"filters — beyond the last page the upstream answers HTTP 500, not an empty page")
+        return self._flat_env(
+            tool="at_ris_judgments",
+            input={"court": result["court"], "q": q, "case_number": case_number,
+                   "norm": norm, "date_from": date_from, "date_to": date_to,
+                   "page": result["page"], "limit": limit},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{(x['ecli'] or x['ris_id'] or '—')}"
+                                + (f" · {x['geschaeftszahlen'][0]}" if x["geschaeftszahlen"] else "")
+                                + (f" · {x['dokumenttyp']}" if x["dokumenttyp"] else "")
+                                + (f" · {x['entscheidungsdatum']}" if x["entscheidungsdatum"] else ""),
+                       "url": x["dokument_url"] or "https://data.bka.gv.at/ris/api/v2.6/Judikatur"}
+                      for x in result["rows"][:5]],
+            provider_id="at_ris", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def at_ris_statutes(self, *, q=None, page=1, limit=20, execution=None, no_cache=None):
+        """legal at_ris_statutes: consolidated Austrian federal law over the RIS OGD API v2.6
+        (Bundesrecht?Applikation=BrKons, 442,058 documents, census 2026-11-03). q = Suchworte full
+        text (GmbH → 6,908 documents). Rows are the BrKons projection: NOR id, Kurztitel/Titel, ELI
+        canonical link, Kundmachungsorgan + BGBl citation axes (Stammnorm/Novellen), Typ,
+        Art/Paragraph, and the validity window — Ausserkrafttretensdatum is present-only (in-force
+        norms carry none). Page size pinned at 20 upstream; the beyond-last-page HTTP-500 wall and
+        the daily drift posture are the same as Judikatur."""
+        self._lg_only("at_ris_statutes")
+        r = legal.at_ris.statutes_raw(q=q, page=page, limit=limit,
+                                      cache=self._c._cache,
+                                      no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        recap = (f" (Suchworte contains \"{q}\")" if q else "")
+        if result["rows"]:
+            reason = (f"RIS Bundesrecht/BrKons: page {result['page']} of "
+                      f"{(result['total'] + 19) // 20 if result['total'] else '?'} "
+                      f"({result['total']:,} documents; census 2026-11-03 "
+                      f"{result['census']['corpus_documents_2026_11_03']:,}){recap} — consolidated "
+                      f"federal law: Stammnorm/Novellen BGBl axes + in-force window; rows whose "
+                      f"ausserkrafttretensdatum is absent are in force")
+        else:
+            reason = (f"RIS Bundesrecht/BrKons: zero rows on page {result['page']}{recap} — a "
+                      f"legitimate answer = no consolidated norm matches on this page; read total and "
+                      f"page inside ceil(total/20) — beyond the last page the upstream answers HTTP 500")
+        return self._flat_env(
+            tool="at_ris_statutes",
+            input={"q": q, "page": result["page"], "limit": limit},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x['nor_id'] or '—'} · {str(x['kurztitel'] or x['titel'] or '—')[:60]}"
+                                + (f" · {x['typ']}" if x["typ"] else "")
+                                + (f" · {x['kundmachungsorgan']}" if x["kundmachungsorgan"] else ""),
+                       "url": x["dokument_url"] or "https://data.bka.gv.at/ris/api/v2.6/Bundesrecht"}
+                      for x in result["rows"][:5]],
+            provider_id="at_ris", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
