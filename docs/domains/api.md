@@ -791,9 +791,45 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   → **0.3.49, 166 faces** (company +`chi_bacp_licenses`/`lacity_registrations`/`nyc_dcwp_licenses`:
   the US city-license Socrata trio — the 0.3.48 state-axis ruling extended to the city axis, faces
   named on the host/locality stem (`lacity` deliberately not `la_` — LA is ISO-3166 alpha-2 Laos and
-  SDK prefixes are country codes); see changelog entry 85)
+  SDK prefixes are country codes); see changelog entry 85) → **0.3.50, 172 faces** (legal
+  +`us_ferc_elibrary`/`ie_sipo_lobbying`/`ee_erjk_quarterly_reports`/`ee_erjk_election_reports`/
+  `ua_nazk_parties`/`ua_nazk_party_reports`: the enforcement/party-assets realtime tier-one sextet
+  — **the SDK's first EE and UA jurisdictions** (27→29); see changelog entry 86)
+  → **0.3.51, 176 faces** (legal +`fr_adlc_sanctions`/`it_arera_decisions`/`us_cftc_enforcement`,
+  company +`us_fmcsa_carriers`: the enforcement tier-2 trio + the FMCSA carrier census — **the
+  SDK's first IT jurisdiction** (29→30), fr_adlc the legal domain's first FR face (FR itself
+  pre-existing via company fr_recherche); see changelog entry 87
+  → **0.3.52, 176 faces (0 new)**: the discovery-surface machinery batch — the reflection-based
+  `agentdata capabilities` + three CLI repairs + cache keys pinned to the upstream host; see
+  changelog entry 88)
+  → **0.3.53, 180 faces** (company +`fr_regafi_authorisations`/`fr_regafi_entities` — FR's second
+  company axis, the ACPR register pair; esg +`uk_fhrs_establishments` — **the esg domain's first GB
+  face**; healthcare +`us_npi_organizations` — the NPPES registry pinned to NPI-2; no new
+  jurisdiction); see changelog entry 89)
 
 - openFDA query faces **deferred by user ruling** (2026-10-16: FAERS/MAUDE are already harvested and ingested locally, so queries consume the local corpus first; third-party real-time faces wait until an incremental question touches them) — the deferral covers **only the locally ingested FAERS/MAUDE faces**; the `drug/shortages.json` face opened in Wave 5 is an event-stream face not harvested locally, outside the deferral's scope (opened 2026-10-23 as soon as the incremental need arose, see changelog entry 23). The first hosted case awaits a keyed-tool proposal — keys are never shipped down to the SDK (§9.2).
+
+### 9.7 Capability discovery surface (0.3.52 CLI; server-side = P2 byproduct)
+
+- The CLI renders its own capability table from the command tree (reflection — the §9.6 registry
+  and the CLI `--help` catalogs are all views of the same argparse tree, no second source to
+  drift). A server-side capability document is a **byproduct of the P2 hosted realtime
+  thin-shell**, not a separately designed or separately released API: when the P2 HTTP shell
+  wraps the same client.py implementation (§9.5 single authoritative implementation), it renders
+  the same reflection with each caller's entitlement depth resolved. Three clauses govern that
+  step:
+  - **Discovery is never paywalled (the 形态 B front gate)**: the face / jurisdiction / execution
+    listing is open to any caller; only execution depth (rate-limit budget, corpus T-layers) is
+    entitled. The compliance trigger (compliance register §1.3) is *re-provisioning*, not
+    charging — a free discovery listing keeps that boundary honest, and premium is what the
+    listing shows as entitlement depth, never the listing itself.
+  - **Anti-skew `min_client_version`**: the server document carries the minimum client version it
+    describes; a client older than that refreshes its baked-in table instead of mixing. The
+    rendered table is stamped with the release it shipped in (`sdk_version` field), so
+    client-table vs server-table skew is detectable, never silent.
+  - **Zero extra release cadence**: the reflection ships with every SDK release and the server
+    document inherits it by construction — there is no capability-list release apart from the
+    SDK release.
 
 ## 10. The ask verb (P2 design boundary, not implemented)
 

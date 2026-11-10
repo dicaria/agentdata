@@ -126,6 +126,32 @@ def register(v, g):
                        description="THETIS-MRV versioned bulk-file catalog (keyless): reporting periods (2018+) x versioned regenerated XLSX publications (versions roll — reconcile by this list, never guess filenames; generation timestamps are early-morning batch runs); download_path template is served for the batch pipeline, this face gives coordinates; zero params upstream")
     # Upstream takes zero params: no flags (reporting-period × version ledger composed; clients filter rows themselves)
 
+    # —— 0.3.53 UK FHRS food-hygiene live search (dictionary slot: thetis_mrv_* < uk_fhrs — tail; registration order == FLAT order) ——
+    f13 = v.add_parser("uk_fhrs_establishments", parents=[g()],
+                       help="UK food-hygiene establishment search (FSA FHRS/FHIS; keyless x-api-version 2)",
+                       description="~615,098 rated establishments live 2026-11-10 — England/Wales/NI "
+                                   "0-5 ratings plus the Scottish Pass/FHIS scheme, daily refresh. "
+                                   "FHRSID is the hard key; the company join is BusinessName+PostCode "
+                                   "(weak — no CH number rides the register). Rows carry 26 fields: "
+                                   "address+PostCode, geocode, the three sub-scores, "
+                                   "RatingValue/Key/Date, RightToReply, SchemeType. Wall (measured "
+                                   "live): the postcode= query param answers 403 on this endpoint — "
+                                   "postcode is NOT a query parameter here (the PostCode field rides "
+                                   "every row, filter locally). Rides the fast ElasticSearch endpoint, "
+                                   "not the slow legacy basic pager.")
+    f13.add_argument("--name", default=None,
+                     help="Business-name substring (upstream param: name; e.g. pret → 806 hits)")
+    f13.add_argument("--address", default=None,
+                     help="Address substring (upstream param: address; e.g. Oxford → 2,935)")
+    f13.add_argument("--rating-key", dest="rating_key", default=None,
+                     help="Rating key (upstream param: ratingKey; the scheme's own vocabulary, e.g. fhrs_5_en-gb, fhis_pass_en-gb)")
+    f13.add_argument("--local-authority-id", dest="local_authority_id", default=None,
+                     help="FSA numeric authority id (upstream param: localAuthorityId; e.g. 131)")
+    f13.add_argument("--page", type=int, default=1,
+                     help="Page, 1-based (upstream param: page; totalPages echoes for arithmetic)")
+    f13.add_argument("--pagesize", type=int, default=20,
+                     help="Rows per page (upstream param: pagesize; 1-200 politeness cap — upstream tolerates 1000, default 20)")
+
 FLAT = {
     # esg 0.2.0 flat panel (upstream params under original names + our defaults; the lambda only ferries names across namespaces)
     "climatetrace_owners": lambda a: {"name": a.name, "limit": a.limit, "offset": a.offset},
@@ -159,6 +185,11 @@ FLAT = {
                                         "ism_company_imo_number": a.ism_company_imo_number},
     "paris_mou_low_performance_companies": lambda a: {},  # upstream zero params (rolling-window list in one shot)
     "thetis_mrv_datasets": lambda a: {},  # upstream zero params (reporting-period × version ledger composed)
+    # 0.3.53 UK FHRS food-hygiene live search (slot: thetis_mrv_* < uk_fhrs — tail)
+    "uk_fhrs_establishments": lambda a: {"name": a.name, "address": a.address,
+                                         "rating_key": a.rating_key,
+                                         "local_authority_id": a.local_authority_id,
+                                         "page": a.page, "pagesize": a.pagesize},
 }
 
 
@@ -177,4 +208,6 @@ COUNTRY = {
     "paris_mou_inspections": "GLOBAL",
     "paris_mou_low_performance_companies": "GLOBAL",
     "thetis_mrv_datasets": "EU",
+    # 0.3.53 UK FHRS food-hygiene live search (slot: thetis_mrv_* < uk_fhrs — tail)
+    "uk_fhrs_establishments": "GB",
 }

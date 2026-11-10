@@ -282,6 +282,52 @@ def register(v, g):
                      help="Rows per page (upstream param: per_page; hard wall 1-25 upstream-verified, default 10)")
     f5.add_argument("--etat-administratif", dest="etat_administratif", default=None,
                      help="Lifecycle filter (upstream param: etat_administratif; A=active, C=ceased — true filter, ceased rows carry date_fermeture)")
+    # —— 0.3.53 FR Regafi ACPR pair (dictionary slot: fr_recherche_search < fr_regafi_authorisations < fr_regafi_entities < gb_*; registration order == FLAT order) ——
+    f5a = v.add_parser("fr_regafi_authorisations", parents=[g()],
+                       help="French ACPR per-authorisation timeline (regafi.fr ODS v2.1 prd-banque-autorisations; keyless)",
+                       description="One row per authorisation the ACPR granted — 31,107 rows live "
+                                   "2026-11-10. id_referentiel joins fr_regafi_entities; date_debut "
+                                   "runs 1946→today; the *_json columns carry the per-service blocks "
+                                   "with their own effective dates (services de paiement, cryptos, "
+                                   "cautions réglementées…), parsed in place. nature = the register's "
+                                   "own seven-word vocabulary (exact); situation = closed ACTIF/MANDAT "
+                                   "pair; categorie passes verbatim.")
+    f5a.add_argument("--id-referentiel", dest="id_referentiel", default=None,
+                     help="Entity join key (upstream where: id_referentiel=<int> — the register's own key, from fr_regafi_entities rows)")
+    f5a.add_argument("--categorie", default=None,
+                     help="Authorisation family (upstream where: categorie=…; e.g. Établissement de Crédit; pass verbatim)")
+    f5a.add_argument("--nature", default=None,
+                     help="Authorisation nature (upstream where: nature_autorisation=…; Agrément/Autorisation/Habilitation/Enregistrement/Approbation/Inscription liste/Exemption d'agrément — exact match)")
+    f5a.add_argument("--situation", default=None,
+                     help="Lifecycle (upstream where: situation=…; closed pair ACTIF | MANDAT)")
+    f5a.add_argument("--limit", type=int, default=20,
+                     help="Rows to return (upstream param: limit; 1-100 the ODS v2.1 ceiling, default 20)")
+    f5a.add_argument("--offset", type=int, default=0,
+                     help="Row offset (upstream param: offset; >=0; total_count is echoed for arithmetic)")
+    f5b = v.add_parser("fr_regafi_entities", parents=[g()],
+                       help="French ACPR supervised-entity register (regafi.fr ODS v2.1 prd-banque-entites; keyless)",
+                       description="The supervised financial-entity roster — 25,890 rows live "
+                                   "2026-11-10. id_referentiel is the official key; siren + lei are "
+                                   "the dual hard keys (SIREN joins the FR company master, LEI joins "
+                                   "GLEIF); id_entite_parente carries the parent edge; nom_commerciaux "
+                                   "rides parsed (renaming history); categorie is multi-valued "
+                                   "(Agent PSP 22,485 / Entreprise d'Investissement 1,009 / "
+                                   "Établissement de Crédit 941 / Etablissement de paiement 584 / "
+                                   "Établissement de Monnaie Électronique 320 …).")
+    f5b.add_argument("--siren", default=None,
+                     help="SIREN exact lookup (upstream where: siren=… — the FR company-master hard key)")
+    f5b.add_argument("--lei", default=None,
+                     help="LEI exact lookup (upstream where: lei=… — the GLEIF hard key)")
+    f5b.add_argument("--categorie", default=None,
+                     help="Category filter (upstream where: categorie=…; multi-valued upstream — an OR membership; 24-value vocabulary, pass verbatim)")
+    f5b.add_argument("--pays", default=None,
+                     help="Country filter (upstream where: pays=…; e.g. FRANCE)")
+    f5b.add_argument("--q", default=None,
+                     help="Name full-text (upstream where: search(denomination, …) — assembled locally; quotes refused)")
+    f5b.add_argument("--limit", type=int, default=20,
+                     help="Rows to return (upstream param: limit; 1-100 the ODS v2.1 ceiling, default 20)")
+    f5b.add_argument("--offset", type=int, default=0,
+                     help="Row offset (upstream param: offset; >=0; total_count is echoed for arithmetic)")
     f6 = v.add_parser("gb_contracts_finder_published_notices", parents=[g()],
                        help="UK below-threshold contracts (Contracts Finder OCDS; bare dates legal here)",
                        description="Sub-threshold UK contracts: publishedFrom/publishedTo are bare dates (opposite of FTS); no window → our rolling 7-day default (upstream returns empty without one); --stages filters tender|award (upstream 400 self-validates); --name = client-side contains filter")
@@ -669,6 +715,34 @@ def register(v, g):
                       help="Row offset (upstream param: $offset; >=0 — Socrata deep-offset friendly)")
     f_tx.add_argument("--order", default=None,
                       help="Sort column [ASC|DESC] (upstream param: $order; rejects NULLS — e.g. license_number DESC)")
+    # —— 0.3.51 US FMCSA carrier census (dictionary slot: us_fmcsa between tx_tdlr and usaspending — '_'<'a'; registration order == FLAT order) ——
+    f_fm = v.add_parser("us_fmcsa_carriers", parents=[g()],
+                        help="US FMCSA carrier census (data.transportation.gov Socrata az4n-8mr2; keyless)",
+                        description="The full-history US motor carrier universe — active AND "
+                                    "out-of-service, 4,528,322 rows live 2026-11-09 (the ~400k audit "
+                                    "figure was the active face). dot_number hard key (the "
+                                    "transport-compliance join key), status_code lifecycle (A active), "
+                                    "dun_bradstreet_no = the rare official DUNS cross-key (mind its "
+                                    "'0' sentinels), phy_*/carrier_mailing_* dual address blocks, "
+                                    "company_officer_1/2 verbatim (public-register precedent), fleet "
+                                    "trio truck/power/bus units + mcs150 mileage + hm_ind hazmat + "
+                                    "crgo_* cargo flags + classdef; email_address present on some "
+                                    "rows. Catalog advertises ~58 columns but Socrata omits null "
+                                    "fields per row — a populated row ships 53 keys; unrated carriers "
+                                    "simply lack safety_rating (rides in the view, appears only when "
+                                    "set). Walk-away: sibling 4a2k-zf79 is a 403 dead single-dataset "
+                                    "— az4n is the live set. SoQL verbatim channel — no total echo, "
+                                    "none faked. Deterministic forms: dot_number='963305' exact; "
+                                    "upper(legal_name) like '%SCHNEIDER%' (3 rows live)")
+    f_fm.add_argument("--where", default=None,
+                      help="Raw SoQL filter (upstream param: $where; e.g. \"dot_number='963305'\" or \"upper(legal_name) like '%%SCHNEIDER%%'\")")  # %% escaping: argparse help goes through % interpolation
+    f_fm.add_argument("--limit", type=int, default=20,
+                      help="Rows to return (upstream param: $limit; 1-500 politeness cap, default 20)")
+    f_fm.add_argument("--offset", type=int, default=0,
+                      help="Row offset (upstream param: $offset; >=0 — Socrata deep-offset friendly)")
+    f_fm.add_argument("--order", default=None,
+                      help="Sort column [ASC|DESC] (upstream param: $order; rejects NULLS — e.g. dot_number DESC)")
+
     f18 = v.add_parser("usaspending_spending_by_award", parents=[g()],
                       help="US federal awards by recipient (USAspending spending_by_award POST)",
                       description="Federal contracts/grants: recipient name (array upstream, scalar auto-wrapped); award-type codes, time window (single end auto-completed), fields all upstream-verbatim")
@@ -758,6 +832,14 @@ FLAT = {
     "fi_ytj_companies": lambda a: {"name": a.name, "business_id": a.business_id},
     "fr_recherche_search": lambda a: {"q": a.q, "page": a.page, "per_page": a.per_page,
                             "etat_administratif": a.etat_administratif},
+    # 0.3.53 FR Regafi ACPR pair (slot: fr_recherche_search < fr_regafi_authorisations < fr_regafi_entities < gb_*)
+    "fr_regafi_authorisations": lambda a: {"id_referentiel": a.id_referentiel,
+                                           "categorie": a.categorie, "nature": a.nature,
+                                           "situation": a.situation, "limit": a.limit,
+                                           "offset": a.offset},
+    "fr_regafi_entities": lambda a: {"siren": a.siren, "lei": a.lei, "categorie": a.categorie,
+                                     "pays": a.pays, "q": a.q, "limit": a.limit,
+                                     "offset": a.offset},
     "gb_contracts_finder_published_notices": lambda a: {"name": a.name, "published_from": a.published_from,
                                       "published_to": a.published_to, "stages": a.stages,
                                       "limit": a.limit, "cursor": a.cursor},
@@ -826,6 +908,9 @@ FLAT = {
     # wa_doh between usaspending and vies_vat — US sub-national faces take the state code prefix, ny_open_data precedent)
     "tx_tdlr_licenses": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset,
                                    "order": a.order},
+    # 0.3.51 US FMCSA carrier census (dictionary slot: us_fmcsa between tx_tdlr and usaspending)
+    "us_fmcsa_carriers": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset,
+                                    "order": a.order},
     "usaspending_spending_by_award": lambda a: {"recipient_search_text": a.recipient_search_text,
                                      "award_type_codes": a.award_type_codes,
                                      "start_date": a.start_date, "end_date": a.end_date,
@@ -861,6 +946,9 @@ COUNTRY = {
     "fdic_institutions": "US",
     "fi_ytj_companies": "FI",
     "fr_recherche_search": "FR",
+    # 0.3.53 FR Regafi ACPR pair (slot: fr_recherche_search < fr_regafi_* < gb_*)
+    "fr_regafi_authorisations": "FR",
+    "fr_regafi_entities": "FR",
     "gb_contracts_finder_published_notices": "GB",
     "gb_fts_release_packages": "GB",
     "gg_gfsc_registered_businesses": "GG",
@@ -893,6 +981,8 @@ COUNTRY = {
     # 0.3.48 US state-license Socrata twin batch (US sub-national sources keep the US jurisdiction stamp;
     # tx_tdlr slots before usaspending ('tr'<'tx'<'us'), wa_doh is the company tail ('vi'<'wa'))
     "tx_tdlr_licenses": "US",
+    # 0.3.51 US FMCSA carrier census (slot: us_fmcsa between tx_tdlr and usaspending — 'us_'<'us')
+    "us_fmcsa_carriers": "US",
     "usaspending_spending_by_award": "US",
     "vies_vat": "EU",
     "wa_doh_credentials": "US",

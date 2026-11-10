@@ -1335,3 +1335,388 @@ class LegalFaces:
             provider_id="at_ris", metas=[r["_meta"]],
             query={"source": "raw", "upstream": r["params"]},
         )
+
+    # —— 0.3.50 enforcement/party-finance tier (us_ferc / ie_sipo / ee_erjk ×2 / ua_nazk ×2; the legal domain's first EE and UA jurisdictions) ——
+
+    def us_ferc_elibrary(self, text=None, docket=None, *, date_type=None, date_from=None,
+                         date_to=None, page=1, limit=20, execution=None, no_cache=None):
+        """legal us_ferc_elibrary: FERC eLibrary document search (elibrary.ferc.gov, keyless;
+        the 4.7M-document 1980→ corpus — dockets, orders, comments, transmittals over the whole
+        FERC-regulated energy lifecycle). All filters combinable (docket + text + one date
+        facet); no filter = the upstream's own "*" wildcard, newest first. Cloudflare
+        UA-fingerprint gate = the full browser header suite (the afdb ext-8 family). Rows pass
+        through verbatim minus the internal reference pair-key — acesssionNumber keeps the
+        upstream's own triple-s and is the official key (the PDF rides the download endpoint)."""
+        self._lg_only("us_ferc_elibrary")
+        r = legal.us_ferc.elibrary_raw(text, docket, date_type=date_type, date_from=date_from,
+                                       date_to=date_to, page=page, limit=limit,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        flt = (f" (docket {result['params']['docketSearches'][0]['docketNumber']})"
+               if result["params"]["docketSearches"] else "") + \
+              (f" · date facet {result['params']['dateSearches'][0]['dateType']}"
+               f" {result['params']['dateSearches'][0]['startDate']}→{result['params']['dateSearches'][0]['endDate']}"
+               if result["params"]["dateSearches"] else "")
+        if result["rows"]:
+            reason = (f"FERC eLibrary: {result['total']:,} documents match{flt} — page "
+                      f"{result['page']} × {result['page_size']} ({result['count']} rows); the corpus "
+                      f"spans 1980→today over pipeline certificates, hydro licenses, tariffs and "
+                      f"rate cases; docketNumbers list + the three date faces ride every row")
+        else:
+            reason = (f"FERC eLibrary: zero documents on page {result['page']}{flt} (total "
+                      f"{result['total']:,}) — a legitimate empty page; iterate inside "
+                      f"ceil(total/{result['page_size']})")
+        return self._flat_env(
+            tool="us_ferc_elibrary",
+            input={"text": text, "docket": docket, "date_type": date_type,
+                   "date_from": date_from, "date_to": date_to,
+                   "page": result["page"], "limit": result["page_size"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"[{x.get('acesssionNumber')}] {str(x.get('description') or x.get('category'))[:110]}"
+                                + (f" · filed {x['filedDate']}" if x.get("filedDate") else ""),
+                       "url": "https://elibrary.ferc.gov/eLibraryWebAPI/"}
+                      for x in result["rows"][:5]],
+            provider_id="us_ferc", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def ie_sipo_lobbying(self, query_text=None, client=None, dpo=None, public_bodys=None,
+                         period=None, return_date_from=None, return_date_to=None, page=1,
+                         limit=20, execution=None, no_cache=None):
+        """legal ie_sipo_lobbying: Irish SIPO Regulation of Lobbying register search
+        (api.lobbying.ie, keyless; 123,591 returns live 2026-11-09). Each row is one lobbying
+        return embedding the three parties verbatim — Lobbyist (carrying CompanyRegistrationNumber,
+        the CRO key, on 43.6% of registrants) × Clients (carrying Cro) × Dpos. The 13-param wall:
+        every parameter rides every call with explicit empties (a missing one is answered 404 —
+        the face assembles the full set). Dates are DD-MM-YYYY, the register form's own shape
+        (ISO is answered HTTP 500; the wall is local)."""
+        self._lg_only("ie_sipo_lobbying")
+        r = legal.ie_sipo.lobbying_raw(query_text, client=client, dpo=dpo, public_bodys=public_bodys,
+                                       period=period, return_date_from=return_date_from,
+                                       return_date_to=return_date_to, page=page, limit=limit,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        active = [k for k, v in result["params"].items() if v]
+        if result["rows"]:
+            reason = (f"SIPO lobbying register: {result['total']:,} returns"
+                      + (f" — filtered: {', '.join(active)}" if active else "")
+                      + f" — page {result['page']} × {result['page_size']} ({result['count']} rows); each "
+                        f"row carries the three-party shape (Lobbyist CRN × Clients Cro × Dpos) — the "
+                        f"register's own join keys, verbatim")
+        else:
+            reason = (f"SIPO lobbying register: zero returns on page {result['page']}"
+                      + (f" — filtered: {', '.join(active)}" if active else "")
+                      + " — either a legitimate empty filter or a page past the end; iterate inside "
+                        f"ceil(total/{result['page_size']})")
+        return self._flat_env(
+            tool="ie_sipo_lobbying",
+            input={"query_text": query_text, "client": client, "dpo": dpo,
+                   "public_bodys": public_bodys, "period": period,
+                   "return_date_from": return_date_from, "return_date_to": return_date_to,
+                   "page": result["page"], "limit": result["page_size"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": (f"{(x.get('Lobbyist') or {}).get('Name') or '—'}"
+                                 + (f" [CRN {(x.get('Lobbyist') or {}).get('CompanyRegistrationNumber')}]"
+                                    if (x.get("Lobbyist") or {}).get("CompanyRegistrationNumber") else "")
+                                 + f" · {x.get('PeriodName') or x.get('Period') or '—'}"
+                                 + f" · {str(x.get('SubjectMatterText') or x.get('SubjectMatterName'))[:80]}"
+                                 + (" · nil return" if x.get("NilReturn") else "")),
+                       "url": x.get("FormattedUrl") or "https://www.lobbying.ie/"}
+                      for x in result["rows"][:5]],
+            provider_id="ie_sipo", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def ee_erjk_quarterly_reports(self, party_id=None, period=None, limit=100,
+                                  execution=None, no_cache=None):
+        """legal ee_erjk_quarterly_reports: Estonian party-finance receipts matrix
+        (erjk.ee/avaandmet, keyless; the SDK's first EE jurisdiction). One shot = the whole
+        party × period × donation-category aggregate matrix (455 rows 2013→2026 live
+        2026-11-09); party_id narrows to one party (163 Keskerakond / 158 Reformierakond),
+        period to one year. Party donations are natural-persons-only by Estonian law — the
+        corporate edge lives in the election face (ee_erjk_election_reports)."""
+        self._lg_only("ee_erjk_quarterly_reports")
+        r = legal.ee_erjk.quarterly_reports_raw(party_id, period=period, limit=limit,
+                                                cache=self._c._cache,
+                                                no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        scope = (f"party {result['party_id']}" if str(result["party_id"]) != "all" else "all parties") + \
+                (f", period {result['period']}" if str(result["period"]) != "show_all" else ", full history")
+        if result["rows"]:
+            tail = ", ".join(f"{x['party_name']} {x['period']} {x['category_name']} "
+                             + (f"€{x['amount']:,.0f}" if x["amount"] is not None else "€—")
+                             for x in result["rows"][:3])
+            reason = (f"ERJK party-finance matrix: {result['total']} aggregate rows for {scope} — "
+                      f"e.g. {tail}; each row is the upstream's own party × period × category "
+                      f"aggregate (Rahaline annetus = cash donation, membership fees, events…)")
+        else:
+            reason = (f"ERJK party-finance matrix: zero rows for {scope} — either a party/year with "
+                      f"no filed receipts or a filter combination outside the register's history")
+        return self._flat_env(
+            tool="ee_erjk_quarterly_reports",
+            input={"party_id": party_id, "period": period, "limit": limit},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x['party_name']} · {x['period']} · {x['category_name']} · "
+                                + (f"€{x['amount']:,.2f}" if x["amount"] is not None else "€—"),
+                       "url": "https://erjk.ee/et/avaandmetest"}
+                      for x in result["rows"][:5]],
+            provider_id="ee_erjk", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def ee_erjk_election_reports(self, event_id=None, organisation_id=None, report_id=None,
+                                 limit=500, execution=None, no_cache=None):
+        """legal ee_erjk_election_reports: Estonian election/candidate receipts report — the
+        register's company-hard-key layer (erjk.ee, keyless). Two entry forms: report_id
+        directly, or event_id + organisation_id (resolves the organisation's report slots and
+        takes the main report Põhiaruanne; every slot rides available_reports). Rows flatten
+        {person: [entries]}: person + birthdate (the register's own key form, verbatim) +
+        payer + **reg_code — a direct RIK äriregister registry code when the payer is a legal
+        person** (the corporate-money edge; party donations are natural-persons-only by law,
+        so this is where company money enters Estonian politics)."""
+        self._lg_only("ee_erjk_election_reports")
+        r = legal.ee_erjk.election_reports_raw(event_id, organisation_id, report_id=report_id,
+                                               limit=limit, cache=self._c._cache,
+                                               no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        with_reg = sum(1 for x in result["rows"] if x.get("reg_code"))
+        if result["rows"]:
+            reason = (f"ERJK election report {result['report_id']}"
+                      + (f" ({result['report_title']})" if result.get("report_title") else "")
+                      + f": {result['total']} receipt entries, {with_reg} carrying a payer reg_code "
+                        f"(the RIK company edge)"
+                      + (f"; slots available: "
+                         + ", ".join(f"{s['report_id']}={s['report_title']}"
+                                     for s in result["available_reports"])
+                         if result.get("available_reports") else ""))
+        else:
+            reason = (f"ERJK election report {result['report_id']}: zero receipt entries — a filed "
+                      f"report with nothing above the disclosure threshold (a legitimate answer)")
+        return self._flat_env(
+            tool="ee_erjk_election_reports",
+            input={"event_id": event_id, "organisation_id": organisation_id,
+                   "report_id": result["report_id"], "limit": limit},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x['person'] or '—'} · {x['payer'] or x['receipt_group'] or '—'}"
+                                + (f" [reg {x['reg_code']}]" if x["reg_code"] else "")
+                                + (f" · €{x['amount']}" if x["amount"] is not None else ""),
+                       "url": "https://erjk.ee/et/avaandmetest"}
+                      for x in result["rows"][:5]],
+            provider_id="ee_erjk", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def ua_nazk_parties(self, page=1, limit=20, execution=None, no_cache=None):
+        """legal ua_nazk_parties: Ukrainian political-party register (politdata.nazk.gov.ua
+        /api/v2, keyless all-POST; the SDK's first UA jurisdiction). 321 registered parties
+        (count echo, live 2026-11-09) with the register's own keys: code (registration
+        number), head_info (named leadership), register_address, contacts; id = the party uuid
+        that keys the reports face. pageSize is server-clamped (send 10, 20 return) — the face
+        asks verbatim and reports the clamped reality via count."""
+        self._lg_only("ua_nazk_parties")
+        r = legal.ua_nazk.parties_raw(page=page, limit=limit, cache=self._c._cache,
+                                      no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if result["rows"]:
+            reason = (f"NAZK party register: {result['total']} parties — page {result['page']} "
+                      f"(asked {result['page_size']}, got {result['count']} — the upstream clamps "
+                      f"pageSize to its own preference); rows carry code (registration number), "
+                      f"head_info and the party uuid that keys ua_nazk_party_reports")
+        else:
+            reason = (f"NAZK party register: zero parties on page {result['page']} — past the end; "
+                      f"iterate inside ceil({result['total']}/{result['count'] or result['page_size']})")
+        return self._flat_env(
+            tool="ua_nazk_parties",
+            input={"page": result["page"], "limit": result["page_size"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x.get('code') or '—'} · {str(x.get('name'))[:70]}"
+                                + (f" · head {x['head_info'].get('head_last_name')} "
+                                   f"{x['head_info'].get('head_first_name')}" if x.get("head_info") else "")
+                                + ("" if x.get("is_active") else " · INACTIVE"),
+                       "url": "https://politdata.nazk.gov.ua/"}
+                      for x in result["rows"][:5]],
+            provider_id="ua_nazk", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def ua_nazk_party_reports(self, party_id, page=1, limit=20, execution=None, no_cache=None):
+        """legal ua_nazk_party_reports: one Ukrainian party's report inventory
+        (politdata.nazk.gov.ua, keyless all-POST; 2021→2026Q3). Rows verbatim with the embedded
+        public_summary — the aggregated receipts/expenses per category (sums + row_counts) the
+        upstream computed, zero extra calls; id = the report uuid that keys the follow-up
+        payment faces (monetary_contributions carries payer_name/payer_type; payer_code is
+        masked upstream). Regional-office reports sit in the same inventory
+        (is_party_office=true)."""
+        self._lg_only("ua_nazk_party_reports")
+        r = legal.ua_nazk.party_reports_raw(party_id, page=page, limit=limit,
+                                            cache=self._c._cache,
+                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if result["rows"]:
+            reason = (f"NAZK party reports for {result['party_id'][:8]}…: {result['total']} reports — "
+                      f"page {result['page']} (asked {result['page_size']}, got {result['count']}); each "
+                      f"row embeds public_summary (aggregated receipts/expenses — the zero-call money "
+                      f"view) and the report uuid for the payment-detail faces")
+        else:
+            reason = (f"NAZK party reports for {result['party_id'][:8]}…: zero reports on page "
+                      f"{result['page']} — a wrong party uuid (take id from ua_nazk_parties) or a page "
+                      f"past the end")
+        return self._flat_env(
+            tool="ua_nazk_party_reports",
+            input={"party_id": result["party_id"], "page": result["page"],
+                   "limit": result["page_size"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x.get('report_type') or '—'} {x.get('year')} Q{x.get('quarter')}"
+                                + (" · party office" if x.get("is_party_office") else "")
+                                + f" · {str(x.get('id'))[:8]}…",
+                       "url": "https://politdata.nazk.gov.ua/"}
+                      for x in result["rows"][:5]],
+            provider_id="ua_nazk", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # —— 0.3.51 enforcement tier-two (fr_adlc / it_arera / us_cftc — one face per source) ——
+
+    def fr_adlc_sanctions(self, entreprise=None, id_decision=None, year=None, *,
+                          limit=20, execution=None, no_cache=None):
+        """legal fr_adlc_sanctions: French Autorité de la concurrence company-level fine
+        register (data.gouv.fr official mirror, keyless; the authority's own domain
+        egress-blocks this exit — the mirror is the same publication). The whole 2009→
+        ledger rides one GET (1,208-row 2026-11-08 build live): id_decision (the case key —
+        a case's per-company Montant individuel rows sum into its repeated Montant total),
+        entreprise, amounts (decimal strings cast to float), year. Filters are local and
+        combinable; the stamped CSV resource URL rolls on every monthly build, so the face
+        resolves the latest resource through the datasets API at call time (dataset op TTL
+        1h, CSV TTL 24h) and never hardcodes the path."""
+        self._lg_only("fr_adlc_sanctions")
+        r = legal.fr_adlc.sanctions_raw(entreprise, id_decision, year, limit=limit,
+                                        cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        flt = ", ".join(f"{k}={v}" for k, v in
+                        (("entreprise", result["params"]["entreprise"]),
+                         ("id_decision", result["params"]["id_decision"]),
+                         ("year", result["params"]["year"])) if v)
+        ds = result["dataset"]
+        if result["rows"]:
+            reason = (f"ADLC sanctions ledger: {result['total']:,} company-level fine rows match"
+                      + (f" ({flt})" if flt else " (unfiltered — the whole build)")
+                      + f" — showing {result['count']} (limit {result['limit_applied']}); build "
+                        f"{ds['rows_in_build']:,} rows, dataset updated {str(ds['last_update'])[:10]}; "
+                        f"montant_total repeats a case-level figure that does NOT always equal the "
+                        f"row sum (26-D-05: 12.67M published vs 15.26M row sum) — both are official "
+                        f"figures, ship verbatim, never recompute one from the other")
+        else:
+            reason = (f"ADLC sanctions ledger: zero rows"
+                      + (f" for {flt}" if flt else "")
+                      + f" — a legitimate empty filter (the build carries {ds['rows_in_build']:,} rows "
+                        f"2009→; company names are the register's own spellings, try a shorter stem)")
+        return self._flat_env(
+            tool="fr_adlc_sanctions",
+            input={"entreprise": entreprise, "id_decision": id_decision, "year": year,
+                   "limit": result["limit_applied"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"[{x['id_decision']}] {x['entreprise']}"
+                                + (f" — €{x['montant_individuel']:,.0f}" if x["montant_individuel"] is not None else "")
+                                + (f" (case total €{x['montant_total']:,.0f})" if x["montant_total"] is not None else "")
+                                + (f", {int(x['annee'])}" if x["annee"] is not None else ""),
+                       "url": f"https://www.data.gouv.fr/datasets/{legal.fr_adlc.DATASET_SLUG}"}
+                      for x in result["rows"][:5]],
+            provider_id="fr_adlc", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def it_arera_decisions(self, anno=None, numero=None, tipologia=None, settore=None,
+                           *, page=1, execution=None, no_cache=None):
+        """legal it_arera_decisions: Italian ARERA regulated-sector decision register
+        (www.arera.it atti e provvedimenti, keyless; the energy/gas/water/waste/district-
+        heating regulator's TYPO3 library, 1,560 pages × 15,599 documents live 2026-11-09).
+        All filters optional and combinable (anno + numero + tipologia + settore); the
+        single-document form is deterministic (anno=2022 & numero=312 & tipologia=Delibera
+        answers exactly one card). tipologia is the register's own nine-word vocabulary
+        (exact match, walled), anno spans 1996→current (the dropdown's own floor). Rows are
+        the list cards: sigla (the register's hard key "NNN/YYYY/SETTORE"), detail anchor
+        (the PDF paths live on the detail page — fileadmin naming drifts by era and is never
+        assembled from the sigla), date DD/MM/YYYY verbatim, oggetto (entity-unescaped)."""
+        self._lg_only("it_arera_decisions")
+        r = legal.it_arera.list_raw(anno, numero, tipologia, settore, page=page,
+                                    cache=self._c._cache,
+                                    no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        flt = ", ".join(f"{k}={v}" for k, v in
+                        (("anno", result["params"].get("anno")),
+                         ("numero", result["params"].get("numero")),
+                         ("tipologia", result["params"].get("tipologia")),
+                         ("settore", result["params"].get("settore"))) if v)
+        if result["rows"]:
+            reason = (f"ARERA decision register: {result['total_results']:,} documents match"
+                      + (f" ({flt})" if flt else " (unfiltered — the register's own newest-first listing)")
+                      + f" — page {result['page']} of {result['total_pages']:,} ({result['count']} rows); "
+                        f"sigla is the hard key, the detail anchor carries the real PDF paths")
+        else:
+            reason = (f"ARERA decision register: zero documents on page {result['page']}"
+                      + (f" for {flt}" if flt else "")
+                      + " — either a legitimate empty filter (numero alone is ambiguous across years — "
+                        "pair it with anno) or a page past the end")
+        return self._flat_env(
+            tool="it_arera_decisions",
+            input={"anno": anno, "numero": numero, "tipologia": tipologia,
+                   "settore": settore, "page": result["page"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x['sigla'] or '—'} · {x['tipologia'] or '—'}"
+                                + (f" · {x['date']}" if x["date"] else "")
+                                + f" — {str(x['oggetto'] or '—')[:100]}",
+                       "url": "https://www.arera.it" + str(x["detail"] or "")}
+                      for x in result["rows"][:5]],
+            provider_id="it_arera", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def us_cftc_enforcement(self, year=None, *, page=0, execution=None, no_cache=None):
+        """legal us_cftc_enforcement: CFTC enforcement-actions index (www.cftc.gov Drupal
+        views, keyless; the commission's full history 1995→2026, ≈2,610 actions over ~261
+        pages of 10). Optional ?year= filter (the register's own dropdown 1995→current —
+        1998 is absent from it, a historical broken year, walled as such); page is 0-based
+        upstream verbatim, page 260 ends at the 1995 floor. Rows carry the press-release
+        anchor (release_number is the anchor tail, e.g. 9320-26), the title (entity-
+        unescaped, whitespace-normalized) and related_docs — the judgment/consent-order
+        attachments under /media/ with their labels. Bare UA 403'd live 2026-11-09; the
+        face ships the full browser header suite (the ferc/afdb ext-8 family)."""
+        self._lg_only("us_cftc_enforcement")
+        r = legal.us_cftc.actions_raw(year, page=page, cache=self._c._cache,
+                                      no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        scope = (f"year {result['year']}" if result["year"] else "all years (newest first)") + \
+                f", page {result['page']}"
+        if result["rows"]:
+            docs = sum(len(x["related_docs"]) for x in result["rows"])
+            reason = (f"CFTC enforcement actions ({scope}): {result['count']} rows, {docs} attached "
+                      f"judgment/order documents — the register runs 1995→today (~2,610 actions, "
+                      f"~10/page, 0..260); release_number is the anchor tail and the press-release "
+                      f"path keys the story behind each action")
+        else:
+            reason = (f"CFTC enforcement actions ({scope}): zero rows — either a page past the end "
+                      f"(live range 0..260) or a year with no indexed actions; 1998 is a historical "
+                      f"broken year the register's own filter never offered")
+        return self._flat_env(
+            tool="us_cftc_enforcement",
+            input={"year": year, "page": result["page"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"[{x['release_number']}] {x['date']} — {x['title'][:110]}"
+                                + (f" · {len(x['related_docs'])} docs" if x["related_docs"] else ""),
+                       "url": "https://www.cftc.gov" + str(x["release_path"] or "")}
+                      for x in result["rows"][:5]],
+            provider_id="us_cftc", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )

@@ -216,6 +216,44 @@ def register(v, g):
                       description="eCFR title catalog (keyless): the 50 CFR titles with latest amendment/issue dates "
                                   "and the library-wide as_of watermark (eCFR integrates daily)")
 
+    # —— 0.3.50 EE ERJK party-finance faces (dictionary slot: ee_erjk between ecfr and federalregister; legal's first EE face) ——
+    fe1 = v.add_parser("ee_erjk_election_reports", parents=[g()],
+                       help="EE election/candidate receipts report (erjk.ee — the register's company-hard-key layer)",
+                       description="ERJK election report (keyless, one report per call): the layer where "
+                                   "corporate money enters Estonian politics — party donations are "
+                                   "natural-persons-only by law, and these candidate/election entries carry "
+                                   "payer + reg_code, a DIRECT RIK äriregister registry code when the payer is a "
+                                   "legal person. Two entry forms: --report-id directly (exact slot), or "
+                                   "--event-id + --organisation-id (the discovery pair — resolves the "
+                                   "organisation's report slots and takes the main report Põhiaruanne; every "
+                                   "slot rides available_reports). Rows flatten the register's "
+                                   "{person: [entries]} shape: person + birthdate (DD.MM.YYYY, the key's own "
+                                   "form, verbatim) + payment_date + receipt_group + payer + reg_code + amount. "
+                                   "API paths are language-prefixed (/et/api/…)")
+    fe1.add_argument("--event-id", dest="event_id", type=int, default=None,
+                     help="Election event id (with --organisation-id; e.g. 8345 = KOV 2025 — /et/api/events lists them)")
+    fe1.add_argument("--organisation-id", dest="organisation_id", type=int, default=None,
+                     help="Organisation (party/candidate) id within the event (with --event-id; 233 orgs under KOV 2025)")
+    fe1.add_argument("--report-id", dest="report_id", default=None,
+                     help="Exact report slot id (from a previous call's available_reports) — bypasses the discovery step")
+    fe1.add_argument("--limit", type=int, default=500, help="Rows to return (local slice; the full report is a few hundred entries)")
+
+    fe2 = v.add_parser("ee_erjk_quarterly_reports", parents=[g()],
+                       help="EE party-finance receipts matrix (erjk.ee — party × period × donation category)",
+                       description="ERJK quarterly-reports receipts matrix (keyless one-shot): the whole "
+                                   "party × period × category aggregate (455 rows 2013→2026 live 2026-11-09) "
+                                   "in one call — --party-id narrows to one party (163 Keskerakond / 158 "
+                                   "Reformierakond; default all), --period to one year (\"2025\"; default "
+                                   "show_all = full history). Rows are the upstream's own aggregates "
+                                   "verbatim: party_id/party_name/_party_short + period + category_id/"
+                                   "category_name (Rahaline annetus = cash donation…) + amount (decimal "
+                                   "string → float). The corporate-money edge lives in "
+                                   "ee_erjk_election_reports, not here (natural-persons-only by law)")
+    fe2.add_argument("--party-id", dest="party_id", default=None,
+                     help="Party id from the register (163 Keskerakond, 158 Reformierakond; default all)")
+    fe2.add_argument("--period", default=None, help="One year like 2025 (default show_all = 2013→ full history)")
+    fe2.add_argument("--limit", type=int, default=100, help="Rows to return (local slice over the few-hundred-row matrix)")
+
     # —— 0.2.0 flat panel commands (legal main faces: source-qualified names + upstream param names verbatim + our defaults) ——
 
     f6 = v.add_parser("federalregister_documents", parents=[g()],
@@ -235,6 +273,29 @@ def register(v, g):
                     help="CFR part or part range, e.g. 763 or 1-50 (upstream param: conditions[cfr][part]; requires --cfr-title)")
     f6.add_argument("--page", type=int, default=1, help="Page number (upstream param: page)")
     f6.add_argument("--limit", type=int, default=20, help="Rows (maps to upstream per_page; politeness cap 50 — upstream cap 1000)")
+
+    # —— 0.3.51 FR ADLC sanctions face (dictionary slot: fr_adlc between federalregister and gb_cma; registration order == FLAT order) ——
+    f_fd = v.add_parser("fr_adlc_sanctions", parents=[g()],
+                        help="FR Autorité de la concurrence fine register (data.gouv mirror — 1,208 rows 2009→)",
+                        description="The French competition authority's company-level sanctions ledger "
+                                    "(keyless via the official data.gouv.fr mirror — the authority's own "
+                                    "domain egress-blocks some networks, the mirror is the same "
+                                    "publication): id_decision is the case key — a case's per-company "
+                                    "Montant individuel rows sum into its repeated Montant total (sum the "
+                                    "individuel column, not the total column, to recompute a case). "
+                                    "Filters are local and combinable: --entreprise case-insensitive "
+                                    "substring, --id-decision exact ('26-D-05'), --year (the register "
+                                    "covers 2009→). The stamped CSV resource URL rolls on every monthly "
+                                    "build — the face resolves the latest resource through the datasets "
+                                    "API at call time (dataset TTL 1h, CSV TTL 24h) and never hardcodes "
+                                    "the path. Live build 2026-11-08: 1,208 rows; the 2015 parcel-"
+                                    "delivery cartel 15-D-19 ships €672,332,000 case-level (Geodis/SNCF "
+                                    "€196M each)")
+    f_fd.add_argument("--entreprise", default=None, help="Company name, case-insensitive substring (Entreprise column)")
+    f_fd.add_argument("--id-decision", dest="id_decision", default=None,
+                      help="Case id, exact case-insensitive (id_decision column, e.g. 26-D-05)")
+    f_fd.add_argument("--year", type=int, default=None, help="Sanction year (Annee column; register covers 2009→)")
+    f_fd.add_argument("--limit", type=int, default=20, help="Rows to return 1-200 (default 20; whole build is 1,208 rows)")
 
     f7 = v.add_parser("gb_cma_case", parents=[g()],
                       help="UK CMA single-case dossier (gov.uk content API)",
@@ -360,6 +421,32 @@ def register(v, g):
     f15.add_argument("--year", type=int, default=None, help="Publication year (with --month; default = latest quarter on the index)")
     f15.add_argument("--month", default=None, choices=["march", "june", "september", "december"], help="Quarter (with --year; give both or neither)")
 
+    # —— 0.3.50 IE SIPO lobbying face (dictionary slot: ie_sipo between ie_revenue and in_sebi; registration order == FLAT order) ——
+    f_sp = v.add_parser("ie_sipo_lobbying", parents=[g()],
+                        help="Irish SIPO lobbying register search (api.lobbying.ie — returns × three-party shape)",
+                        description="Regulation of Lobbying register (keyless): 123,591 lobbying returns "
+                                    "live 2026-11-09, each embedding the three parties VERBATIM — Lobbyist "
+                                    "(carrying CompanyRegistrationNumber, the CRO key, on 43.6% of "
+                                    "registrants) × Clients (carrying Cro) × Dpos (the lobbied officials). "
+                                    "THE 13-PARAM WALL: /api/Search 404s unless every parameter rides the "
+                                    "query string with explicit empties — the face assembles the full set. "
+                                    "--return-date-from/--return-date-to are DD-MM-YYYY, the register "
+                                    "form's own shape (ISO is answered HTTP 500; the wall is local)")
+    f_sp.add_argument("--query-text", dest="query_text", default=None,
+                      help="Free search phrase (upstream param: queryText)")
+    f_sp.add_argument("--client", default=None, help="The lobbied-for side (upstream param: client)")
+    f_sp.add_argument("--dpo", default=None, help="Designated public official (upstream param: dpo)")
+    f_sp.add_argument("--public-bodys", dest="public_bodys", default=None,
+                      help="Office lobbied (upstream param: publicBodys — upstream's own plural spelling)")
+    f_sp.add_argument("--period", default=None, help="Return period (upstream param: period)")
+    f_sp.add_argument("--return-date-from", dest="return_date_from", default=None,
+                      help="Submission window start, DD-MM-YYYY (upstream param: returnDateFrom)")
+    f_sp.add_argument("--return-date-to", dest="return_date_to", default=None,
+                      help="Submission window end, DD-MM-YYYY (upstream param: returnDateTo)")
+    f_sp.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream param: currentPage)")
+    f_sp.add_argument("--limit", type=int, default=20,
+                      help="Rows per page (upstream param: pageSize; 1-1000 honoured, probed)")
+
     # —— 0.3.35 IN SEBI orders face (dictionary slot: in_sebi between ie_revenue and lda; registration order == FLAT order) ——
     f16 = v.add_parser("in_sebi_orders", parents=[g()],
                        help="SEBI enforcement orders (11 categories; AJAX fragment channel)",
@@ -385,6 +472,31 @@ def register(v, g):
                      help="Window end (upstream param: toDate; format DD-MM-YYYY — the form's own)")
     f16.add_argument("--page", type=int, default=1,
                      help="Page, 1-based (upstream param: doDirect = page-1, zero-based; past the last = the clean empty page)")
+
+    # —— 0.3.51 IT ARERA decisions face (dictionary slot: it_arera between in_sebi and lda; registration order == FLAT order) ——
+    f_ia = v.add_parser("it_arera_decisions", parents=[g()],
+                        help="IT ARERA decision register (atti e provvedimenti — 15,599 docs 1996→)",
+                        description="The Italian energy/networks regulator's TYPO3 decision library "
+                                    "(keyless): electricity, gas, water, waste and district-heating "
+                                    "regulation 1996→today, 1,560 pages × 15,599 documents (live "
+                                    "2026-11-09). All filters optional and combinable: --anno + "
+                                    "--numero + --tipologia (the register's own nine-word vocabulary, "
+                                    "exact match) + --settore (the form's own sector code — unpinned, "
+                                    "the sigla carries the sector letter anyway). The single-document "
+                                    "form is deterministic (anno=2022 & numero=312 & tipologia=Delibera "
+                                    "answers exactly one card). Rows: sigla (hard key NNN/YYYY/SETTORE), "
+                                    "detail anchor (the real PDF paths live on the detail page — "
+                                    "fileadmin naming drifts by era and is never assembled from the "
+                                    "sigla), date DD/MM/YYYY verbatim, oggetto (entity-unescaped). "
+                                    "10 documents per page upstream")
+    f_ia.add_argument("--anno", type=int, default=None, help="Year 1996-current (the register's own dropdown span)")
+    f_ia.add_argument("--numero", default=None, help="Document number (pair with --anno — bare numero is ambiguous across years)")
+    f_ia.add_argument("--tipologia", default=None,
+                      choices=["Delibera", "Determina", "Consultazione", "Parere", "Memoria",
+                               "Relazione", "Rapporto", "Segnalazione", "Altro"],
+                      help="Document type (the register's own vocabulary, exact match)")
+    f_ia.add_argument("--settore", default=None, help="Sector code verbatim (the form's own hidden field; sigla carries the sector letter anyway)")
+    f_ia.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream param: pagina, 10 docs per page)")
 
     f13 = v.add_parser("lda_filings", parents=[g()],
                       help="US lobbying filings (LDA; client/registrant dual name face)",
@@ -487,7 +599,87 @@ def register(v, g):
     f_tr2.add_argument("--limit", type=int, default=20,
                        help="Rows to return (local payload wall 1-100, default 20; total_matched echoes the full count)")
 
-    # —— 0.3.28 OCC enforcement face (dictionary slot: us_occ between sipri and wb; registration order == FLAT order) ——
+    # —— 0.3.50 UA NAZK party-finance faces (dictionary slot: ua_nazk between tr_spk and us_occ; legal's first UA face) ——
+    f_ua1 = v.add_parser("ua_nazk_parties", parents=[g()],
+                         help="UA political-party register (politdata.nazk.gov.ua — 321 parties, all-POST)",
+                         description="NACP politdata party register (keyless): 321 registered parties "
+                                     "(count echo, live 2026-11-09) with the register's own keys — code "
+                                     "(the registration number), head_info (named leadership), "
+                                     "register_address, contacts; id = the party uuid that keys "
+                                     "ua_nazk_party_reports. ALL-POST contract: every endpoint answers "
+                                     "GET with 404; the body is {page, pageSize, draw}. pageSize is "
+                                     "SERVER-CLAMPED (send 10, 20 return) — the face asks verbatim and "
+                                     "reports the clamped reality via count. NOT data.nazk.gov.ua (the "
+                                     "declarations host is egress-blocked from this network, watched "
+                                     "separately)")
+    f_ua1.add_argument("--page", type=int, default=1, help="Page, 1-based")
+    f_ua1.add_argument("--limit", type=int, default=20,
+                       help="Rows to ask for (pageSize; the upstream clamps to its own preference — read count)")
+
+    f_ua2 = v.add_parser("ua_nazk_party_reports", parents=[g()],
+                         help="UA party report inventory (politdata.nazk.gov.ua — public_summary rides every row)",
+                         description="One party's report inventory (keyless all-POST; 2021→2026Q3): rows "
+                                     "verbatim with the EMBEDDED public_summary — the aggregated "
+                                     "receipts/expenses per category (sums + row_counts) the upstream "
+                                     "computed, zero extra calls. id = the report uuid that keys the "
+                                     "follow-up payment faces (monetary_contributions carries "
+                                     "payer_name/payer_type; payer_code is masked upstream). Regional-"
+                                     "office reports sit in the same inventory (is_party_office=true)")
+    f_ua2.add_argument("--party-id", dest="party_id", required=True,
+                       help="Party uuid from ua_nazk_parties (required)")
+    f_ua2.add_argument("--page", type=int, default=1, help="Page, 1-based")
+    f_ua2.add_argument("--limit", type=int, default=20,
+                       help="Rows to ask for (pageSize; server-clamped — read count)")
+
+    # —— 0.3.51 US CFTC enforcement face (dictionary slot: us_cftc between ua_nazk and us_ferc; registration order == FLAT order) ——
+    f_fc = v.add_parser("us_cftc_enforcement", parents=[g()],
+                        help="CFTC enforcement-actions index (1995→2026, ~2,610 actions, 0-based pages)",
+                        description="The CFTC's full enforcement history as one Drupal views table "
+                                    "(keyless): ~10 rows per page, ?page=0..260 — page 260 ends at the "
+                                    "1995 floor (MG Refining and Marketing $2.25M, 07/27/1995), ≈2,610 "
+                                    "actions total. Optional --year filter (the register's own dropdown "
+                                    "1995→current — 1998 is ABSENT from it, a historical broken year, "
+                                    "walled as such). Rows: datetime ISO + date MM/DD/YYYY verbatim, "
+                                    "release_path (the /PressRoom/PressReleases/ anchor — prefix "
+                                    "https://www.cftc.gov), release_number (the anchor tail, e.g. "
+                                    "9320-26), title (entity-unescaped, whitespace-normalized) and "
+                                    "related_docs — the judgment/consent-order attachments under "
+                                    "/media/ with their labels. Bare UA 403'd live 2026-11-09; the face "
+                                    "ships the full browser header suite (the ferc/afdb ext-8 family). "
+                                    "Walk-aways: solr-search sits behind Cloudflare; "
+                                    "publicreporting/data.cftc.gov are dead exits")
+    f_fc.add_argument("--year", type=int, default=None, help="Year 1995-current, except 1998 (not offered by the register's own dropdown)")
+    f_fc.add_argument("--page", type=int, default=0, help="Page, 0-based upstream verbatim (live range 0..260, ~10 rows per page)")
+
+    # —— 0.3.50 US FERC eLibrary face (dictionary slot: us_ferc between ua_nazk and us_occ; registration order == FLAT order) ——
+    f_fr = v.add_parser("us_ferc_elibrary", parents=[g()],
+                        help="FERC eLibrary document search (4.7M docs 1980→ — dockets, orders, comments)",
+                        description="elibrary.ferc.gov AdvancedSearch (keyless behind a Cloudflare "
+                                    "UA-fingerprint gate — the full browser header suite passes, the afdb "
+                                    "ext-8 family): the 4.7M-document 1980→ corpus over the whole "
+                                    "FERC-regulated energy lifecycle (pipeline certificates CP-*, hydro "
+                                    "licenses P-*, tariffs, rate cases). Filters combinable: --docket "
+                                    "(with sub-docket suffix verbatim, CP17-101 or CP17-101-007), --text "
+                                    "(full-text phrase), one date facet --date-type "
+                                    "(filed_date|issued_date|posted_date|created_date) + --date-from/--"
+                                    "date-to (YYYY-MM-DD, both bounds together); no filter = the "
+                                    "upstream's own \"*\" wildcard, newest first. Rows verbatim minus the "
+                                    "internal reference pair-key; acesssionNumber keeps the upstream's "
+                                    "own triple-s and is the official key (the PDF rides the download "
+                                    "endpoint, out of SDK scope)")
+    f_fr.add_argument("--text", default=None, help="Full-text phrase (upstream param: searchText; default = the upstream's \"*\" wildcard)")
+    f_fr.add_argument("--docket", default=None, help="Docket number, sub-docket suffix verbatim (upstream: docketSearches[].docketNumber)")
+    f_fr.add_argument("--date-type", dest="date_type", default=None,
+                      choices=["filed_date", "issued_date", "posted_date", "created_date"],
+                      help="Date facet (with --date-from/--date-to; upstream: dateSearches[].dateType)")
+    f_fr.add_argument("--date-from", dest="date_from", default=None,
+                      help="Facet window start YYYY-MM-DD (upstream: startDate)")
+    f_fr.add_argument("--date-to", dest="date_to", default=None, help="Facet window end YYYY-MM-DD (upstream: endDate)")
+    f_fr.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream param: curPage)")
+    f_fr.add_argument("--limit", type=int, default=20,
+                      help="Rows per page 1-1000 (upstream param: resultsPerPage, probed ceiling)")
+
+    # —— 0.3.28 OCC enforcement face (dictionary slot: us_occ between us_ferc and wb; registration order == FLAT order) ——
     f_occ = v.add_parser("us_occ_enforcements", parents=[g()],
                          help="US OCC bank-enforcement releases (monthly news releases; sentence + table schemas)",
                          description="OCC (Office of the Comptroller of the Currency) monthly "
@@ -566,10 +758,17 @@ FLAT = {
                                "text": a.text, "limit": a.limit, "page": a.page},
     "ecfr_search": lambda a: {"q": a.q, "page": a.page, "limit": a.limit, "date": a.date},
     "ecfr_titles": lambda a: {},
+    # 0.3.50 EE ERJK party-finance faces (dictionary slot: ee_erjk between ecfr and federalregister; registration order == FLAT order)
+    "ee_erjk_election_reports": lambda a: {"event_id": a.event_id, "organisation_id": a.organisation_id,
+                                           "report_id": a.report_id, "limit": a.limit},
+    "ee_erjk_quarterly_reports": lambda a: {"party_id": a.party_id, "period": a.period, "limit": a.limit},
     "federalregister_documents": lambda a: {"q": a.q, "startdt": a.startdt, "enddt": a.enddt,
                                        "order": a.order, "page": a.page, "limit": a.limit,
                                        "doc_type": a.doc_type, "agencies": a.agencies,
                                        "cfr_title": a.cfr_title, "cfr_part": a.cfr_part},
+    # 0.3.51 FR ADLC sanctions face (dictionary slot: fr_adlc between federalregister and gb_cma)
+    "fr_adlc_sanctions": lambda a: {"entreprise": a.entreprise, "id_decision": a.id_decision,
+                                    "year": a.year, "limit": a.limit},
     "gb_cma_case": lambda a: {"slug": a.slug},
     "gb_cma_cases": lambda a: {"q": a.q, "count": a.count, "start": a.start},
     "gb_ec_donations": lambda a: {"query": a.query, "from_": a.from_, "to": a.to,
@@ -589,9 +788,18 @@ FLAT = {
                                         "offset": a.offset, "sort": a.sort},
     # 0.3.27 IE defaulters face (dictionary slot: ie_revenue between idb and lda)
     "ie_revenue_defaulters": lambda a: {"part": a.part, "year": a.year, "month": a.month},
+    # 0.3.50 IE SIPO lobbying face (dictionary slot: ie_sipo between ie_revenue and in_sebi)
+    "ie_sipo_lobbying": lambda a: {"query_text": a.query_text, "client": a.client, "dpo": a.dpo,
+                                   "public_bodys": a.public_bodys, "period": a.period,
+                                   "return_date_from": a.return_date_from,
+                                   "return_date_to": a.return_date_to,
+                                   "page": a.page, "limit": a.limit},
     # 0.3.35 IN SEBI orders face (dictionary slot: in_sebi between ie_revenue and lda)
     "in_sebi_orders": lambda a: {"category": a.category, "search": a.search,
                                  "from_date": a.from_date, "to_date": a.to_date, "page": a.page},
+    # 0.3.51 IT ARERA decisions face (dictionary slot: it_arera between in_sebi and lda)
+    "it_arera_decisions": lambda a: {"anno": a.anno, "numero": a.numero, "tipologia": a.tipologia,
+                                     "settore": a.settore, "page": a.page},
     "lda_filings": lambda a: {"client_name": a.client_name, "registrant_name": a.registrant_name,
                               "filing_year": a.filing_year, "limit": a.limit, "page": a.page,
                               "ordering": a.ordering},
@@ -604,7 +812,16 @@ FLAT = {
     # 0.3.36 TR SPK enforcement faces (dictionary slot: tr_spk between sipri and us_occ)
     "tr_spk_bans": lambda a: {"name": a.name, "type": a.type, "limit": a.limit},
     "tr_spk_fines": lambda a: {"name": a.name, "year": a.year, "limit": a.limit},
-    # 0.3.28 OCC enforcement face (dictionary slot: us_occ between sipri and wb)
+    # 0.3.50 UA NAZK party-finance faces (dictionary slot: ua_nazk between tr_spk and us_occ)
+    "ua_nazk_parties": lambda a: {"page": a.page, "limit": a.limit},
+    "ua_nazk_party_reports": lambda a: {"party_id": a.party_id, "page": a.page, "limit": a.limit},
+    # 0.3.51 US CFTC enforcement face (dictionary slot: us_cftc between ua_nazk and us_ferc)
+    "us_cftc_enforcement": lambda a: {"year": a.year, "page": a.page},
+    # 0.3.50 US FERC eLibrary face (dictionary slot: us_ferc between ua_nazk and us_occ)
+    "us_ferc_elibrary": lambda a: {"text": a.text, "docket": a.docket, "date_type": a.date_type,
+                                   "date_from": a.date_from, "date_to": a.date_to,
+                                   "page": a.page, "limit": a.limit},
+    # 0.3.28 OCC enforcement face (dictionary slot: us_occ between us_ferc and wb)
     "us_occ_enforcements": lambda a: {"year": a.year, "month": a.month, "all_year": a.all_year},
     "wb_debarred_firms": lambda a: {"name": a.name, "country": a.country, "type": a.type, "limit": a.limit},
 }
@@ -630,7 +847,10 @@ COUNTRY = {
     "dgcomp_cases_search": "EU",
     "ecfr_search": "US",
     "ecfr_titles": "US",
+    "ee_erjk_election_reports": "EE",
+    "ee_erjk_quarterly_reports": "EE",
     "federalregister_documents": "US",
+    "fr_adlc_sanctions": "FR",
     "gb_cma_case": "GB",
     "gb_cma_cases": "GB",
     "gb_ec_donations": "GB",
@@ -640,12 +860,18 @@ COUNTRY = {
     "gb_tna_caselaw_search": "GB",
     "idb_debarred_entities": "GLOBAL",
     "ie_revenue_defaulters": "IE",
+    "ie_sipo_lobbying": "IE",
     "in_sebi_orders": "IN",
+    "it_arera_decisions": "IT",
     "lda_filings": "US",
     "ru_cbr_warning_list": "RU",
     "sipri_trades_search": "GLOBAL",
     "tr_spk_bans": "TR",
     "tr_spk_fines": "TR",
+    "ua_nazk_parties": "UA",
+    "ua_nazk_party_reports": "UA",
+    "us_cftc_enforcement": "US",
+    "us_ferc_elibrary": "US",
     "us_occ_enforcements": "US",
     "wb_debarred_firms": "GLOBAL",
 }

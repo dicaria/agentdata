@@ -427,9 +427,18 @@ def _send(url: str, transport: str, timeout: float, body: dict | None = None, mu
     return http_json(url, timeout, **kw)
 
 
-def cache_key_for(op: str, params: dict) -> str:
-    """Cache key: exported so a provider can recompute it (dropping an empty-result entry must use the same key as inside call_provider — do not copy the format)."""
-    return json.dumps([op] + sorted(params.items()), ensure_ascii=False)
+def cache_key_for(op: str, params: dict, scope: str | None = None) -> str:
+    """Cache key: exported so a provider can recompute it (dropping an empty-result entry must use the same key as inside call_provider — do not copy the format).
+
+    scope (0.3.52): the upstream the entry belongs to. The cache table is keyed by
+    (provider, key), and the provider id alone does not pin the upstream — a provider can be
+    repointed at a different base URL (the Comext dedicated dissemination root and the plain
+    Eurostat root are two different upstreams behind the same host), and an entry left over from
+    the old URL would then answer for the new one. Putting the scope in the key keeps the two
+    apart. Omitting it keeps the historical format, so an out-of-tree caller that recomputes a
+    key the old way still works (and still misses, rather than hitting the wrong entry)."""
+    head = [op] if scope is None else [op, scope]
+    return json.dumps(head + sorted(params.items()), ensure_ascii=False)
 
 
 def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = False,
@@ -442,7 +451,7 @@ def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = F
         raise SdkError("op_unknown", provider=provider["id"], detail=f"Undeclared op: {op}")
 
     ttl = opdef.get("ttl", provider.get("ttl", {}).get(op))
-    cache_key = cache_key_for(op, params)
+    cache_key = cache_key_for(op, params, scope=provider.get("baseUrl") or provider["id"])
     if not no_cache and cache is not None:
         hit = cache.get(provider["id"], cache_key, ttl)
         if hit:

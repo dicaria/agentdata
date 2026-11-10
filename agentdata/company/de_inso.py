@@ -464,7 +464,7 @@ def _run(logical, fields, limit, cache, no_cache, date_to):
     the FILTER values only — the session id in the path would otherwise blow the cache key up
     (every bootstrap mints a new session), so the caching happens here, keyed by the filters."""
     from ..transport import cache_key_for
-    key = cache_key_for("de_inso_search", logical)
+    key = cache_key_for("de_inso_search", logical, scope=provider.get("baseUrl") or provider["id"])
     ttl = _ttl_for(date_to)
     if not no_cache and cache is not None:
         hit = cache.get("de_inso", key, ttl)

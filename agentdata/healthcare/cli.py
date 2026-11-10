@@ -285,6 +285,34 @@ def register(v, g):
     f31.add_argument("--limit", type=int, default=200, help="Rows to return (local post-slice)")
     f31.add_argument("--skip", type=int, default=0, help="Rows to skip (local post-slice)")
 
+    # —— 0.3.53 US NPPES organizational face (dictionary slot: safety_gate_* < us_npi — tail; registration order == FLAT order) ——
+    f32 = v.add_parser("us_npi_organizations", parents=[g()],
+                       help="US NPI registry, organizational records (npiregistry v2.1; keyless)",
+                       description="NPI-2 organizational records: organization_name reverse lookup "
+                                   "is the company-enrichment channel and an EXACT-phrase match "
+                                   "('Mayo' answers zero, 'Mayo Clinic' answers); number is the "
+                                   "deterministic exact lookup (10 digits); taxonomy_description x "
+                                   "state is the enumeration walker. Rows carry the authorized "
+                                   "official (name/title/phone), organizational_subpart, status, "
+                                   "taxonomy blocks with state licenses, addresses. limit is walled "
+                                   "1-200 (the API SILENTLY CLAMPS >200 to 200 — measured live); no "
+                                   "total echo — enumeration walks skip to an empty page (skip=1200 "
+                                   "verified live). The monthly bulk files ride the raw harvest line.")
+    f32.add_argument("--number", default=None,
+                     help="NPI exact lookup, 10 digits (upstream param: number; e.g. 1881018208 → exactly one row)")
+    f32.add_argument("--organization-name", dest="organization_name", default=None,
+                     help="Organization name, exact-phrase (upstream param: organization_name; spaces travel URL-encoded — a bare short stem answers zero)")
+    f32.add_argument("--taxonomy-description", dest="taxonomy_description", default=None,
+                     help="Taxonomy description (upstream param: taxonomy_description; e.g. Dentist — pair with --state for the enumeration walk)")
+    f32.add_argument("--city", default=None, help="City (upstream param: city)")
+    f32.add_argument("--state", default=None,
+                     help="State code, a REFINER only (upstream param: state; alone it is refused upstream — error 07 requires additional criteria)")
+    f32.add_argument("--postal-code", dest="postal_code", default=None, help="Postal code (upstream param: postal_code)")
+    f32.add_argument("--limit", type=int, default=20,
+                     help="Rows to return (upstream param: limit; 1-200 — above 200 the API silently clamps, measured)")
+    f32.add_argument("--skip", type=int, default=0,
+                     help="Rows to skip (upstream param: skip; walk to an empty page — no total echo, skip=1200 verified live)")
+
     # —— Wave 10 openFDA family, four faces (2026-10-28; born flat: upstream param original names only, zero sugar, zero deprecation debt) ——
 
 FLAT = {
@@ -334,6 +362,13 @@ FLAT = {
     "rxnav_rxcui_by_name": lambda a: {"name": a.name},
     "safety_gate_alerts": lambda a: {"year": a.year, "limit": a.limit, "skip": a.skip},
     "safety_gate_report": lambda a: {"report_id": a.report_id, "limit": a.limit, "skip": a.skip},
+    # 0.3.53 US NPPES organizational face (slot: safety_gate_* < us_npi — tail)
+    "us_npi_organizations": lambda a: {"number": a.number,
+                                       "organization_name": a.organization_name,
+                                       "taxonomy_description": a.taxonomy_description,
+                                       "city": a.city, "state": a.state,
+                                       "postal_code": a.postal_code,
+                                       "limit": a.limit, "skip": a.skip},
     # Wave 10 openFDA family, four faces (born flat: upstream param names passed through, no sugar keys)
 }
 
@@ -372,4 +407,6 @@ COUNTRY = {
     "rxnav_rxcui_by_name": "US",
     "safety_gate_alerts": "EU",
     "safety_gate_report": "EU",
+    # 0.3.53 US NPPES organizational face (slot: safety_gate_* < us_npi — tail)
+    "us_npi_organizations": "US",
 }

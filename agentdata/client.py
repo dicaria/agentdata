@@ -25,6 +25,7 @@ from .research.faces import ResearchFaces
 from .security.faces import SecurityFaces
 from .errors import SdkError
 from .cache import Cache
+from .hub import HubClient, _no_redirect_opener
 from .transport import enrich_source, resolve_execution  # three helpers live in transport (0.3.0 verb-layer removal; _tty_tag now domain-internal)
 
 CONTRACT = "docs/domains/api.md"
@@ -32,15 +33,20 @@ CONTRACT = "docs/domains/api.md"
 
 class Client:
     def __init__(self, base_url=None, api_key=None, *, execution="auto", cache_dir=None,
-                 no_cache=False, timeout=20.0):
+                 no_cache=False, timeout=20.0, token_url=None, hub_base_url=None,
+                 allow_http=False):
         if execution not in ("local", "hosted", "auto"):
             raise SdkError("usage_error", detail=f"execution must be local|hosted|auto, got '{execution}'")
         self.default_execution = execution
         self.no_cache = bool(no_cache)
         self.timeout = timeout
-        self._cache = Cache(cache_dir, enabled=not no_cache)
+        self._cache_dir = cache_dir
+        self._cache_enabled = not no_cache
+        self._cache_instance = None
         self.base_url = (base_url or os.environ.get("AGENTDATA_BASE_URL") or "").rstrip("/") or None
         self.api_key = api_key or os.environ.get("AGENTDATA_API_KEY") or None
+        self.token_url = token_url or os.environ.get("AGENTDATA_TOKEN_URL") or None
+        self.hub_base_url = hub_base_url or os.environ.get("AGENTDATA_HUB_BASE_URL") or None
         self.healthcare = _Domain(self, "healthcare")
         self.company = _Domain(self, "company")
         self.esg = _Domain(self, "esg")
@@ -49,6 +55,35 @@ class Client:
         self.research = _Domain(self, "research")
         self.security = _Domain(self, "security")
         self.economy = _Domain(self, "economy")  # 0.3.23: the eighth domain (country denominators)
+        # hub family (RFC-002): the PAT doubles as the downstream-token credential; config errors
+        # surface at call time (hub_get/hub_token), never at construction (enrichment stays zero-config)
+        self.allow_http = bool(allow_http)  # test-only escape hatch; production is HTTPS-only
+        self._hub = HubClient(token_url=self.token_url, hub_base_url=self.hub_base_url,
+                              api_key=self.api_key, timeout=timeout, allow_http=self.allow_http)
+
+    @property
+    def _cache(self):
+        if not self._cache_enabled:
+            return None
+        if self._cache_instance is None:
+            self._cache_instance = Cache(self._cache_dir, enabled=True)
+        return self._cache_instance
+
+    @property
+    def hub(self) -> HubClient:
+        """The HubClient (RFC-002 §3.4/3.5): token_payload() for the full exchange envelope."""
+        return self._hub
+
+    def hub_token(self) -> str:
+        """PAT -> short-lived Hub subject JWT (cached in-process until expires_in-10)."""
+        return self._hub.hub_token()
+
+    def hub_request(self, method, path, params=None) -> dict:
+        """Allowlisted GET against the Hub (method must be GET; query generated only from params)."""
+        return self._hub.request(method, path, params)
+
+    def hub_get(self, path, params=None) -> dict:
+        return self._hub.get(path, params)
 
     def _request_id(self) -> str:
         return str(uuid.uuid4())
@@ -58,6 +93,12 @@ class Client:
         if not self.base_url or not self.api_key:
             raise SdkError("usage_error",
                            detail="The corpus family uses hosted HTTP: Client(base_url=…, api_key=…) (enrichment works with zero config; ask us to issue you a PAT)")
+        base_parts = urllib.parse.urlsplit(self.base_url)
+        if base_parts.scheme != "https" and not (self.allow_http and base_parts.scheme == "http"):
+            raise SdkError("usage_error",
+                           detail="The corpus family requires an HTTPS base URL (HTTP requires test-only allow_http)")
+        if base_parts.username or base_parts.password or base_parts.query or base_parts.fragment:
+            raise SdkError("usage_error", detail="The corpus base URL must not contain userinfo, query, or fragment")
         url = f"{self.base_url}/v1/{domain}/{verb}"
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(url, data=data, method="POST", headers={
@@ -66,7 +107,7 @@ class Client:
             "Accept": "application/json",
         })
         try:
-            with urllib.request.urlopen(req, timeout=max(self.timeout, 120)) as resp:
+            with _no_redirect_opener().open(req, timeout=max(self.timeout, 120)) as resp:
                 status, raw, headers = resp.status, resp.read(), resp.headers
         except urllib.error.HTTPError as e:
             status, raw, headers = e.code, e.read(), e.headers
@@ -76,7 +117,7 @@ class Client:
             doc = json.loads(raw.decode("utf-8", "replace"))
         except ValueError:
             raise SdkError("capability_unavailable", status=status, detail=f"Gateway returned a non-JSON response (HTTP {status})")
-        if status >= 400:
+        if not 200 <= status < 300:
             err = doc.get("error") or {}
             ra_hdr = headers.get("Retry-After") if headers else None
             try:

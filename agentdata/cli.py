@@ -10,6 +10,7 @@ import sys
 import uuid
 
 from . import __version__
+from . import capabilities as capabilities_mod
 from .client import Client
 from .company import cli as company_cli
 from .economy import cli as economy_cli
@@ -67,26 +68,48 @@ def _leaf_globals():
     that never appeared does not land in the namespace, so the parent's value survives; every read
     uses getattr(…, default)."""
     g = argparse.ArgumentParser(add_help=False)
-    g.add_argument("--base-url", dest="sub_base_url", default=argparse.SUPPRESS, help="Hosted API base URL (env AGENTDATA_BASE_URL)")
-    g.add_argument("--api-key", dest="sub_api_key", default=argparse.SUPPRESS, help="Bearer PAT (env AGENTDATA_API_KEY)")
-    g.add_argument("--cache-dir", dest="sub_cache_dir", default=argparse.SUPPRESS, help="Cache directory (env AGENTDATA_CACHE_DIR)")
+    g.add_argument("--base-url", dest="sub_base_url", default=argparse.SUPPRESS, metavar="URL", help="Hosted API base URL (env AGENTDATA_BASE_URL)")
+    g.add_argument("--api-key", dest="sub_api_key", default=argparse.SUPPRESS, metavar="PAT", help="Bearer PAT (env AGENTDATA_API_KEY)")
+    g.add_argument("--cache-dir", dest="sub_cache_dir", default=argparse.SUPPRESS, metavar="DIR", help="Cache directory (env AGENTDATA_CACHE_DIR)")
     g.add_argument("--no-cache", dest="sub_no_cache", action="store_true", default=argparse.SUPPRESS, help="Bypass the cache for this call")
-    g.add_argument("--execution", dest="sub_execution", default=argparse.SUPPRESS, choices=["local", "hosted", "auto"], help="Execution location (default auto: realtime queries run locally)")
+    g.add_argument("--execution", dest="sub_execution", default=argparse.SUPPRESS, choices=["local", "hosted", "auto"], help="Realtime execution location (default auto -> local; realtime faces support local execution only — the hosted corpus uses --base-url/--api-key)")
     return g
 
 
+def _no_abbrev(v):
+    """Turn off argument abbreviation for every subparser registered on this verb parser.
+
+    argparse does NOT inherit allow_abbrev into a subparser: the root's setting would leave every
+    face parser at the default True, where `--api-k` silently becomes `--api-key` and a mistyped
+    flag is accepted as a prefix of a real one. Wrapping the registrar once per domain is far
+    cheaper than touching 172 call sites."""
+    orig = v.add_parser
+
+    def add_parser(name, **kw):
+        kw.setdefault("allow_abbrev", False)
+        return orig(name, **kw)
+
+    v.add_parser = add_parser
+
+
 def build_parser():
-    p = argparse.ArgumentParser(prog="agentdata", description="AgentData SDK CLI (corpus queries via the hosted API + realtime queries executed locally)")
+    p = argparse.ArgumentParser(prog="agentdata", allow_abbrev=False,
+                                description="AgentData SDK CLI (corpus queries via the hosted API + realtime queries executed locally)")
     p.add_argument("--version", action="version", version=f"agentdata {__version__}")
-    p.add_argument("--base-url", default=None, help="Hosted API base URL (env AGENTDATA_BASE_URL)")
-    p.add_argument("--api-key", default=None, help="Bearer PAT (env AGENTDATA_API_KEY)")
-    p.add_argument("--cache-dir", default=None, help="Cache directory (env AGENTDATA_CACHE_DIR)")
+    p.add_argument("--base-url", default=None, metavar="URL", help="Hosted API base URL (env AGENTDATA_BASE_URL)")
+    p.add_argument("--api-key", default=None, metavar="PAT", help="Bearer PAT (env AGENTDATA_API_KEY)")
+    p.add_argument("--cache-dir", default=None, metavar="DIR", help="Cache directory (env AGENTDATA_CACHE_DIR)")
     p.add_argument("--no-cache", action="store_true", help="Bypass the cache for this call")
-    p.add_argument("--execution", default="auto", choices=["local", "hosted", "auto"])
+    p.add_argument("--execution", default="auto", choices=["local", "hosted", "auto"],
+                   help="Realtime execution location (default auto -> local; realtime faces support local execution only — the hosted corpus uses --base-url/--api-key)")
     sub = p.add_subparsers(dest="domain", required=True)
     for domain in DOMAIN_ORDER:
-        d = sub.add_parser(domain, parents=[_leaf_globals()])
-        v = d.add_subparsers(dest="verb", required=True)
+        d = sub.add_parser(domain, parents=[_leaf_globals()], allow_abbrev=False)
+        # metavar="FACE": the usage line stops listing every face name (the legal domain alone
+        # spelled 38 of them across three lines) while the per-face catalog below stays intact —
+        # argparse lists a subcommand individually as long as it was registered with a help= line.
+        v = d.add_subparsers(dest="verb", required=True, metavar="FACE")
+        _no_abbrev(v)
         _CLI[domain].register(v, _leaf_globals)
 
         s = v.add_parser("search", parents=[_leaf_globals()], help="Corpus search (hosted)",
@@ -104,6 +127,34 @@ def build_parser():
                           description="Corpus single-record read (hosted): id + T-layer depth")
         rd.add_argument("--id", required=True, help="Subject id")
         rd.add_argument("--level", default="tier1", choices=["tier1", "tier2", "tier3"], help="T-layer depth (default tier1)")
+
+    # hub family (RFC-002 §3.4/3.5): PAT -> short-lived subject JWT -> allowlisted GET; a command
+    # group of its own so the eight domain dispatch tables above stay untouched
+    h = sub.add_parser("hub", parents=[_leaf_globals()], help="Hub family (PAT to short-lived JWT to allowlisted GET)",
+                       description="Hub family (RFC-002): exchange the PAT for a short-lived subject JWT, then GET allowlisted OmniHub paths. The PAT is never printed.")
+    hv = h.add_subparsers(dest="hub_verb", required=True)
+    ht = hv.add_parser("token", parents=[_leaf_globals()],
+                       help="Exchange the PAT for a short-lived Hub subject JWT (prints the access_token envelope, never the PAT)")
+    ht.add_argument("--token-url", default=None, help="Downstream-token endpoint (env AGENTDATA_TOKEN_URL)")
+    hg = hv.add_parser("get", parents=[_leaf_globals()],
+                       help="Allowlisted GET against the Hub (query built only from --param)")
+    hg.add_argument("--path", required=True, help="Allowlisted path (RFC-002 §3.5, e.g. /v1/company/companies:search)")
+    hg.add_argument("--param", action="append", default=[], metavar="K=V", help="Query parameter K=V (repeatable; strings verbatim)")
+    hg.add_argument("--token-url", default=None, help="Downstream-token endpoint (env AGENTDATA_TOKEN_URL)")
+    hg.add_argument("--hub-base-url", default=None, help="Hub base URL (env AGENTDATA_HUB_BASE_URL)")
+
+    # The discovery surface (0.3.52): the face table rendered from the command tree. It needs no
+    # base URL and no PAT — it describes what this installed package can run.
+    cap = sub.add_parser("capabilities", allow_abbrev=False,
+                          help="Face table (discovery: every face, its summary and its parameters)",
+                          description="The face table rendered from the command tree: every realtime face with "
+                                      "its one-line summary, its parameters (closed sets, required flags) and its "
+                                      "jurisdiction, plus the hosted corpus family. Generated, not maintained by "
+                                      "hand — it cannot drift from the commands it describes.")
+    cap.add_argument("--format", choices=["json", "md"], default="json", help="Output format (default json)")
+    cap.add_argument("--domain-filter", dest="domain_filter", default=None, choices=list(DOMAIN_ORDER),
+                     help="Limit the listing to one domain")
+    cap.add_argument("--face", dest="face_filter", default=None, help="Limit the listing to one face (exact name)")
     return p
 
 
@@ -112,7 +163,7 @@ def build_parser():
 _FLAT_DISPATCH = {}
 for _m in _CLI.values():
     _FLAT_DISPATCH.update(_m.FLAT)
-assert len(_FLAT_DISPATCH) == 166, f"flat dispatch {len(_FLAT_DISPATCH)} != 161 (161 faces; 0.3.2 esg +2 + 0.3.3 European registries +5 + 0.3.4 FR recherche +1 + 0.3.5 esg port-state +5 + 0.3.6 World Bank/NY +3 + 0.3.8 legal TNA caselaw +2 + 0.3.12 UNGM/NY OGS collection +2 + 0.3.14 CO RUES/KR hometax +2 + 0.3.16 legal co_sic +1 + healthcare gb_mhra +2 + 0.3.19 healthcare CA DPD/MDALL +4 + rasff/safety_gate +3 + 0.3.21 legal debarment rosters afdb/ca_sema/idb/wb +4 + 0.3.22 transport compliance euasl_datasets +1 + 0.3.23 economy domain (wb/eurostat/ecb/fred/who_xmart/un_comtrade/ilo_stat) +10 + 0.3.24 economy expansion (imf_sdmx/bis/unsd_sdg/wb_ids) +5 + 0.3.25 security EUVD (euvd) +2 + 0.3.26 economy expansion (comext/oecd_sdmx) +2 + 0.3.27 legal gazette/ie_revenue +2 + 0.3.28 legal us_occ +1 + 0.3.29 economy bls_series +1 + 0.3.30 company NZ Companies Office nzco_companies/nzco_directors +2 + 0.3.31 legal CFPB cfpb_complaints/cfpb_suggest_company +2 + 0.3.32 company CZ ARES cz_ares_ekonomicke_subjekty/cz_ares_ekonomicke_subjekty_vyhledat +2 + 0.3.33 company offshore Channel Islands gg_gfsc_regulated_entities/gg_gfsc_registered_businesses/je_jfsc_regulated_entities +3 + 0.3.34 company KZ GBD_UL kz_gbd_ul_companies +1 + 0.3.35 IN SEBI legal in_sebi_orders/company in_sebi_intermediaries+in_sebi_default_brokers +3 + 0.3.36 TR SPK legal tr_spk_fines+tr_spk_bans/company tr_spk_listed +3 + 0.3.37 RU CBR legal ru_cbr_warning_list/company ru_cbr_credit_orgs +2 (first RU jurisdiction) + 0.3.38 BR BACEN legal br_bacen_regimes/company br_bacen_institutions+br_bacen_branches+br_bacen_domains+br_bacen_dasfn +5 (first BR jurisdiction) + 0.3.39 legal br_bacen_complaints rdrweb +1 + 0.3.40 company tr_bddk_institutions BDDK cards +1 + 0.3.41 company DE federal insolvency announcements de_inso_search/de_inso_register_lookup +2 (first DE jurisdiction) + 0.3.42 company JP FSA licensed farm jp_fsa_licensed +1 (first JP jurisdiction) + 0.3.43 company CA OSB CCAA roster ca_ccaa_records +1 + 0.3.44 company ES CNMV entidades register es_cnmv_entities +1 (first ES jurisdiction) + 0.3.45 company ES BORME daily gazette es_borme_day+es_borme_notice +2 (ES jurisdiction #2) + 0.3.46 company SG data.gov.sg open-data platform sg_datagovsg_datasets+sg_datagovsg_dataset_download +2 (first SG jurisdiction — the ACRA register of record rides the national platform) + 0.3.47 legal AT RIS OGD at_ris_judgments+at_ris_statutes +2 (first AT jurisdiction) + 0.3.48 company US state licenses tx_tdlr_licenses+wa_doh_credentials +2 (Socrata twin) + 0.3.49 company US city licenses chi_bacp_licenses+lacity_registrations+nyc_dcwp_licenses +3 (Socrata city trio); the csl_screening alias was removed in 0.3.0)"
+assert len(_FLAT_DISPATCH) == 180, f"flat dispatch {len(_FLAT_DISPATCH)} != 161 (161 faces; 0.3.2 esg +2 + 0.3.3 European registries +5 + 0.3.4 FR recherche +1 + 0.3.5 esg port-state +5 + 0.3.6 World Bank/NY +3 + 0.3.8 legal TNA caselaw +2 + 0.3.12 UNGM/NY OGS collection +2 + 0.3.14 CO RUES/KR hometax +2 + 0.3.16 legal co_sic +1 + healthcare gb_mhra +2 + 0.3.19 healthcare CA DPD/MDALL +4 + rasff/safety_gate +3 + 0.3.21 legal debarment rosters afdb/ca_sema/idb/wb +4 + 0.3.22 transport compliance euasl_datasets +1 + 0.3.23 economy domain (wb/eurostat/ecb/fred/who_xmart/un_comtrade/ilo_stat) +10 + 0.3.24 economy expansion (imf_sdmx/bis/unsd_sdg/wb_ids) +5 + 0.3.25 security EUVD (euvd) +2 + 0.3.26 economy expansion (comext/oecd_sdmx) +2 + 0.3.27 legal gazette/ie_revenue +2 + 0.3.28 legal us_occ +1 + 0.3.29 economy bls_series +1 + 0.3.30 company NZ Companies Office nzco_companies/nzco_directors +2 + 0.3.31 legal CFPB cfpb_complaints/cfpb_suggest_company +2 + 0.3.32 company CZ ARES cz_ares_ekonomicke_subjekty/cz_ares_ekonomicke_subjekty_vyhledat +2 + 0.3.33 company offshore Channel Islands gg_gfsc_regulated_entities/gg_gfsc_registered_businesses/je_jfsc_regulated_entities +3 + 0.3.34 company KZ GBD_UL kz_gbd_ul_companies +1 + 0.3.35 IN SEBI legal in_sebi_orders/company in_sebi_intermediaries+in_sebi_default_brokers +3 + 0.3.36 TR SPK legal tr_spk_fines+tr_spk_bans/company tr_spk_listed +3 + 0.3.37 RU CBR legal ru_cbr_warning_list/company ru_cbr_credit_orgs +2 (first RU jurisdiction) + 0.3.38 BR BACEN legal br_bacen_regimes/company br_bacen_institutions+br_bacen_branches+br_bacen_domains+br_bacen_dasfn +5 (first BR jurisdiction) + 0.3.39 legal br_bacen_complaints rdrweb +1 + 0.3.40 company tr_bddk_institutions BDDK cards +1 + 0.3.41 company DE federal insolvency announcements de_inso_search/de_inso_register_lookup +2 (first DE jurisdiction) + 0.3.42 company JP FSA licensed farm jp_fsa_licensed +1 (first JP jurisdiction) + 0.3.43 company CA OSB CCAA roster ca_ccaa_records +1 + 0.3.44 company ES CNMV entidades register es_cnmv_entities +1 (first ES jurisdiction) + 0.3.45 company ES BORME daily gazette es_borme_day+es_borme_notice +2 (ES jurisdiction #2) + 0.3.46 company SG data.gov.sg open-data platform sg_datagovsg_datasets+sg_datagovsg_dataset_download +2 (first SG jurisdiction — the ACRA register of record rides the national platform) + 0.3.47 legal AT RIS OGD at_ris_judgments+at_ris_statutes +2 (first AT jurisdiction) + 0.3.48 company US state licenses tx_tdlr_licenses+wa_doh_credentials +2 (Socrata twin) + 0.3.49 company US city licenses chi_bacp_licenses+lacity_registrations+nyc_dcwp_licenses +3 (Socrata city trio) + 0.3.50 legal enforcement/party-finance tier us_ferc_elibrary+ie_sipo_lobbying+ee_erjk_quarterly_reports+ee_erjk_election_reports+ua_nazk_parties+ua_nazk_party_reports +6 (first EE and UA jurisdictions) + 0.3.51 legal enforcement tier-two fr_adlc_sanctions+it_arera_decisions+us_cftc_enforcement + company us_fmcsa_carriers +4 (first FR and IT legal jurisdictions) + 0.3.53 company fr_regafi_authorisations+fr_regafi_entities + esg uk_fhrs_establishments + healthcare us_npi_organizations +4; the csl_screening alias was removed in 0.3.0)"
 # 0.3.10 jurisdiction chapter: face -> jurisdiction (default = the issuing authority's jurisdiction; institutions covering global phenomena = GLOBAL; vocabulary = ISO-3166 alpha-2 + EU + GLOBAL).
 # The per-domain source of truth is each domain cli.py's COUNTRY (same face set as FLAT); the root only merges them; the success envelope carries a jurisdiction chapter (search/read are hosted mixed-jurisdiction corpus services — unstamped)
 _JURISDICTION = {f: cc for _m in _CLI.values() for f, cc in _m.COUNTRY.items()}
@@ -132,35 +183,64 @@ def _merge_globals(a):
     return a
 
 
+def _hub_params(pairs):
+    """--param 'k=v' (repeatable) -> query dict; values stay verbatim strings."""
+    params = {}
+    for raw in pairs or []:
+        k, _, v = raw.partition("=")
+        if not k:
+            raise SdkError("usage_error", detail=f"--param expects K=V, got {raw!r}")
+        params[k] = v
+    return params
+
+
 
 
 def main(argv=None) -> int:
     # Force UTF-8 for piped/redirected output: on Chinese Windows the pipe defaults to CP936 and agents
     # or redirected consumers would receive bad bytes; the interactive console is already UTF-8 under
-    # PEP 528, so reconfigure is imperceptible there.
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
-    a = _merge_globals(build_parser().parse_args(argv))
+    # PEP 528, so reconfigure is imperceptible there. Guarded: replaced/captured stdout (tests) may
+    # not be a TextIOWrapper.
+    for _s in (sys.stdout, sys.stderr):
+        if hasattr(_s, "reconfigure"):
+            _s.reconfigure(encoding="utf-8")
+    parser = build_parser()
+    a = _merge_globals(parser.parse_args(argv))
+    if a.domain == "capabilities":
+        # The discovery surface needs no credentials and no network: it is the command tree itself.
+        caps = capabilities_mod.collect(parser, flat_faces=set(_FLAT_DISPATCH),
+                                         jurisdiction=_JURISDICTION)
+        caps = capabilities_mod.filter_caps(caps, domain=a.domain_filter, face=a.face_filter)
+        print(capabilities_mod.render(caps, a.format))
+        return 0
     try:
         c = Client(a.base_url, a.api_key, cache_dir=a.cache_dir, no_cache=a.no_cache,
-                   execution=a.execution)
-        d = getattr(c, a.domain)
-        flat = _FLAT_DISPATCH.get(a.verb)
-        if flat is not None:
-            out = getattr(d, a.verb)(**flat(a))
-            out["jurisdiction"] = _JURISDICTION[a.verb]  # 0.3.10 jurisdiction chapter: downstream can route by country without digging through docs
-        elif a.verb == "search":
-            screen_inputs = None
-            if a.mode == "screen":
-                if not a.input:
-                    raise SdkError("usage_error", detail="--mode screen requires --input x.jsonl")
-                with open(a.input, encoding="utf-8") as f:
-                    screen_inputs = [json.loads(line) for line in f if line.strip()]
-            out = d.search(filters=_filter_arg(a.filter), record_kind=a.record_kind,
-                           facets=a.facets.split(",") if a.facets else None, level=a.level,
-                           limit=a.limit, cursor=a.cursor, mode=a.mode, screen_inputs=screen_inputs)
+                   execution=a.execution,
+                   token_url=getattr(a, "token_url", None),
+                   hub_base_url=getattr(a, "hub_base_url", None))
+        if a.domain == "hub":
+            if a.hub_verb == "token":
+                out = c.hub.token_payload()
+            else:  # argparse required=True leaves only "get"
+                out = c.hub_get(a.path, _hub_params(a.param))
         else:
-            out = d.read(a.id, level=a.level)
+            d = getattr(c, a.domain)
+            flat = _FLAT_DISPATCH.get(a.verb)
+            if flat is not None:
+                out = getattr(d, a.verb)(**flat(a))
+                out["jurisdiction"] = _JURISDICTION[a.verb]  # 0.3.10 jurisdiction chapter: downstream can route by country without digging through docs
+            elif a.verb == "search":
+                screen_inputs = None
+                if a.mode == "screen":
+                    if not a.input:
+                        raise SdkError("usage_error", detail="--mode screen requires --input x.jsonl")
+                    with open(a.input, encoding="utf-8") as f:
+                        screen_inputs = [json.loads(line) for line in f if line.strip()]
+                out = d.search(filters=_filter_arg(a.filter), record_kind=a.record_kind,
+                               facets=a.facets.split(",") if a.facets else None, level=a.level,
+                               limit=a.limit, cursor=a.cursor, mode=a.mode, screen_inputs=screen_inputs)
+            else:
+                out = d.read(a.id, level=a.level)
         print(json.dumps(out, ensure_ascii=False, indent=2))
         return 0
     except SdkError as e:

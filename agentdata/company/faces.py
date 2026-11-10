@@ -683,6 +683,110 @@ class CompanyFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    # —— 0.3.53 FR Regafi ACPR financial-register pair (the qualification axis joins fr_recherche's roster axis) ——
+
+    def fr_regafi_authorisations(self, id_referentiel=None, categorie=None, nature=None,
+                                 situation=None, *, limit=20, offset=0,
+                                 execution=None, no_cache=None):
+        """company fr_regafi_authorisations: French ACPR per-authorisation timeline (regafi.fr
+        ODS Explore v2.1 prd-banque-autorisations, keyless; 31,107 rows live 2026-11-10).
+        One row per granted authorisation — id_referentiel joins the entities face, date_debut
+        runs 1946→today, and the *_json columns carry the per-service blocks with their own
+        effective dates (services de paiement, cryptos, cautions réglementées…), parsed in
+        place. nature is the register's own seven-word vocabulary (exact match), situation the
+        closed ACTIF/MANDAT pair; categorie passes verbatim (the multi-regime space evolves)."""
+        self._co_only("fr_regafi_authorisations")
+        r = company.fr_regafi.authorisations_raw(id_referentiel, categorie, nature, situation,
+                                                 limit=limit, offset=offset,
+                                                 cache=self._c._cache,
+                                                 no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        flt = ", ".join(f"{k}={v}" for k, v in
+                        (("id_referentiel", id_referentiel), ("categorie", categorie),
+                         ("nature", nature), ("situation", situation)) if v)
+        if result["rows"]:
+            first = result["rows"][0]
+            reason = (f"ACPR authorisation timeline: {result['total_count']:,} rows match"
+                      + (f" ({flt})" if flt else " (unfiltered — the whole register)")
+                      + f" — showing {result['count']} (offset {result['params']['offset']}); "
+                        f"id_referentiel joins fr_regafi_entities, the *_json blocks carry the "
+                        f"per-service dates (sample: {first.get('categorie') or '—'} / "
+                        f"{first.get('nature_autorisation') or '—'} since {first.get('date_debut') or '—'})")
+        else:
+            reason = (f"ACPR authorisation timeline: zero rows"
+                      + (f" for {flt}" if flt else "")
+                      + " — a legitimate empty filter, or an offset past the end "
+                        f"(the register carries {result['total_count']:,} rows)")
+        return self._flat_env(
+            tool="fr_regafi_authorisations",
+            input={"id_referentiel": id_referentiel, "categorie": categorie,
+                   "nature": nature, "situation": situation,
+                   "limit": result["params"]["limit"], "offset": result["params"]["offset"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"[id_autorisation {x.get('id_autorisation')}] réf {x.get('id_referentiel')}"
+                                + f" — {x.get('categorie') or '—'} / {x.get('sous_categorie') or '—'}:"
+                                  f" {x.get('nature_autorisation') or '—'} since {x.get('date_debut') or '—'}"
+                                  f" ({x.get('situation') or '—'}, {x.get('pays_exercice') or '—'})",
+                       "url": "https://regafi.fr/api/explore/v2.1/catalog/datasets/prd-banque-autorisations/records"}
+                      for x in result["rows"][:5]],
+            provider_id="fr_regafi", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def fr_regafi_entities(self, siren=None, lei=None, categorie=None, pays=None, q=None,
+                           *, limit=20, offset=0, execution=None, no_cache=None):
+        """company fr_regafi_entities: French ACPR supervised-entity register (regafi.fr ODS
+        Explore v2.1 prd-banque-entites, keyless; 25,890 rows live 2026-11-10). id_referentiel
+        is the official key; lei + siren are the dual hard keys (SIREN joins the FR company
+        master, LEI joins GLEIF); id_entite_parente/denomination_entite_parente carry the
+        parent edge; nom_commerciaux rides parsed (renaming history); categorie is the
+        multi-valued 24-value vocabulary (Agent PSP 22,485 / Entreprise d'Investissement
+        1,009 / Établissement de Crédit 941 …). q is full-text over denomination."""
+        self._co_only("fr_regafi_entities")
+        r = company.fr_regafi.entities_raw(siren, lei, categorie, pays, q,
+                                           limit=limit, offset=offset,
+                                           cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        flt = ", ".join(f"{k}={v}" for k, v in
+                        (("siren", siren), ("lei", lei), ("categorie", categorie),
+                         ("pays", pays), ("q", q)) if v)
+        if result["rows"]:
+            top = result["rows"][0]
+            reason = (f"ACPR supervised entities: {result['total_count']:,} rows match"
+                      + (f" ({flt})" if flt else " (unfiltered — the whole register)")
+                      + f" — showing {result['count']} (offset {result['params']['offset']}); "
+                        f"dual hard keys ride every row (SIREN {top.get('siren') or '—'} / LEI "
+                        f"{str(top.get('lei') or '—')[:20]}), the parent edge when grouped "
+                        f"(id_entite_parente {top.get('id_entite_parente') or '—'})")
+        else:
+            reason = (f"ACPR supervised entities: zero rows"
+                      + (f" for {flt}" if flt else "")
+                      + " — a legitimate empty filter (siren/lei are exact; try q for the name channel), "
+                        f"or an offset past the end (the register carries {result['total_count']:,} rows)")
+        def _cat(x):
+            # categorie is multi-valued upstream (Agent PSP + Établissement de Crédit …) — render as a joined line, never a list repr
+            c = x.get("categorie")
+            return " + ".join(c) if isinstance(c, list) and c else (c or "—")
+
+        return self._flat_env(
+            tool="fr_regafi_entities",
+            input={"siren": siren, "lei": lei, "categorie": categorie, "pays": pays,
+                   "q": q, "limit": result["params"]["limit"], "offset": result["params"]["offset"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"réf {x.get('id_referentiel')} — {x.get('denomination') or '—'}"
+                                + (f" ({x.get('sigle')})" if x.get("sigle") else "")
+                                + f" · SIREN {x.get('siren') or '—'} · {_cat(x)}"
+                                  f" · {x.get('ville') or '—'} {x.get('pays') or ''}",
+                       "url": "https://regafi.fr/api/explore/v2.1/catalog/datasets/prd-banque-entites/records"}
+                      for x in result["rows"][:5]],
+            provider_id="fr_regafi", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+
     # ---------- 0.3.11 CO RUES + KR hometax dual-country batch (LatAm/Korea company master & status faces) ----------
 
     def co_rues_companies(self, where=None, *, limit=20, offset=0, order=None,
@@ -2293,5 +2397,53 @@ class CompanyFaces:
         return self._flat_env(tool="nyc_dcwp_licenses",
                               input={"where": where, "limit": limit, "offset": offset, "order": order},
                               reason=reason, result=res, evidence=ev, provider_id="nyc_dcwp",
+                              metas=[r["_meta"]],
+                              query={"source": "raw", "upstream": r["params"]})
+
+    def us_fmcsa_carriers(self, where=None, *, limit=20, offset=0, order=None,
+                          execution=None, no_cache=None):
+        """company us_fmcsa_carriers: FMCSA Motor Carrier Management Information Company
+        Census (data.transportation.gov Socrata az4n-8mr2; where → $where raw SoQL verbatim
+        channel; limit/offset/order mirrored by name). The full-history US carrier universe —
+        active AND out-of-service, 4,528,322 rows live 2026-11-09 (the ~400k audit figure was
+        the active face). dot_number hard key (US transport-compliance universe join key),
+        status_code lifecycle, dun_bradstreet_no = the rare official DUNS cross-key (mind its
+        "0" sentinels), phy_*/carrier_mailing_* dual address blocks, company_officer_1/2
+        verbatim, fleet trio + mcs150 mileage + hm_ind + crgo_* cargo flags. Catalog advertises
+        ~58 columns but Socrata omits null fields per row — a populated row ships 53 keys;
+        unrated carriers simply lack safety_rating (rides in the view, appears only when set)."""
+        self._co_only("us_fmcsa_carriers")
+        r = company.us_fmcsa.carriers_raw(where, limit=limit, offset=offset, order=order,
+                                          cache=self._c._cache,
+                                          no_cache=no_cache if no_cache is not None else self._c.no_cache)
+        res = {k: v for k, v in r.items() if k != "_meta"}
+        rows = res["rows"]
+        if rows:
+            x0 = rows[0]
+            reason = (f"FMCSA carrier census: {len(rows)} rows returned (from offset={offset}; Socrata echoes no total)"
+                      f" — dot_number key (sample #{x0.get('dot_number') or '—'},"
+                      f" {x0.get('legal_name') or '—'}"
+                      f" [{x0.get('status_code') or '—'}],"
+                      f" {x0.get('phy_city') or '—'}, {x0.get('phy_state') or '—'},"
+                      f" officers {x0.get('company_officer_1') or '—'}"
+                      + (f" / {x0.get('company_officer_2')}" if x0.get("company_officer_2") else "")
+                      + f"; {len(x0)} keys on this row — Socrata omits null fields per row)"
+                      f"; corpus 4,528,322 active+historical (live count 2026-11-09);"
+                      " dun_bradstreet_no = the rare official DUNS cross-key")
+        else:
+            reason = ("FMCSA carrier census: 0 rows — the where filter matched nothing or offset is past the end; both are "
+                      "legal answers (not errors); deterministic forms: dot_number='963305' exact, "
+                      "upper(legal_name) like '%SCHNEIDER%'")
+        ev = [{"quote": f"DOT {x.get('dot_number') or '—'} — {x.get('legal_name') or '—'}"
+                        f" ({x.get('phy_city') or '—'}, {x.get('phy_state') or '—'};"
+                        f" status {x.get('status_code') or '—'},"
+                        f" carrier_operation {x.get('carrier_operation') or '—'},"
+                        f" {x.get('truck_units') or '—'} trucks/{x.get('power_units') or '—'} power/{x.get('bus_units') or '—'} bus"
+                        + (f", DUNS {x.get('dun_bradstreet_no')}" if x.get("dun_bradstreet_no") not in (None, "0") else "") + ")",
+               "url": "https://data.transportation.gov/resource/az4n-8mr2.json"}
+              for x in rows[:3] if x.get("dot_number")]
+        return self._flat_env(tool="us_fmcsa_carriers",
+                              input={"where": where, "limit": limit, "offset": offset, "order": order},
+                              reason=reason, result=res, evidence=ev, provider_id="us_fmcsa",
                               metas=[r["_meta"]],
                               query={"source": "raw", "upstream": r["params"]})

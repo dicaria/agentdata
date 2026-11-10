@@ -52,7 +52,7 @@ def _query(params, cache, no_cache):
     if _empty(r["data"]):
         # An empty set is untrustworthy: discard the cached entry (including a stale empty one) and refetch once; only a still-empty result counts as not_found. The refetch goes through the normal read path
         # (the entry was deleted, so it must miss) and a good result is written back — the same effect as "noCache only skips reads, not writes" on the Node side (both stacks align).
-        key = cache_key_for("lookup", params)
+        key = cache_key_for("lookup", params, scope=provider.get("baseUrl") or provider["id"])
         if cache is not None:
             cache.delete("eudamed", key)
         fresh = call_provider(provider, "lookup", params, cache=cache, no_cache=False)

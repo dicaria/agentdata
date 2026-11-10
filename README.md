@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/agentdata)](https://pypi.org/project/agentdata/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/dicaria/agentdata/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![Commands](https://img.shields.io/badge/166_commands-8_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
+[![Commands](https://img.shields.io/badge/180_commands-8_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
 
 **One Python client and CLI over 166 public datasets — company registries,
 sanctions lists, procurement awards, drug approvals — with no API keys and no
@@ -11,8 +11,8 @@ accounts.**
 
 Government data holds the decisive facts about companies, but it is scattered
 across 112 public APIs, each with its own pagination, rate
-limits, and undocumented quirks. **agentdata puts 166 of those datasets behind
-one interface**: a pure-standard-library client and CLI across 27 jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
+limits, and undocumented quirks. **agentdata puts 180 of those datasets behind
+one interface**: a pure-standard-library client and CLI across 30 jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
 and caching are built in.
 
 ## Install
@@ -21,18 +21,18 @@ and caching are built in.
 python -m pip install agentdata
 ```
 
-For a reproducible install, pin the release: `python -m pip install agentdata==0.3.49`.
+For a reproducible install, pin the release: `python -m pip install agentdata==0.3.53`.
 
 Prefer not to touch PyPI? Install straight from a release tarball:
 
 ```bash
-python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.49.tar.gz
+python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.53.tar.gz
 ```
 
 Or via git (pin a tag for reproducible installs):
 
 ```bash
-python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.49
+python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.53
 ```
 
 Or track the latest release (convenience for agents and scripts — a fresh
@@ -163,7 +163,7 @@ You can — and then you get to rediscover what is already pinned here:
 - **Quirks are pre-solved, not rediscovered.** Every command encodes traps we
   hit against the live API: anti-forgery token dances, Socrata parameters that
   are silently ignored, registries that clamp your page size without an error.
-- **One envelope across all 166 commands.** Query echo, `reason`, `evidence`,
+- **One envelope across all 180 commands.** Query echo, `reason`, `evidence`,
   source metadata, `jurisdiction` — your code parses one shape.
 - **Upstream parameter names, verbatim.** What the official API docs call a
   parameter is what the SDK takes — no invented vocabulary to unlearn.
@@ -174,15 +174,15 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Coverage
 
-**166 datasets · 115 upstream providers · 27 jurisdictions:** US 46 · global 40 · EU 15 · UK 12 · Brazil 7 · Canada 6 · Türkiye 4 · Colombia 3 · ES 3 · India 3 · AT 2 · Australia 2 · Switzerland 2 · Czechia 2 · DE 2 · Guernsey 2 · Norway 2 · New Zealand 2 · RU 2 · SG 2 · Finland 1 · France 1 · Ireland 1 · Jersey 1 · JP 1 · Korea 1 · Kazakhstan 1.
+**180 datasets · 126 upstream providers · 30 jurisdictions:** US 50 · global 40 · EU 15 · UK 13 · Brazil 7 · Canada 6 · France 4 · Türkiye 4 · Colombia 3 · ES 3 · India 3 · AT 2 · Australia 2 · Switzerland 2 · Czechia 2 · DE 2 · EE 2 · Guernsey 2 · Ireland 2 · Norway 2 · New Zealand 2 · RU 2 · SG 2 · UA 2 · Finland 1 · IT 1 · Jersey 1 · JP 1 · Korea 1 · Kazakhstan 1.
 
 | Domain | Commands | Sources |
 |---|---|---|
-| `healthcare` | 31 | US FDA approvals & recalls, ClinicalTrials.gov, RxNav, DailyMed, AccessGUDID, UK MHRA alerts, Health Canada DPD & MDALL, EUDAMED, RASFF & Safety Gate (EU), TGA (AU), Europe PMC, MeSH |
-| `legal` | 32 | US consolidated screening list, eCFR, Federal Register, LDA filings, CourtListener, DG COMP, UK CMA cases, UK Electoral Commission, The Gazette, Irish Revenue defaulters, US OCC enforcement, TNA case law, SIPRI, SIC sanctions (CO), MDB debarment rosters (WB/AfDB/IDB), Canada SEMA, CFPB consumer complaints, SEBI enforcement orders (IN), SPK administrative fines & trading bans (TR), CBR illegal-finance warning register (RU), BACEN special regimes & complaint rankings (BR), RIS case law & consolidated federal law (AT) |
-| `company` | 52 | GLEIF, SEC EDGAR, FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses |
+| `healthcare` | 32 | US FDA approvals & recalls, ClinicalTrials.gov, RxNav, DailyMed, AccessGUDID, UK MHRA alerts, Health Canada DPD & MDALL, EUDAMED, RASFF & Safety Gate (EU), TGA (AU), Europe PMC, MeSH |
+| `legal` | 41 | US consolidated screening list, eCFR, Federal Register, LDA filings, CourtListener, DG COMP, UK CMA cases, UK Electoral Commission, The Gazette, Irish Revenue defaulters, US OCC enforcement, TNA case law, SIPRI, SIC sanctions (CO), MDB debarment rosters (WB/AfDB/IDB), Canada SEMA, CFPB consumer complaints, SEBI enforcement orders (IN), SPK administrative fines & trading bans (TR), CBR illegal-finance warning register (RU), BACEN special regimes & complaint rankings (BR), RIS case law & consolidated federal law (AT) |
+| `company` | 55 | GLEIF, SEC EDGAR, FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses |
 | `economy` | 18 | World Bank WDI, Eurostat, ECB reference rates, FRED, WHO xMart, UN Comtrade, ILOSTAT, BLS, BIS, IMF, OECD, Comext |
-| `esg` | 12 | Climate TRACE, EITI, EU ETS (EUTL), THETIS-MRV (EU shipping), EPA FRS, Paris MoU, EU Air Safety List |
+| `esg` | 13 | Climate TRACE, EITI, EU ETS (EUTL), THETIS-MRV (EU shipping), EPA FRS, Paris MoU, EU Air Safety List |
 | `research` | 10 | OpenAlex, NIH RePORTER, NSF, Crossref, UKRI GtR, iCite, bioRxiv, OpenCitations |
 | `procurement` | 7 | PNCP (BR), SECOP II (CO), UNGM, World Bank, New York Authorities / MTA / OGS (US) |
 | `security` | 4 | OSV, CISA KEV, ENISA EUVD |
@@ -195,8 +195,15 @@ their upstream names. The block below is the complete index, grouped by domain
 in the same order as the Chinese [README.md](README.md). Every line is a
 runnable command.
 
+Above them sit two meta-commands that are not dataset faces:
+`agentdata capabilities` (discovery, since 0.3.52 — renders the full face table
+from the command tree: `--format json|md`, `--domain-filter`, `--face`; no key,
+works offline) and the `agentdata hub` family (PAT → short-lived subject JWT,
+see above).
+
 ```bash
-# healthcare (31)
+agentdata capabilities --format md
+# healthcare (32)
 agentdata healthcare rxnav_rxcui_by_name --name atorvastatin
 agentdata healthcare rxnav_rxcui_atc --rxcui 83367
 agentdata healthcare mesh_descriptor --label aspirin
@@ -230,8 +237,9 @@ agentdata healthcare ca_mdall_licence --licence-id 111577
 agentdata healthcare rasff_notifications --subject aflatoxin --items-per-page 5
 agentdata healthcare safety_gate_alerts --year 2026 --limit 5
 agentdata healthcare safety_gate_report --report-id 10000329 --limit 5
+agentdata healthcare us_npi_organizations --organization-name "Mayo Clinic" --state MN --limit 3
 
-# company (52)
+# company (55)
 agentdata company gleif_lei_records --lei 5493001KJTIIGC8Y1R12
 agentdata company gleif_lei_records_search --filter-entity-legal-name Nestle --filter-entity-jurisdiction CH --page-size 5
 agentdata company gleif_direct_parent --lei 5493001KJTIIGC8Y1R12
@@ -254,6 +262,9 @@ agentdata company nzco_directors --company-number 104799
 agentdata company fi_ytj_companies --name nokia
 agentdata company fr_recherche_search --q danone
 agentdata company fr_recherche_search --q "552032534" --per-page 25 --etat-administratif A
+agentdata company fr_regafi_entities --q Lille --limit 3
+agentdata company fr_regafi_entities --siren 265907741
+agentdata company fr_regafi_authorisations --id-referentiel 79 --limit 3
 agentdata company co_rues_companies --where "razon_social like '%BANCOL%'" --limit 5
 agentdata company kr_hometax_biz_status --biz-no 124-81-00998
 agentdata company kz_gbd_ul_companies --text "ВЕЛЛЕТ" --count 5
@@ -299,6 +310,8 @@ agentdata company wa_doh_credentials --where "credentialtype='Physician And Surg
 agentdata company chi_bacp_licenses --where "license_description='Consumption on Premises - Incidental Activity' and license_status='AAI'" --limit 3
 agentdata company lacity_registrations --where "naics like '7213%' and council_district='10'" --limit 3
 agentdata company nyc_dcwp_licenses --where "business_category='Secondhand Dealer - General' and license_status='Active'" --limit 3
+agentdata company us_fmcsa_carriers --limit 3
+agentdata company us_fmcsa_carriers --where "dot_number='963305'" --limit 3
 
 # economy (18)
 agentdata economy bis_sdmx_series --flow WS_CBPOL --key M.US --start 2026-01-01
@@ -320,7 +333,7 @@ agentdata economy wb_wdi_values --country CHN --indicator NY.GDP.MKTP.CD --date 
 agentdata economy who_xmart_indicators --search tuberculosis --top 20
 agentdata economy who_xmart_values --indicator TB_ppm_enrol_tx_prct --geo PAK --year 2023
 
-# esg (12)
+# esg (13)
 agentdata esg eiti_companies --name Equinor
 agentdata esg eiti_payments --name Equinor
 agentdata esg climatetrace_owners --name Gazprom
@@ -329,12 +342,13 @@ agentdata esg epa_frs_facilities --state-code DE --city-name MILTON --size 3
 agentdata esg euasl_datasets
 agentdata esg eutl_datasets
 agentdata esg thetis_mrv_datasets
+agentdata esg uk_fhrs_establishments --name "pret a manger" --address london --pagesize 3
 agentdata esg paris_mou_detentions
 agentdata esg paris_mou_bans
 agentdata esg paris_mou_low_performance_companies
 agentdata esg paris_mou_inspections --period-min 01/12/2025 --period-max 31/12/2025 --ism-company-imo-number 0052193
 
-# legal (32)
+# legal (38)
 agentdata legal afdb_debarred_entities --name "CHINA RAILWAY" --limit 3
 agentdata legal ca_sema_sanctions --country Syria --limit 3
 agentdata legal co_sic_sanctions --limit 3 --order "fecha_emitida DESC"
@@ -369,6 +383,15 @@ agentdata legal br_bacen_complaints --name ITAU --limit 5
 agentdata legal br_bacen_complaints --tipo consortiums --name ADEMICON
 agentdata legal at_ris_judgments --court Justiz --case-number "2 Ob 52/16k" --limit 3
 agentdata legal at_ris_statutes --q GmbH --limit 3
+agentdata legal ee_erjk_quarterly_reports --party-id 162 --limit 5
+agentdata legal ee_erjk_election_reports --report-id 494641 --limit 10
+agentdata legal ie_sipo_lobbying --query-text energy --limit 5
+agentdata legal ua_nazk_parties --limit 5
+agentdata legal ua_nazk_party_reports --party-id d0f1e224-e3de-45a2-8d12-43e4e9faee92 --limit 5
+agentdata legal us_ferc_elibrary --docket CP17-101 --limit 5
+agentdata legal fr_adlc_sanctions --id-decision 26-D-05 --limit 5
+agentdata legal it_arera_decisions --anno 2022 --numero 312
+agentdata legal us_cftc_enforcement --year 1995 --page 260
 
 # research (10)
 agentdata research nih_reporter_projects --org-name "Stanford University" --fiscal-year 2024 --limit 3
@@ -429,6 +452,96 @@ runs on the same machine — that is by design.
 The complete batch log — every release back to 0.1.0 — is kept in the Chinese
 [README.md](README.md#版本). The five most recent batches:
 
+**0.3.53 — FR Regafi pair + UK FHRS + US NPPES (+4 faces, 176→180; company 53→55, esg 12→13, healthcare 31→32).**
+Four keyless providers, probes pinned 2026-11-10 under tmp/probe-sdk0352/.
+`fr_regafi_entities` / `fr_regafi_authorisations` read the ACPR's official
+financial-sector register (regafi.fr — the React shell's real backend is the
+Opendatasoft Explore API v2.1): a 25,890-row supervised-entity roster (SIREN +
+LEI dual hard keys, the parent edge rides every row, nom_commerciaux carries
+renaming history as JSON) and its 31,107-row per-authorisation timeline
+(date_debut runs 1946→today; the ~40 *_json columns carry per-service
+authorisation blocks with their own effective dates — ODS serialises them
+sometimes as strings, sometimes pre-parsed, and the face normalises in place).
+`uk_fhrs_establishments` searches the FSA Food Hygiene Rating Scheme live
+(~615,098 establishments; the x-api-version: 2 header is the only gate;
+postcode is 403-walled as a query param on this endpoint — the PostCode field
+rides every row instead). `us_npi_organizations` reads the NPPES registry
+pinned to NPI-2 organizational records: org-name search is exact-phrase
+("Mayo" answers zero, "Mayo Clinic" answers 2), limit>200 is silently clamped
+upstream (measured: 250 → result_count 200) so 1-200 is a local wall, and
+NPI-1 rows still mix in under enumerationType=Organizational — filtered
+client-side with the result_count/count pair shipped honestly.
+
+**0.3.52 — discovery surface machinery batch (0 new faces, 176 unchanged).**
+`agentdata capabilities` renders the complete face table — every realtime face
+with its one-line summary, jurisdiction, execution plane, key requirement, and
+per-parameter closed sets — straight from the argparse command tree, so it
+cannot drift and ships with every release for free (`--format json|md`,
+`--domain-filter`, `--face`; runs offline, no PAT). Three CLI repairs ride
+along: 32 faces in economy/research/security regained their `help=` catalog
+lines (their domain `--help` used to list nothing), the verb layer takes
+`metavar=FACE` (the legal usage line no longer spells 38 face names), and
+`allow_abbrev=False` now covers the whole tree (a mistyped `--api-k` used to
+silently become `--api-key`). Cache keys are pinned to the provider's base URL
+(`cache_key_for(scope=...)`): a provider id repointed at another upstream —
+Comext's dedicated root vs plain Eurostat — can no longer answer from the old
+host's cache entry. Offline pins: test_capabilities.py (20 tests); full suite
+1497 passed. The server-side capability document is a P2 byproduct — three
+clauses recorded in docs/domains/api.md §9.7.
+
+**0.3.51 — legal enforcement tier-two trio + company FMCSA carrier census (+4 faces, 172→176; legal 38→41, company 52→53).**
+The SDK's first IT jurisdiction (29→30; FR enters the legal domain for the
+first time — fr_recherche lives in company); four keyless providers
+(fr_adlc / it_arera / us_cftc / us_fmcsa), probes pinned 2026-11-09 under
+tmp/probe-sdk0350/l5/. `fr_adlc_sanctions` reads the French competition
+authority's company-fine ledger through its official data.gouv.fr mirror
+(the authority's own domain egress-blocks this exit) via a two-hop chain:
+the datasets API resolves the latest CSV resource, whose build-stamped URL
+rolls on every update (dataset TTL 1h + CSV TTL 24h; transport extension 10
+absolute-URL fetch). 1,208 rows × 5 columns; amounts arrive as decimal
+strings and cast to float locally; case total ≠ sum of individuel rows —
+both figures are upstream-published and shipped verbatim, never reconciled
+(26-D-05: rows sum 15,260,000 vs the register's own 12,670,000; 15-D-19
+ships €672,332,000 case-level). `it_arera_decisions` reads the Italian ARERA
+regulated-sector decision library on bare TYPO3 — no gate, no WAF, 15,599
+decisions back to 1996 with the count living in the pager; tipologia is a
+nine-word exact-match closed set, and the PDF path is never assembled from
+the sigla (fileadmin naming drifts by era — the face ships the detail
+anchor). `us_cftc_enforcement` reads the CFTC enforcement-actions Drupal
+views table — the one live surface (solr sits behind Cloudflare,
+publicreporting is a resold domain, data.cftc.gov resets) — with a UA gate
+that drifted the same day (bare UA passed in the morning probe, 403'd in the
+afternoon one; the ext-8 browser suite is permanent). Pages are the epochs:
+?page=0..260 ends at the register's 1995 floor (~2,610 actions), 1998 is
+absent from the register's own year filter and the wall records it as-is.
+`us_fmcsa_carriers` reads the FMCSA Company Census File (data.transportation.gov
+`az4n-8mr2`, the tx_tdlr SoQL-verbatim contract): 4,528,322 rows of FULL
+history ($select=count(*) — the ~400k audit figure was the active face, an
+order of magnitude off); Socrata omits null fields per row (53 keys on a
+populated row vs ~58 catalog columns); dot_number is the CSA/SMS join key
+and dun_bradstreet_no is the rare official DUNS cross-key ("0" sentinels
+kept verbatim, suppressed from evidence quotes); sibling set 4a2k-zf79 is a
+403 dead single-dataset — az4n is the live set. fr_adlc/it_arera/us_cftc at
+0.5/2, us_fmcsa at 1/2; rate-limits v1.40 (123 providers / 176 faces);
+offline pins test_flat_legal_0351.py + test_flat_company_us_fmcsa.py.
+**0.3.50 — legal enforcement/party-assets realtime sextet (+6 faces, 166→172; legal 32→38).**
+The SDK's first EE and UA jurisdictions (27→29); four keyless providers
+(us_ferc / ie_sipo / ee_erjk / ua_nazk), probes pinned 2026-11-09 under
+tmp/probe-sdk0350/. `us_ferc_elibrary` is a POST AdvancedSearch behind a
+Cloudflare UA-fingerprint gate (polite agentdata UA = 403; the browser-suite
+header set passes) — totalHits 4,722,924 back to 1980, resultsPerPage ceiling
+1000 verified, and the upstream's own triple-s `acesssionNumber` spelling is
+recorded verbatim as the official key (TTL 12h). `ie_sipo_lobbying` takes 13
+mandatory params where an explicit empty string is required (one missing =
+404), dates are DD-MM-YYYY (ISO = 500), Total = 123,591, and
+`Lobbyist.CompanyRegistrationNumber` is the CRO join key. The ERJK pair rides
+the erjk.ee `/et/` prefix wall (bare `/api` is a 301): the quarterly-receipts
+matrix (455 rows) plus the party register (18) and person-keyed report bodies
+(reg_code = the RIK key). The NAZK pair is all-POST on politdata
+(GET = 404) with a server-side pageSize clamp (10→20 — the local default is
+20 and never pretends otherwise) and `public_summary` embedded per report.
+All four at the 0.5/2 polite tier; rate-limits v1.39 (119 providers /
+172 faces); offline pin test_flat_legal_0350.py.
 **0.3.49 — company US city-license Socrata trio (+3 faces, 163→166; company 49→52).**
 `chi_bacp_licenses` reads the Chicago business-licensing register
 (data.cityofchicago.org `r5kz-chrr`: 1,210,956 rows, full history back to
@@ -470,28 +583,6 @@ silently ignored and quietly answers the Justiz shard — the deadliest of the
 three postures, so an exact-case 16-value closed set sits before the wire),
 page size is an upstream constant (20), and beyond the last page the
 upstream answers HTTP 500 rather than an empty page.
-**0.3.46 — company SG data.gov.sg platform pair (+2 faces, 157→159; company 45→47).**
-`sg_datagovsg_datasets` / `sg_datagovsg_dataset_download` read the Singapore
-national open-data platform (api-open.data.gov.sg — the one clean host;
-www.data.gov.sg and api-production answer Cloudflare 403 to non-browser
-agents and are never touched) — the SDK's first SG jurisdiction. The catalog
-honours only `?page=` (q/pageSize/agency are silently ignored — they are
-local filters), beyond the last page answers 200 with empty rows and zeroed
-totals (beyond_range), and the download is a two-step mint whose signed URL
-is a 1-hour S3 signature parsed out of the signature itself; the file body
-rides the batch line (coordinates-only — the ACRA master alone is 234 MB).
-**0.3.45 — company ES BORME daily-gazette pair (+2 faces, 155→157; company 43→45).**
-`es_borme_day` / `es_borme_notice` read Spain's mercantile-registry gazette
-on www.boe.es: one day page plus one notice XML per id, composed by the
-caller into a machine-readable twin. The no-publication day (weekends, gazette
-holidays) is an HTTP 404 declared via a structured `published=false` — never
-an error, never retried — and a future date is refused locally so "not yet
-published" never masquerades as "no issue". The day row's id prefix is the
-only authoritative section marker (A = registered acts, B = «Otros actos»,
-C = legal notices) — the row title cannot be kind-guessed. A-notice bodies
-carry no NIF; joins ride the company name plus the «Datos registrales» sheet
-string.
-## License and terms
 
 - The **code** in this repository is licensed under the license in
   [LICENSE](https://github.com/dicaria/agentdata/blob/main/LICENSE).

@@ -809,3 +809,63 @@ class HealthcareFaces:
             query={"source": "raw", "upstream": {"path": f"/safety-gate-alerts/api/download/weeklyReport/detail/xml/{result['report_id']}"}},
         )
 
+    # —— 0.3.53 US NPPES organizational face (the provider-master axis; NPI bridges Open Payments / LEIE) ——
+
+    def us_npi_organizations(self, number=None, organization_name=None,
+                             taxonomy_description=None, city=None, state=None,
+                             postal_code=None, *, limit=20, skip=0,
+                             execution=None, no_cache=None):
+        """healthcare us_npi_organizations: US NPPES NPI registry, organizational records
+        (npiregistry.cms.hhs.gov v2.1, keyless; enumerationType pinned to Organizational and
+        rows client-filtered to NPI-2 — the registry has been observed mixing individual
+        records under that flag). organization_name is the company-enrichment channel and an
+        EXACT-phrase match ("Mayo" answers zero, "Mayo Clinic" answers); number is the
+        deterministic exact lookup (10 digits); taxonomy_description×state is the enumeration
+        walker. limit is walled 1-200 (the API SILENTLY CLAMPS >200 to 200 — measured live);
+        no total echo — result_count is the page row count, enumeration walks skip to an empty
+        page (skip=1200 verified live). The monthly bulk files ride the raw harvest line, not
+        this face."""
+        self._hc_only("us_npi_organizations")
+        r = healthcare.us_npi.search_raw(number, organization_name, taxonomy_description,
+                                         city, state, postal_code, limit=limit, skip=skip,
+                                         cache=self._c._cache,
+                                         no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        flt = ", ".join(f"{k}={v}" for k, v in
+                        (("number", number), ("organization_name", organization_name),
+                         ("taxonomy_description", taxonomy_description), ("city", city),
+                         ("state", state), ("postal_code", postal_code)) if v)
+        if result["rows"]:
+            top = result["rows"][0]
+            basic = top.get("basic") or {}
+            tx = next((t for t in (top.get("taxonomies") or []) if t.get("primary")), None)
+            reason = (f"NPPES organizational registry: {result['count']} NPI-2 rows on this page"
+                      + (f" for {flt}" if flt else "")
+                      + f" (skip {result['params']['skip']}, page ceiling {result['params']['limit']}); "
+                        f"no total echo — enumeration walks skip to an empty page; NPI "
+                        f"{top.get('number')} = {basic.get('organization_name') or '—'}"
+                        + (f" ({tx.get('desc')})" if tx else "")
+                        + f", status {basic.get('status') or '—'}; the authorized official and the "
+                          f"state-license taxonomy blocks ride each row")
+        else:
+            reason = (f"NPPES organizational registry: zero NPI-2 rows"
+                      + (f" for {flt}" if flt else "")
+                      + " — organization_name is an exact-phrase match (a short stem answers zero; "
+                        "the bulk file line covers full-corpus walks)")
+        return self._flat_env(
+            tool="us_npi_organizations",
+            input={"number": number, "organization_name": organization_name,
+                   "taxonomy_description": taxonomy_description, "city": city,
+                   "state": state, "postal_code": postal_code,
+                   "limit": result["params"]["limit"], "skip": result["params"]["skip"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"NPI {x.get('number')} — {(x.get('basic') or {}).get('organization_name') or '—'}"
+                                + (f" · {(x.get('basic') or {}).get('status') or '—'}"
+                                   f" · enumerated {str((x.get('basic') or {}).get('enumeration_date') or '—')[:10]}"),
+                       "url": f"https://npiregistry.cms.hhs.gov/registry/provider-record/{x.get('number')}"}
+                      for x in result["rows"][:5]],
+            provider_id="us_npi", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+

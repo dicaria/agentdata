@@ -495,4 +495,58 @@ class EsgFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    # —— 0.3.53 UK FHRS food-hygiene live search (the food-safety axis joins the esg facility family) ——
+
+    def uk_fhrs_establishments(self, name=None, address=None, rating_key=None,
+                               local_authority_id=None, *, page=1, pagesize=20,
+                               execution=None, no_cache=None):
+        """esg uk_fhrs_establishments: UK Food Hygiene Rating Scheme live search
+        (api.ratings.food.gov.uk, keyless, x-api-version 2). ~615,098 establishments live
+        2026-11-10 — England/Wales/NI 0-5 ratings plus the Scottish Pass/FHIS scheme in one
+        corpus, daily refresh. FHRSID is the hard key; the company join is BusinessName+
+        PostCode (a weak key — no CH number rides the register). Rows carry the 26-field
+        record: address + PostCode, geocode, the three sub-scores, RatingValue/Key/Date,
+        RightToReply, SchemeType. Walls (measured live): postcode is NOT a query parameter —
+        the endpoint answers 403 for any postcode= value while name/address/ratingKey/
+        localAuthorityId all answer 200; the PostCode FIELD rides every row (filter locally).
+        The face rides the fast ElasticSearch endpoint, not the slow legacy basic pager."""
+        self._esg_only("uk_fhrs_establishments")
+        r = esg.uk_fhrs.establishments_raw(name, address, rating_key, local_authority_id,
+                                           page=page, pagesize=pagesize,
+                                           cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        flt = ", ".join(f"{k}={v}" for k, v in
+                        (("name", name), ("address", address), ("rating_key", rating_key),
+                         ("local_authority_id", local_authority_id)) if v)
+        if result["rows"]:
+            top = result["rows"][0]
+            sc = top.get("scores") or {}
+            reason = (f"FHRS establishments: {result['total_count']:,} match"
+                      + (f" ({flt})" if flt else " (unfiltered walk of the whole register)")
+                      + f" — page {result['page']:,} of {result['total_pages']:,} ({result['count']} rows); "
+                        f"FHRSID is the hard key, the company join is BusinessName+PostCode (weak); "
+                        f"sample {top.get('BusinessName') or '—'} = {top.get('RatingValue') or '—'}"
+                        f" (hygiene {sc.get('Hygiene')}, structural {sc.get('Structural')})")
+        else:
+            reason = (f"FHRS establishments: zero rows"
+                      + (f" for {flt}" if flt else "")
+                      + f" on page {result['page']} — a legitimate empty filter, or a page past the end "
+                        f"(the corpus carries {result['total_count']:,} establishments)")
+        return self._flat_env(
+            tool="uk_fhrs_establishments",
+            input={"name": name, "address": address, "rating_key": rating_key,
+                   "local_authority_id": local_authority_id,
+                   "page": result["page"], "pagesize": result["page_size"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"[{x.get('FHRSID')}] {x.get('BusinessName') or '—'}"
+                                + f" — {x.get('BusinessType') or '—'} · {x.get('RatingValue') or '—'}"
+                                  f" ({str(x.get('RatingDate') or '—')[:10]}) · {x.get('PostCode') or '—'}",
+                       "url": f"https://ratings.food.gov.uk/business/{x.get('FHRSID')}"}
+                      for x in result["rows"][:5]],
+            provider_id="uk_fhrs", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
     # ---------- 0.2.0 flat face commands (legal: source-qualified names + upstream param names verbatim + our defaults) ----------
