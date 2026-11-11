@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 [![Commands](https://img.shields.io/badge/182_commands-9_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
 
-**One Python client and CLI over 166 public datasets — company registries,
+**One Python client and CLI over 182 public datasets — company registries,
 sanctions lists, procurement awards, drug approvals — with no API keys and no
 accounts.**
 
@@ -68,7 +68,8 @@ dataset, parameters kept under their upstream names. Every row below works as
 | Who owns or controls it? | `company gleif_direct_parent` · `company no_brreg_roller` · `company fr_recherche_search` |
 | Did it win public contracts? | `procurement br_pncp_contracts` · `procurement ungm_contract_awards` · `procurement wb_procnotices` |
 | Is its drug or device approved — or recalled? | `healthcare fda_drug_approvals` · `healthcare gb_mhra_alerts` · `healthcare fda_drug_recalls` |
-| What does this facility or fleet emit? | `esg climatetrace_sources` · `esg thetis_mrv_datasets` · `esg paris_mou_detentions` |
+| What does this facility or fleet emit? | `esg climatetrace_sources` · `transportation thetis_mrv_datasets` · `transportation paris_mou_detentions` |
+| Which aircraft does this registration mark belong to? | `transportation ca_ccar_search` · `transportation ca_ccar_aircraft` |
 | Pull a company card from a national registry | `company ch_zefix_firm` · `company co_rues_companies` · `company kr_hometax_biz_status` · `company kz_gbd_ul_companies` · `company cz_ares_ekonomicke_subjekty` · `company in_sebi_intermediaries` · `company tr_spk_listed` · `company tr_bddk_institutions` · `company ru_cbr_credit_orgs` · `company br_bacen_institutions` · `company br_bacen_branches` · `company br_bacen_domains` · `company br_bacen_dasfn` |
 | Has its broker been expelled, or its regulator fined it? | `legal in_sebi_orders` · `company in_sebi_default_brokers` |
 | Has the regulator fined it, banned it, or put it under a special regime? | `legal tr_spk_fines` · `legal tr_spk_bans` · `legal br_bacen_regimes` |
@@ -86,6 +87,7 @@ c.healthcare.fda_drug_recalls(search='recalling_firm.exact:"SV Labs Toronto Corp
 c.company.gleif_lei_records(lei="5493001KJTIIGC8Y1R12")           # LEI -> entity identity card (GLEIF)
 c.company.ch_zefix_firm_search(name="siemens")                    # Swiss commercial registry (Zefix)
 c.esg.climatetrace_sources(owner_ids="E100000001492", year=2023)  # owner -> facility-level emissions
+c.transportation.paris_mou_inspections(period_min="01/12/2025", period_max="31/12/2025", ism_company_imo_number="0052193")  # port-state inspection flow by management company (Paris MoU; dd/mm/yyyy window up to 3 years)
 c.legal.csl_screening_list(name="VTB BANK")                       # sanctions screening (US CSL)
 c.research.openalex_works(search="vaccine", ror="01xdqrp08")
 c.procurement.br_pncp_contracts(data_inicial="20260901", data_final="20260930", pagina=1)
@@ -94,7 +96,7 @@ c.economy.wb_wdi_values(country="CHN", indicator="NY.GDP.MKTP.CD", date="2020:20
 c.economy.ecb_fx_rates(currency="USD", start="2026-10-01", end="2026-10-31")  # euro reference rate (1 EUR = X)
 ```
 
-The same commands from the shell — nine entry points, `agentdata` plus one
+The same commands from the shell — ten entry points, `agentdata` plus one
 per domain:
 
 ```bash
@@ -104,6 +106,7 @@ agentdata legal csl_screening_list --name "VTB BANK"
 agentdata esg climatetrace_sources --owner-ids E100000001492 --year 2023
 agentdata procurement br_pncp_contracts --data-inicial 20260901 --data-final 20260930 --pagina 1
 agentdata economy wb_wdi_values --country CHN --indicator NY.GDP.MKTP.CD --date 2020:2023
+agentdata transportation ca_ccar_search --owner "AIR CANADA" --limit 3
 ```
 
 If a domain entry-point command (`company`, `legal`, …) collides with another
@@ -189,7 +192,7 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Full command index
 
-Nine entry points — `agentdata` plus one command per domain — and 166 dataset
+Ten entry points — `agentdata` plus one command per domain — and 182 dataset
 commands under them: one command per upstream dataset, parameters kept under
 their upstream names. The block below is the complete index, grouped by domain
 in the same order as the Chinese [README.md](README.md). Every line is a
@@ -239,7 +242,7 @@ agentdata healthcare safety_gate_alerts --year 2026 --limit 5
 agentdata healthcare safety_gate_report --report-id 10000329 --limit 5
 agentdata healthcare us_npi_organizations --organization-name "Mayo Clinic" --state MN --limit 3
 
-# company (55)
+# company (54)
 agentdata company gleif_lei_records --lei 5493001KJTIIGC8Y1R12
 agentdata company gleif_lei_records_search --filter-entity-legal-name Nestle --filter-entity-jurisdiction CH --page-size 5
 agentdata company gleif_direct_parent --lei 5493001KJTIIGC8Y1R12
@@ -310,8 +313,6 @@ agentdata company wa_doh_credentials --where "credentialtype='Physician And Surg
 agentdata company chi_bacp_licenses --where "license_description='Consumption on Premises - Incidental Activity' and license_status='AAI'" --limit 3
 agentdata company lacity_registrations --where "naics like '7213%' and council_district='10'" --limit 3
 agentdata company nyc_dcwp_licenses --where "business_category='Secondhand Dealer - General' and license_status='Active'" --limit 3
-agentdata company us_fmcsa_carriers --limit 3
-agentdata company us_fmcsa_carriers --where "dot_number='963305'" --limit 3
 
 # economy (18)
 agentdata economy bis_sdmx_series --flow WS_CBPOL --key M.US --start 2026-01-01
@@ -333,20 +334,25 @@ agentdata economy wb_wdi_values --country CHN --indicator NY.GDP.MKTP.CD --date 
 agentdata economy who_xmart_indicators --search tuberculosis --top 20
 agentdata economy who_xmart_values --indicator TB_ppm_enrol_tx_prct --geo PAK --year 2023
 
-# esg (13)
+# esg (7)
 agentdata esg eiti_companies --name Equinor
 agentdata esg eiti_payments --name Equinor
 agentdata esg climatetrace_owners --name Gazprom
 agentdata esg climatetrace_sources --owner-ids E100000001492 --year 2023 --limit 20
 agentdata esg epa_frs_facilities --state-code DE --city-name MILTON --size 3
-agentdata esg euasl_datasets
 agentdata esg eutl_datasets
-agentdata esg thetis_mrv_datasets
 agentdata esg uk_fhrs_establishments --name "pret a manger" --address london --pagesize 3
-agentdata esg paris_mou_detentions
-agentdata esg paris_mou_bans
-agentdata esg paris_mou_low_performance_companies
-agentdata esg paris_mou_inspections --period-min 01/12/2025 --period-max 31/12/2025 --ism-company-imo-number 0052193
+
+# transportation (9)
+agentdata transportation ca_ccar_aircraft --id 538042
+agentdata transportation ca_ccar_search --owner "AIR CANADA" --limit 3
+agentdata transportation euasl_datasets
+agentdata transportation paris_mou_bans
+agentdata transportation paris_mou_detentions
+agentdata transportation paris_mou_inspections --period-min 01/12/2025 --period-max 31/12/2025 --ism-company-imo-number 0052193
+agentdata transportation paris_mou_low_performance_companies
+agentdata transportation thetis_mrv_datasets
+agentdata transportation us_fmcsa_carriers --where "dot_number='963305'" --limit 3
 
 # legal (38)
 agentdata legal afdb_debarred_entities --name "CHINA RAILWAY" --limit 3
@@ -451,6 +457,22 @@ runs on the same machine — that is by design.
 
 The complete batch log — every release back to 0.1.0 — is kept in the Chinese
 [README.md](README.md#版本). The five most recent batches:
+
+**0.3.54 — transportation domain founding (+2 faces, 180→182; ninth domain — esg 13→7, company 55→54).**
+Seven faces moved zero-rename into the new domain (euasl, thetis_mrv and the
+Paris MoU quartet from esg; us_fmcsa_carriers from company) — same names,
+parameters and jurisdictions, only the prefix becomes `agentdata
+transportation …`; a wrong-domain call gets a usage_error naming the right
+domain. New: the Transport Canada CCAR pair reads the Canadian civil aircraft
+register (CCARCS-RIACC) keyless — the interactive POST form 302s to a
+stateless bare GET (`RchSimpRes.aspx`: five pipe-wrapped contains slots +
+`print=y`, which ships the whole result set in one page); contains matching is
+case-sensitive as stored ("AIR CANADA" 269 rows vs "Air Canada" 0, ruled live
+2026-11-11); the per-aircraft face flattens the four ADet blocks into one dict
+with unmapped labels kept under `extra_fields`; the ~500k id space has holes —
+a miss is a legal empty. Probe pinned 2026-11-10 under tmp/probe-ca-ccar/;
+rate-limits v1.42. Acceptance: full offline suite + one live call per new face
+(2026-11-11).
 
 **0.3.53 — FR Regafi pair + UK FHRS + US NPPES (+4 faces, 176→180; company 53→55, esg 12→13, healthcare 31→32).**
 Four keyless providers, probes pinned 2026-11-10 under tmp/probe-sdk0352/.
