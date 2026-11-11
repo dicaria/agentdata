@@ -4,7 +4,7 @@ from . import (br_bacen, ca_osb, cf, ch_zefix, chi_bacp, co_rues, cz_ares, de_in
                fr_recherche, fr_regafi, fts, gg_gfsc, gleif, in_sebi_intm, je_jfsc, jp_fsa,
                kr_hometax, kz_gbd_ul, lacity, no_brreg, nzco, nyc_dcwp, ror,
                ru_cbr_credit, sg_datagovsg, ted, tr_bddk, tr_spk_borsa, tx_tdlr,
-               us_fmcsa, usaspending, vies, wa_doh)
+               usaspending, vies, wa_doh)
 # 0.3.43 rider: jp_fsa was missing from this eager-import list (0.3.42) — the attribute only
 # resolved in processes where a test had imported the submodule directly; a fresh interpreter
 # hit AttributeError on company.jp_fsa. Fix-forward, disclosed in the 0.3.43 changelog entry.
@@ -16,6 +16,7 @@ from . import (br_bacen, ca_osb, cf, ch_zefix, chi_bacp, co_rues, cz_ares, de_in
 # 0.3.49: chi_bacp/lacity/nyc_dcwp added in alphabetical slots (ch_zefix < chi_bacp < co_rues — '_'<'i';
 # kz_gbd_ul < lacity < no_brreg; no_brreg < nyc_dcwp < nzco — 'o'<'y'<'z'). City faces take the host stem
 # (data.cityofchicago.org/data.cityofnewyork.us/data.lacity.org); 'lacity' NOT 'la_' — 'LA' is ISO alpha-2 Laos.
-# 0.3.51: us_fmcsa added in alphabetical slot (tx_tdlr < us_fmcsa < usaspending — '_'<'a').
+# 0.3.51: us_fmcsa added in alphabetical slot (tx_tdlr < us_fmcsa < usaspending — '_'<'a');
+# 0.3.54: us_fmcsa migrated to the transportation domain package (domain founding).
 # 0.3.53: fr_regafi added in alphabetical slot (fr_recherche < fr_regafi < fts — 'rec'<'reg'<'t').
 

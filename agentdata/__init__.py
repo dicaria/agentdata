@@ -19,15 +19,16 @@ Contract: docs/domains/api.md (cross-domain charter) + per-domain API docs. Zero
     c2 = Client(base_url="https://…", api_key="mk_live_…")   # corpus family: hosted
     c2.company.search(filters={"qtype": "专精特新小巨人"}, limit=100)
 
-CLI: eight domains executable (`agentdata healthcare fda_drug_shortages --search …`
+CLI: nine domains executable (`agentdata healthcare fda_drug_shortages --search …`
 `agentdata company ted_notices_search --query 'organisation-name-buyer=Siemens*'`,
 `agentdata esg climatetrace_sources --owner-ids E…`, `agentdata procurement br_pncp_contracts --data-inicial 20260101`,
-`agentdata economy wb_wdi_values --country CHN --indicator NY.GDP.MKTP.CD`).
+`agentdata economy wb_wdi_values --country CHN --indicator NY.GDP.MKTP.CD`,
+`agentdata transportation ca_ccar_search --owner "AIR CANADA"`).
 Upstream parameter names verbatim + our defaults.
 """
 from .client import Client
 from .errors import SdkError
 
-__version__ = "0.3.53"  # version bumps with each release; per-batch narratives live in the internal ledger (MAPPING.md batch window + mapping/<domain>.md booklets) and MR descriptions (not exported)
+__version__ = "0.3.54"  # version bumps with each release; per-batch narratives live in the internal ledger (MAPPING.md batch window + mapping/<domain>.md booklets) and MR descriptions (not exported)
 
 __all__ = ["Client", "SdkError", "__version__"]

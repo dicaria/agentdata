@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/agentdata)](https://pypi.org/project/agentdata/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/dicaria/agentdata/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![Commands](https://img.shields.io/badge/180_commands-8_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
+[![Commands](https://img.shields.io/badge/182_commands-9_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
 
 **One Python client and CLI over 166 public datasets — company registries,
 sanctions lists, procurement awards, drug approvals — with no API keys and no
@@ -11,7 +11,7 @@ accounts.**
 
 Government data holds the decisive facts about companies, but it is scattered
 across 112 public APIs, each with its own pagination, rate
-limits, and undocumented quirks. **agentdata puts 180 of those datasets behind
+limits, and undocumented quirks. **agentdata puts 182 of those datasets behind
 one interface**: a pure-standard-library client and CLI across 30 jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
 and caching are built in.
 
@@ -21,18 +21,18 @@ and caching are built in.
 python -m pip install agentdata
 ```
 
-For a reproducible install, pin the release: `python -m pip install agentdata==0.3.53`.
+For a reproducible install, pin the release: `python -m pip install agentdata==0.3.54`.
 
 Prefer not to touch PyPI? Install straight from a release tarball:
 
 ```bash
-python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.53.tar.gz
+python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.54.tar.gz
 ```
 
 Or via git (pin a tag for reproducible installs):
 
 ```bash
-python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.53
+python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.54
 ```
 
 Or track the latest release (convenience for agents and scripts — a fresh
@@ -163,7 +163,7 @@ You can — and then you get to rediscover what is already pinned here:
 - **Quirks are pre-solved, not rediscovered.** Every command encodes traps we
   hit against the live API: anti-forgery token dances, Socrata parameters that
   are silently ignored, registries that clamp your page size without an error.
-- **One envelope across all 180 commands.** Query echo, `reason`, `evidence`,
+- **One envelope across all 182 commands.** Query echo, `reason`, `evidence`,
   source metadata, `jurisdiction` — your code parses one shape.
 - **Upstream parameter names, verbatim.** What the official API docs call a
   parameter is what the SDK takes — no invented vocabulary to unlearn.
@@ -174,15 +174,15 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Coverage
 
-**180 datasets · 126 upstream providers · 30 jurisdictions:** US 50 · global 40 · EU 15 · UK 13 · Brazil 7 · Canada 6 · France 4 · Türkiye 4 · Colombia 3 · ES 3 · India 3 · AT 2 · Australia 2 · Switzerland 2 · Czechia 2 · DE 2 · EE 2 · Guernsey 2 · Ireland 2 · Norway 2 · New Zealand 2 · RU 2 · SG 2 · UA 2 · Finland 1 · IT 1 · Jersey 1 · JP 1 · Korea 1 · Kazakhstan 1.
+**182 datasets · 127 upstream providers · 30 jurisdictions:** US 50 · global 40 · EU 15 · UK 13 · Canada 8 · Brazil 7 · France 4 · Türkiye 4 · Colombia 3 · ES 3 · India 3 · AT 2 · Australia 2 · Switzerland 2 · Czechia 2 · DE 2 · EE 2 · Guernsey 2 · Ireland 2 · Norway 2 · New Zealand 2 · RU 2 · SG 2 · UA 2 · Finland 1 · IT 1 · Jersey 1 · JP 1 · Korea 1 · Kazakhstan 1.
 
 | Domain | Commands | Sources |
 |---|---|---|
 | `healthcare` | 32 | US FDA approvals & recalls, ClinicalTrials.gov, RxNav, DailyMed, AccessGUDID, UK MHRA alerts, Health Canada DPD & MDALL, EUDAMED, RASFF & Safety Gate (EU), TGA (AU), Europe PMC, MeSH |
 | `legal` | 41 | US consolidated screening list, eCFR, Federal Register, LDA filings, CourtListener, DG COMP, UK CMA cases, UK Electoral Commission, The Gazette, Irish Revenue defaulters, US OCC enforcement, TNA case law, SIPRI, SIC sanctions (CO), MDB debarment rosters (WB/AfDB/IDB), Canada SEMA, CFPB consumer complaints, SEBI enforcement orders (IN), SPK administrative fines & trading bans (TR), CBR illegal-finance warning register (RU), BACEN special regimes & complaint rankings (BR), RIS case law & consolidated federal law (AT) |
-| `company` | 55 | GLEIF, SEC EDGAR, FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses |
+| `company` | 54 | GLEIF, SEC EDGAR, FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses |
 | `economy` | 18 | World Bank WDI, Eurostat, ECB reference rates, FRED, WHO xMart, UN Comtrade, ILOSTAT, BLS, BIS, IMF, OECD, Comext |
-| `esg` | 13 | Climate TRACE, EITI, EU ETS (EUTL), THETIS-MRV (EU shipping), EPA FRS, Paris MoU, EU Air Safety List |
+| `esg` | 7 | Climate TRACE, EITI, EU ETS (EUTL), THETIS-MRV (EU shipping), EPA FRS, Paris MoU, EU Air Safety List |
 | `research` | 10 | OpenAlex, NIH RePORTER, NSF, Crossref, UKRI GtR, iCite, bioRxiv, OpenCitations |
 | `procurement` | 7 | PNCP (BR), SECOP II (CO), UNGM, World Bank, New York Authorities / MTA / OGS (US) |
 | `security` | 4 | OSV, CISA KEV, ENISA EUVD |

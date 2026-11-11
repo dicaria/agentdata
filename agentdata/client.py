@@ -23,6 +23,7 @@ from .legal.faces import LegalFaces
 from .procurement.faces import ProcurementFaces
 from .research.faces import ResearchFaces
 from .security.faces import SecurityFaces
+from .transportation.faces import TransportationFaces
 from .errors import SdkError
 from .cache import Cache
 from .hub import HubClient, _no_redirect_opener
@@ -55,6 +56,7 @@ class Client:
         self.research = _Domain(self, "research")
         self.security = _Domain(self, "security")
         self.economy = _Domain(self, "economy")  # 0.3.23: the eighth domain (country denominators)
+        self.transportation = _Domain(self, "transportation")  # 0.3.54: the ninth domain (transport safety & operators)
         # hub family (RFC-002): the PAT doubles as the downstream-token credential; config errors
         # surface at call time (hub_get/hub_token), never at construction (enrichment stays zero-config)
         self.allow_http = bool(allow_http)  # test-only escape hatch; production is HTTPS-only
@@ -130,7 +132,7 @@ class Client:
 
 
 class _Domain(HealthcareFaces, CompanyFaces, EsgFaces, LegalFaces, ProcurementFaces,
-              ResearchFaces, SecurityFaces, EconomyFaces):
+              ResearchFaces, SecurityFaces, EconomyFaces, TransportationFaces):
     """Domain namespace object — the flat faces are mixed in from each domain's faces; the corpus-family
     search/read stay on the base class (hosted, api.md section 8 living contract). In 0.3.0 the verb layer
     (resolve/evidence/trials/label/related/fulltext), the csl_screening frozen alias and the grants domain

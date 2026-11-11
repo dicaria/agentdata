@@ -27,4 +27,5 @@ legal = _domain_entry("legal")
 procurement = _domain_entry("procurement")  # 0.3.0: the seventh domain
 research = _domain_entry("research")   # added in 0.2.4 (formerly named grants — the alias was removed in 0.3.0; research is the only entry)
 security = _domain_entry("security")   # added in 0.2.4 (born domain missed registration in 0.2.2)
+transportation = _domain_entry("transportation")  # 0.3.54: the ninth domain (founding migration + the CA TC CCAR pair)
 

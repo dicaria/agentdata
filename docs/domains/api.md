@@ -806,6 +806,10 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   company axis, the ACPR register pair; esg +`uk_fhrs_establishments` — **the esg domain's first GB
   face**; healthcare +`us_npi_organizations` — the NPPES registry pinned to NPI-2; no new
   jurisdiction); see changelog entry 89)
+  → **0.3.54, 182 faces** (**the transportation domain founded — the ninth domain**: seven faces
+  migrated unrenamed — euasl + paris_mou x4 + thetis_mrv from esg (13→7, back to E+S proper) and
+  us_fmcsa from company (55→54); +`ca_ccar_search`/`ca_ccar_aircraft` new, the Transport Canada
+  CCAR pair — the CA transport axis; no new jurisdiction vocabulary entry); see changelog entry 90)
 
 - openFDA query faces **deferred by user ruling** (2026-10-16: FAERS/MAUDE are already harvested and ingested locally, so queries consume the local corpus first; third-party real-time faces wait until an incremental question touches them) — the deferral covers **only the locally ingested FAERS/MAUDE faces**; the `drug/shortages.json` face opened in Wave 5 is an event-stream face not harvested locally, outside the deferral's scope (opened 2026-10-23 as soon as the incremental need arose, see changelog entry 23). The first hosted case awaits a keyed-tool proposal — keys are never shipped down to the SDK (§9.2).
 
