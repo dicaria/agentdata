@@ -313,6 +313,57 @@ class EsgFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    # —— 0.3.55 MX SGM mining cadastre (dictionary slot: mx_sgm between eutl and uk_fhrs) ——
+
+    def mx_sgm_concesiones(self, titular=None, estado=None, municipio=None, titulo=None, *,
+                           limit=50, offset=0, geometry=False, execution=None, no_cache=None):
+        """esg mx_sgm_concesiones: Mexican mining-concession cadastre (SGM CartoMinMex ArcGIS
+        FeatureServer layer 49, keyless). 19,840 concessions live 2026-11-12 — titulo is the exact
+        concession number, ctithomolo the holder company (6,117 distinct), municipio/estado the
+        geography, superfic_2 hectares (8.70M ha total), inicio_de_ an epoch-ms date on the
+        1899-12-30 base whose negative values reach the 1890s (inicio_fecha is the derived ISO
+        date). titular/estado/municipio are case-insensitive contains; at least one filter
+        required (a bare cadastre scan is a batch concern). total comes from a returnCountOnly
+        call on the same where; exceeded_transfer_limit says whether more rows follow. The
+        property-chain card (产权链 tarjetarpm CSV per titulo) is a batch-pipeline concern."""
+        self._esg_only("mx_sgm_concesiones")
+        r = esg.mx_sgm.concesiones_raw(titular, estado, municipio, titulo,
+                                       limit=limit, offset=offset, geometry=geometry,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k not in ("_meta", "_count_meta")}
+        flt = ", ".join(f"{k}={v}" for k, v in
+                        (("titular", titular), ("estado", estado), ("municipio", municipio),
+                         ("titulo", titulo)) if v)
+        if result["rows"]:
+            top = result["rows"][0]
+            ha = f"{top.get('superfic_2'):,.0f} ha" if isinstance(top.get("superfic_2"), (int, float)) else "—"
+            reason = (f"SGM mining concessions: {result['total'] if result['total'] is not None else '?'} match ({flt})"
+                      + f", {len(result['rows'])} returned from offset {result['offset']}"
+                      + (" — MORE ROWS FOLLOW (exceededTransferLimit)" if result["exceeded_transfer_limit"] else "")
+                      + f" — sample titulo {top.get('titulo') or '—'} · {top.get('ctithomolo') or '—'} · "
+                        f"{top.get('municipio') or '—'}, {top.get('estado') or '—'} · {ha}"
+                      + (f" · desde {top.get('inicio_fecha')}" if top.get("inicio_fecha") else "")
+                      + " — ctithomolo is the holder-company join key (MX has no public RFC register key; name join, the CL/CO family)")
+        else:
+            reason = (f"SGM mining concessions: zero rows for ({flt}) — a legitimate empty filter "
+                      "(an exact titulo that is not on the register, or a contains filter that matched nothing)")
+        return self._flat_env(
+            tool="mx_sgm_concesiones",
+            input={"titular": titular, "estado": estado, "municipio": municipio, "titulo": titulo,
+                   "limit": result["limit_applied"], "offset": offset, "geometry": bool(geometry)},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"titulo {x.get('titulo') or '—'} · {x.get('ctithomolo') or '—'} · "
+                                f"{x.get('municipio') or '—'}, {x.get('estado') or '—'} · "
+                                + (f"{x.get('superfic_2'):,.0f} ha" if isinstance(x.get("superfic_2"), (int, float)) else "—")
+                                + (f" · desde {x.get('inicio_fecha')}" if x.get("inicio_fecha") else ""),
+                       "url": "https://srvprodarcgisp.economia.gob.mx/portal/"}
+                      for x in result["rows"][:5]],
+            provider_id="mx_sgm", metas=[r["_meta"], r["_count_meta"]],
+            query={"source": "raw", "upstream": {"path": "/FeatureServer/49/query", "where": result["where"]}},
+        )
+
     # —— 0.3.53 UK FHRS food-hygiene live search (the food-safety axis joins the esg facility family) ——
 
     def uk_fhrs_establishments(self, name=None, address=None, rating_key=None,

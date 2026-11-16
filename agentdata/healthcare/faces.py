@@ -112,6 +112,111 @@ class HealthcareFaces:
             query={"source": "raw", "upstream": {key: r[key]}},
         )
 
+    # —— 0.3.58 BR CNES healthcare-establishment register (dictionary slot in the FLAT table:
+    # au_tga_* < br_cnes_facilities < ca_dpd_*; the domain's first BR face) ——
+    def br_cnes_facilities(self, codigo_cnes=None, *, codigo_uf=None, codigo_municipio=None,
+                           codigo_tipo_unidade=None, status=None, centro_cirurgico=None,
+                           centro_obstetrico=None, data_atualizacao=None, limit=20, offset=0,
+                           execution=None, no_cache=None):
+        """healthcare br_cnes_facilities: Brazil CNES establishment register (apidadosabertos
+        .saude.gov.br, keyless; the national facility roster — codigo_cnes exact lookup OR
+        filtered roster; numero_cnpj_entidade is the company join; uf=SP-style 2-letter codes
+        are SILENTLY IGNORED upstream — codigo_uf is the IBGE int, SP=35)."""
+        self._hc_only("br_cnes_facilities")
+        raw_code = str(codigo_cnes or "").strip() or None
+        if raw_code:
+            r = healthcare.br_cnes.facility_raw(raw_code, cache=self._c._cache,
+                                                no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+            row = r["row"]
+            return self._flat_env(
+                tool="br_cnes_facilities",
+                input={"codigo_cnes": r["params"]["codigo_cnes"]},
+                reason=(f"CNES card {r['params']['codigo_cnes']} → {row.get('nome_razao_social') or '—'}"
+                        + (f" ({row.get('nome_fantasia')})" if row.get("nome_fantasia") else "")
+                        + f" · maintainer CNPJ {row.get('numero_cnpj_entidade') or '—'}"
+                        + f" · updated {row.get('data_atualizacao') or '—'}"),
+                result={"row": row, "params": r["params"]},
+                evidence=[{"quote": f"{row.get('nome_razao_social') or '—'} · {row.get('endereco_estabelecimento') or '—'}"}],
+                provider_id="br_cnes", metas=[r["_meta"]],
+                query={"source": "raw", "upstream": {"codigo_cnes": r["params"]["codigo_cnes"]}},
+            )
+        r = healthcare.br_cnes.facilities_raw(codigo_uf=codigo_uf, codigo_municipio=codigo_municipio,
+                                              codigo_tipo_unidade=codigo_tipo_unidade, status=status,
+                                              centro_cirurgico=centro_cirurgico, centro_obstetrico=centro_obstetrico,
+                                              data_atualizacao=data_atualizacao, limit=limit, offset=offset,
+                                              cache=self._c._cache,
+                                              no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="br_cnes_facilities",
+            input={"codigo_uf": codigo_uf, "codigo_municipio": codigo_municipio,
+                   "codigo_tipo_unidade": codigo_tipo_unidade, "status": status,
+                   "centro_cirurgico": centro_cirurgico, "centro_obstetrico": centro_obstetrico,
+                   "data_atualizacao": data_atualizacao,
+                   "limit": result["params"]["limit"], "offset": result["params"]["offset"]},
+            reason=(f"CNES roster: {result['count']} rows returned"
+                    + (f", top {top['nome_razao_social'] or '—'} (CNES {top['codigo_cnes']}, maintainer CNPJ {top['numero_cnpj_entidade'] or '—'})" if top
+                       else " — zero rows (a short page is the end-of-data signal upstream — no total is echoed; loosen the filters or walk offset)")),
+            result=result,
+            evidence=[{"quote": f"CNES {x['codigo_cnes']} · {x['nome_razao_social'] or '—'} · CNPJ {x['numero_cnpj_entidade'] or '—'}"
+                                + (f" · {x['nome_fantasia']}" if x.get("nome_fantasia") else ""),
+                       "url": "https://apidadosabertos.saude.gov.br/cnes/estabelecimentos"} for x in rows[:5]],
+            provider_id="br_cnes", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {k: v for k, v in result["params"].items() if k not in ("limit", "offset")}},
+        )
+
+    def jp_navii_facilities(self, q, *, keyword_type="3", pharmacy=False, page=0,
+                            execution=None, no_cache=None):
+        """healthcare jp_navii_facilities: Japan 医療機能情報 facility search (NAVII, 厚労省
+        statutory publication system www.iryou.teikyouseido.mhlw.go.jp, keyless; ~105k 医療機関
+        + ~61k 薬局 — the JP pillar of healthcare facility directories). THREE-HOP SESSION
+        CHAIN transparent to the caller: the warm initialize mints the AWSALB/SESSION jar
+        (cached 20min), the keyword search answers a SESSION-BOUND 検索ID (never cached — a
+        stale session just means a fresh search, never a replay), and the S2400 page renders
+        20-row TRUE pagination (page0∩page1 kikanCd overlap = 0 measured; deep pages
+        reachable; page is 0-BASED upstream). keyword_type: 1=自由語 2=施設名 3=診療科目
+        (default — the 科目 walk is the enumeration channel: 内科 → 59,281 measured
+        2026-11-12) 4=所在地. pharmacy=True rides the 薬局 corpus (initializeYakk/
+        yakkyokuSearch/iyakuKbn=2 — VERIFIED on the shared S2400 page, rows kikanKbn=5,
+        60,634 件中). Rows: the prefCd×kikanCd (9-10 digit 保険医療機関コード)×kikanKbn
+        three-key grain, name, 〒 address, (昼)/(夜) telephone (split when they share one
+        row), website, and the exact S2430 detail-URL — the 732KB/1,375-field detail page is
+        a second surface out of this face's scope; residual dl-row text rides verbatim as
+        details_text."""
+        self._hc_only("jp_navii_facilities")
+        r = healthcare.jp_navii.search_raw(q, keyword_type=keyword_type, pharmacy=bool(pharmacy),
+                                           page=page, cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        corpus = "薬局" if result["params"]["pharmacy"] else "医療機関"
+        if rows:
+            top = rows[0]
+            reason = (f"NAVII {corpus}: {result['total']:,} 件中 {result['shown_from']}〜{result['shown_to']} 件を表示"
+                      f" (page {result['params']['page']} 0-based, 20-row true pagination)"
+                      f" — sample {top['name']} [{top['pref_cd']}×{top['kikan_cd']}×{top['kikan_kbn']}]"
+                      + (f" · {(top['address'] or '—')[:60]}" if top.get("address") else "")
+                      + " — the (prefCd,kikanCd,kikanKbn) triple keys the S2430 detail page")
+        else:
+            reason = (f"NAVII {corpus}: zero rows on page {result['params']['page']} for "
+                      f"\"{result['params']['q']}\" (keyword_type {result['params']['keyword_type']}) — "
+                      "a page past the end or a keyword/axis combo with no match (科目 spelling must "
+                      "match the upstream vocabulary, e.g. 内科 not 内科系)")
+        return self._flat_env(
+            tool="jp_navii_facilities",
+            input={"q": result["params"]["q"], "keyword_type": result["params"]["keyword_type"],
+                   "pharmacy": result["params"]["pharmacy"], "page": result["params"]["page"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x['name']} · {(x['address'] or '—')[:60]}"
+                                f" · {(x['tel_day'] or '—')}",
+                       "url": x["detail_url"]}
+                      for x in rows[:5]],
+            provider_id="jp_navii", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
     def eudamed_devices_udi_di_data(self, *, primary_di, page=0, page_size=5, iso2_code="en",
                        execution=None, no_cache=None):
         """healthcare eudamed_devices_udi_di_data: the EU device master record (an EUDAMED primaryDi exact lookup + paging under the upstream names page/pageSize/iso2Code)."""

@@ -20,6 +20,29 @@ def register(v, g):
     f2.add_argument("--state", default=None, help="State filter, e.g. QLD / NSW / VIC (local post-filter on SiteState)")
     f2.add_argument("--limit", type=int, default=100, help="Rows to return (upstream param: count; cap 500, default 100)")
 
+    # —— 0.3.58 BR CNES establishment register (dictionary slot: au_tga_* < br_cnes_facilities < ca_dpd_*; the domain's first BR face) ——
+    f2b = v.add_parser("br_cnes_facilities", parents=[g()],
+                       help="Brazil CNES healthcare-establishment register (--codigo-cnes exact OR filtered roster)",
+                       description="Cadastro Nacional de Estabelecimentos de Saúde (keyless, datasus): every "
+                                   "Brazilian healthcare establishment, public and private. --codigo-cnes serves "
+                                   "the single 37-field card; otherwise the filtered roster. TRAPS (swagger-"
+                                   "measured): uf=SP-style 2-letter codes are SILENTLY IGNORED — codigo_uf is the "
+                                   "IBGE int (SP=35, PE=26); limit is HARD-CAPPED at 20 upstream; offset is "
+                                   "row-based; NO total is echoed (a short page = end of data). Rows carry "
+                                   "numero_cnpj_entidade (maintainer CNPJ — the company join) and the six "
+                                   "capability flags; the professionals panel is PII and deliberately not a face")
+    f2b.add_argument("--codigo-cnes", dest="codigo_cnes", default=None, help="CNES code, exact single-card lookup (upstream path: /cnes/estabelecimentos/{codigo_cnes}; a bad code = upstream_not_found)")
+    f2b.add_argument("--codigo-uf", dest="codigo_uf", type=int, default=None, help="IBGE state code int (upstream param: codigo_uf; SP=35 — the 2-letter spelling is silently ignored)")
+    f2b.add_argument("--codigo-municipio", dest="codigo_municipio", type=int, default=None, help="IBGE municipality code (upstream param: codigo_municipio)")
+    f2b.add_argument("--codigo-tipo-unidade", dest="codigo_tipo_unidade", type=int, default=None, help="Unit type code (upstream param: codigo_tipo_unidade)")
+    f2b.add_argument("--status", type=int, default=None, choices=[0, 1], help="Status (upstream param: status; 1=ativo, 0=inativo)")
+    f2b.add_argument("--centro-cirurgico", dest="centro_cirurgico", type=int, default=None, choices=[0, 1], help="Surgical centre flag (upstream param: estabelecimento_possui_centro_cirurgico; 1/0)")
+    f2b.add_argument("--centro-obstetrico", dest="centro_obstetrico", type=int, default=None, choices=[0, 1], help="Obstetric centre flag (upstream param: estabelecimento_possui_centro_obstetrico; 1/0)")
+    f2b.add_argument("--data-atualizacao", dest="data_atualizacao", default=None, help="Updated-from date YYYY-MM-DD (upstream param: data_atualizacao; the refresh channel)")
+    f2b.add_argument("--limit", type=int, default=20, help="Rows to return (upstream param: limit; HARD cap 20 — values above are silently clamped, measured)")
+    f2b.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: offset; row-based despite the swagger prose)")
+
+
     # —— 0.3.19 CA + EU product-safety faces (born flat: upstream param original names + closed-set validation; probed 2026-11-02) ——
 
     f3 = v.add_parser("ca_dpd_companies", parents=[g()],
@@ -243,6 +266,36 @@ def register(v, g):
     f25.add_argument("--udi", default=None, help="Full UDI (upstream param: udi)")
     f25.add_argument("--record-key", dest="record_key", default=None, help="Record key (upstream param: record_key)")
 
+    # —— 0.3.56 JP NAVII facility search (dictionary slot: gudid_devices < jp_navii_facilities < mesh_descriptor) ——
+    f_navii = v.add_parser("jp_navii_facilities", parents=[g()],
+                           help="Japan 医療機能情報 NAVII facility search (厚労省 statutory publication; keyless session chain)",
+                           description="www.iryou.teikyouseido.mhlw.go.jp — the MHLW statutory "
+                                       "publication system (~105k 医療機関 + ~61k 薬局; 内科 "
+                                       "59,281 / 薬局 60,634 measured 2026-11-12). THREE-HOP "
+                                       "SESSION CHAIN, transparent to the caller: initialize mints "
+                                       "the cookie jar (cached 20min), the keyword search answers a "
+                                       "SESSION-BOUND 検索ID (never cached — a stale session just "
+                                       "runs a fresh search), and the S2400 page renders 20-row TRUE "
+                                       "pagination (page0∩page1 kikanCd overlap = 0 measured; deep "
+                                       "pages reachable; --page is 0-BASED upstream). --keyword-type: "
+                                       "1=自由語 2=施設名 3=診療科目 (default — the 科目 walk is the "
+                                       "enumeration channel: 内科 → 59,281) 4=所在地. --pharmacy "
+                                       "rides the 薬局 corpus (initializeYakk/yakkyokuSearch — VERIFIED "
+                                       "on the shared S2400 page, rows kikanKbn=5). Rows: the "
+                                       "prefCd×kikanCd (9-10 digit 保険医療機関コード)×kikanKbn "
+                                       "three-key grain, name, 〒 address, (昼)/(夜) telephone "
+                                       "(split when they share a row), website, departments/hours as "
+                                       "details_text, and the exact S2430 detail-URL (the 732KB/1,375-"
+                                       "field detail page is a second surface, out of scope). rps 0.3")
+    f_navii.add_argument("--q", required=True,
+                         help="Keyword (interpretation depends on --keyword-type; e.g. --keyword-type 3 内科)")
+    f_navii.add_argument("--keyword-type", dest="keyword_type", default="3", choices=["1", "2", "3", "4"],
+                         help="Keyword axis (upstream param: keywordType; 1=自由語 2=施設名 3=診療科目 4=所在地; default 3)")
+    f_navii.add_argument("--pharmacy", action="store_true", default=None,
+                         help="Search the 薬局 corpus instead of 医療機関 (iyakuKbn=2)")
+    f_navii.add_argument("--page", type=int, default=0,
+                         help="Page, 0-BASED (upstream S2400 semantics; 20 rows/page true pagination)")
+
     f26 = v.add_parser("mesh_descriptor", parents=[g()],
                       help="Term→MeSH descriptor + synonym pool (NLM lookup API)",
                       description="Drug/disease term → MeSH descriptor candidates + top hit's synonym pool (controlled-vocabulary anchor)")
@@ -318,6 +371,14 @@ def register(v, g):
 FLAT = {
     "au_tga_artg": lambda a: {"query": a.query, "limit": a.limit, "skip": a.skip},
     "au_tga_manufacturers": lambda a: {"state": a.state, "limit": a.limit},
+    # 0.3.58 BR CNES register (slot: au_tga_* < br_cnes_facilities < ca_dpd_*)
+    "br_cnes_facilities": lambda a: {"codigo_cnes": a.codigo_cnes, "codigo_uf": a.codigo_uf,
+                                     "codigo_municipio": a.codigo_municipio,
+                                     "codigo_tipo_unidade": a.codigo_tipo_unidade,
+                                     "status": a.status, "centro_cirurgico": a.centro_cirurgico,
+                                     "centro_obstetrico": a.centro_obstetrico,
+                                     "data_atualizacao": a.data_atualizacao,
+                                     "limit": a.limit, "offset": a.offset},
     # 0.3.19 CA + EU product-safety faces (born flat: upstream params verbatim + closed-set validation; local post-slices marked)
     "ca_dpd_companies": lambda a: {"limit": a.limit, "skip": a.skip},
     "ca_dpd_drug_products": lambda a: {"status": a.status, "limit": a.limit, "skip": a.skip},
@@ -354,6 +415,9 @@ FLAT = {
     "gb_mhra_alert": lambda a: {"slug": a.slug},
     "gb_mhra_alerts": lambda a: {"q": a.q, "count": a.count, "start": a.start},
     "gudid_devices": lambda a: {"di": a.di, "udi": a.udi, "record_key": a.record_key},
+    # 0.3.56 JP NAVII facility search (slot: gudid_devices < jp_navii_facilities < mesh_descriptor)
+    "jp_navii_facilities": lambda a: {"q": a.q, "keyword_type": a.keyword_type,
+                                      "pharmacy": bool(a.pharmacy), "page": a.page},
     "mesh_descriptor": lambda a: {"label": a.label, "match": a.match, "limit": a.limit},
     "rasff_notifications": lambda a: {"subject": a.subject, "notification_reference": a.notification_reference,
                                       "ec_valid_date_from": a.ec_valid_date_from, "ec_valid_date_to": a.ec_valid_date_to,
@@ -378,6 +442,8 @@ FLAT = {
 COUNTRY = {
     "au_tga_artg": "AU",
     "au_tga_manufacturers": "AU",
+    # 0.3.58 BR CNES register (slot: au_tga_* < br_cnes_facilities < ca_dpd_*)
+    "br_cnes_facilities": "BR",
     "ca_dpd_companies": "CA",
     "ca_dpd_drug_products": "CA",
     "ca_mdall_companies": "CA",
@@ -401,6 +467,8 @@ COUNTRY = {
     "gb_mhra_alert": "GB",
     "gb_mhra_alerts": "GB",
     "gudid_devices": "US",
+    # 0.3.56 JP NAVII facility search (slot: gudid_devices < jp_navii_facilities < mesh_descriptor)
+    "jp_navii_facilities": "JP",
     "mesh_descriptor": "GLOBAL",
     "rasff_notifications": "EU",
     "rxnav_rxcui_atc": "US",

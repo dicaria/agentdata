@@ -30,6 +30,11 @@ is capability/error/cache vectors + real transport verification).
   urllib channel only: the curl subprocess text-decodes its body, so binary payloads would be
   corrupted (intercepted as usage_error, same as POST+curl). First used by ru_cbr_warning
   (UniDbQuery DownloadExcel xlsx, 0.3.37).
+- resp_headers (extension 11, 0.3.55): an op declaring resp_headers=True gets the full response
+  header dict surfaced on the cache-miss return of call_provider — the header-pagination family
+  (an upstream that answers a bare row list in the body with x-total-* totals in the headers;
+  first case MX CNBV sanctions). Inert to every op that does not declare it; a cache replay
+  carries no headers (the provider reads absence as "totals unknown on this replay").
 """
 import json
 import math
@@ -355,13 +360,16 @@ def http_json(url: str, timeout: float, body: dict | None = None, multipart=None
         data = urlencoded
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     req = urllib.request.Request(url, data=data, headers=headers)
+    resp_headers = {}
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             status, raw, ra = resp.status, resp.read(), resp.headers.get("Retry-After")
             sc = resp.headers.get_all("Set-Cookie") or []
+            resp_headers = dict(resp.headers)
     except urllib.error.HTTPError as e:  # 4xx/5xx land here (the body is still read)
         status, raw, ra = e.code, e.read(), e.headers.get("Retry-After")
         sc = e.headers.get_all("Set-Cookie") or []
+        resp_headers = dict(e.headers)
         e.close()
     try:
         doc = None if raw_bytes else json.loads(raw.decode("utf-8", "replace"))
@@ -371,10 +379,14 @@ def http_json(url: str, timeout: float, body: dict | None = None, multipart=None
     # the full text is brought back: accept:'text' ops (HTML surfaces, e.g. TGA eBS Domino SearchView) pass through on this channel and the provider parses them itself;
     # accept:'bytes' ops (extension 9) get the body as a lossless latin-1 string — .encode('latin-1') at the
     # provider layer restores the exact bytes (utf-8-replace would corrupt a ZIP with U+FFFD)
+    # resp_headers (extension 11, 0.3.55): the full response header dict rides along inertly; an op
+    # declaring resp_headers=True in call_provider gets them surfaced on the miss-path return — the
+    # header-pagination family (MX CNBV: x-total-items/x-total-pages ride the headers, the body is a
+    # bare row list). The curl subprocess channel has no header surface (same as set_cookie).
     return {"ok": 200 <= status < 300, "status": status, "retry_after": ra, "json": doc,
             "text": raw.decode("latin-1") if raw_bytes else raw.decode("utf-8", "replace"),
             "body_head": raw[:160].decode("utf-8", "replace"),
-            "set_cookie": sc}
+            "set_cookie": sc, "resp_headers": resp_headers}
 
 
 def curl_json(url: str, timeout: float):
@@ -495,8 +507,12 @@ def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = F
             # branch below already does this): the de_inso postback names the portal's session
             # in the path ("{action}" -> "/ap/suche.jsf;jsessionid=…") and the upstream form
             # has no such field — sending it again would put an unknown key into the form body
+            # doseq (0.3.58): a list/tuple value explodes into repeated keys — form surfaces
+            # with multi-valued fields need them (BCSC SearchTable posts SearchFields[] three
+            # times; scalars encode exactly as before, so every existing urlencoded op is inert)
             urlenc = urllib.parse.urlencode(
-                {k: v for k, v in params.items() if ("{%s}" % k) not in opdef["path"]}).encode("utf-8")
+                {k: v for k, v in params.items() if ("{%s}" % k) not in opdef["path"]},
+                doseq=True).encode("utf-8")
         else:
             body = {k: v for k, v in params.items() if ("{%s}" % k) not in opdef["path"]} if is_post else None
     # (3) circuit-breaker gate: open = refused locally (prevents the IP being collectively banned), error
@@ -560,9 +576,16 @@ def call_provider(provider, op: str, params=None, cache=None, no_cache: bool = F
                 # set_cookie rides the cache-miss response only (ext 8: session collection such as the ASP.NET
                 # anti-forgery bootstrap; the cache-hit path carries no key — the caller judges "session not fresh"
                 # from its absence and re-bootstraps itself)
-                return {"ok": True, "data": payload, "from_cache": False,
-                        "fetched_at": now_iso(), "provider": provider["id"],
-                        "set_cookie": r.get("set_cookie") or []}
+                out = {"ok": True, "data": payload, "from_cache": False,
+                       "fetched_at": now_iso(), "provider": provider["id"],
+                       "set_cookie": r.get("set_cookie") or []}
+                # resp_headers (ext 11, 0.3.55): surfaced only when the op declares it — the header-
+                # pagination family reads its totals out of the response headers; a cache replay carries
+                # no headers (the cached payload is the body), so the provider treats absence as
+                # "totals unknown on this replay" rather than fabricating them
+                if opdef.get("resp_headers") is True:
+                    out["resp_headers"] = r.get("resp_headers") or {}
+                return out
             if r["ok"] and _accept == "bytes":
                 # 2xx but 0 bytes on a bytes op — a real document is never empty (the ilo_stat empty-200
                 # lesson: a wrong client stack can answer a clean 200 with 0 bytes); judge it here so the

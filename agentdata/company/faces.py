@@ -136,6 +136,96 @@ class CompanyFaces:
         """company gleif_ultimate_parent: LEI → ultimate parent (GLEIF /lei-records/{lei}/ultimate-parent dedicated endpoint)."""
         return self._gleif_parent_face("gleif_ultimate_parent", "ultimate_parent", lei=lei, no_cache=no_cache)
 
+    # —— 0.3.58 FDIC BankFind siblings (dictionary order: fdic_failures < fdic_financials <
+    # fdic_history < fdic_institutions < fdic_locations; the four share the institutions
+    # contract — filters required locally, limit ≤10000 upstream, row offset) ——
+
+    def fdic_failures(self, *, filters=None, fields=None, limit=20, offset=0,
+                      sort_by=None, sort_order=None, execution=None, no_cache=None):
+        """company fdic_failures: US bank failure history 1934→today (api.fdic.gov /banks/failures;
+        4,117 rows; filters like 'CERT:3510' or 'PSTALP:TX' — the state field on THIS index is
+        PSTALP (STALP/CITY/NAME text filters answer a silent zero); FAILDATE normalized
+        M/D/YYYY→ISO; early rows carry CERT null — FUND is the then-key)."""
+        self._co_only("fdic_failures")
+        raw_filters = str(filters or "").strip() or None
+        r = company.fdic_bankfind.failures_raw(filters=raw_filters, fields=fields, limit=limit,
+                                               offset=offset, sort_by=sort_by, sort_order=sort_order,
+                                               cache=self._c._cache,
+                                               no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        top = (result["rows"] or [None])[0]
+        return self._flat_env(
+            tool="fdic_failures",
+            input={"filters": raw_filters, "limit": r["params"]["limit"], "offset": r["params"]["offset"]},
+            reason=(f"FDIC failure history: {result['total']} rows matched"
+                    + (f", top {top['NAME'] or '—'} ({top['CITY'] or '—'}) failed {top['FAILDATE'] or '—'}" if top
+                       else ", zero hits (an empty result is a legal answer — the CERT never failed or the filter is too narrow)")),
+            result=result,
+            evidence=[{"quote": f"{x['NAME'] or '—'} failed {x['FAILDATE'] or '—'} ({x['CITY'] or '—'}"
+                                + (f", CERT {x['CERT']}" if x.get("CERT") else ", CERT null (pre-cert-numbering era — FUND is the then-key)"),
+                       "url": (f"https://banks.data.fdic.gov/bankfind-suite/detail/institution/{x['CERT']}"
+                               if x.get("CERT") else "https://banks.data.fdic.gov/bankfind-suite/")}
+                      for x in result["rows"][:5]],
+            provider_id="fdic-bankfind", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def fdic_financials(self, *, filters=None, fields=None, limit=20, offset=0,
+                        sort_by=None, sort_order=None, execution=None, no_cache=None):
+        """company fdic_financials: US bank quarterly statements of financial health
+        (api.fdic.gov /banks/financials; CERT:628 = 170 quarters back to 1984; REPDTE
+        'YYYYMMDD'→ISO; ASSET/DEP/EQ/NETINC are $ THOUSANDS — the suite's own convention,
+        never rescaled)."""
+        self._co_only("fdic_financials")
+        raw_filters = str(filters or "").strip() or None
+        r = company.fdic_bankfind.financials_raw(filters=raw_filters, fields=fields, limit=limit,
+                                                 offset=offset, sort_by=sort_by, sort_order=sort_order,
+                                                 cache=self._c._cache,
+                                                 no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        top = (result["rows"] or [None])[0]
+        return self._flat_env(
+            tool="fdic_financials",
+            input={"filters": raw_filters, "limit": r["params"]["limit"], "offset": r["params"]["offset"]},
+            reason=(f"FDIC quarterly financials: {result['total']} quarters matched"
+                    + (f", top row {top['REPDTE']} — ASSET ${top['ASSET']:,}k / DEP ${top['DEP']:,}k / NETINC ${top['NETINC']:,}k ($ thousands)" if top
+                       else ", zero hits (an empty result is a legal answer — check the CERT spelling)")),
+            result=result,
+            evidence=[{"quote": f"{x['REPDTE']} · ASSET ${x['ASSET']:,}k · DEP ${x['DEP']:,}k · EQ ${x['EQ']:,}k · NETINC ${x['NETINC']:,}k",
+                       "url": f"https://banks.data.fdic.gov/bankfind-suite/detail/institution/{x['CERT']}"}
+                      for x in result["rows"][:5]],
+            provider_id="fdic-bankfind", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def fdic_history(self, *, filters=None, fields=None, limit=20, offset=0,
+                     sort_by=None, sort_order=None, execution=None, no_cache=None):
+        """company fdic_history: US bank structural-change log (api.fdic.gov /banks/history;
+        585,634 rows, CERT:628 alone = 13,418; CHANGECODE_DESC the human sentence; ENDDATE
+        '9999-12-31' sentinel → null = still-open change)."""
+        self._co_only("fdic_history")
+        raw_filters = str(filters or "").strip() or None
+        r = company.fdic_bankfind.history_raw(filters=raw_filters, fields=fields, limit=limit,
+                                              offset=offset, sort_by=sort_by, sort_order=sort_order,
+                                              cache=self._c._cache,
+                                              no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        top = (result["rows"] or [None])[0]
+        return self._flat_env(
+            tool="fdic_history",
+            input={"filters": raw_filters, "limit": r["params"]["limit"], "offset": r["params"]["offset"]},
+            reason=(f"FDIC change log: {result['total']} events matched"
+                    + (f", top {top['CHANGECODE_DESC'] or '—'} on {top['EFFDATE'] or '—'}" if top
+                       else ", zero hits (an empty result is a legal answer — check the CERT spelling)")),
+            result=result,
+            evidence=[{"quote": f"{x['CHANGECODE_DESC'] or '—'} · {x['EFFDATE'] or '?'}→{x['ENDDATE'] or 'open'}"
+                                + (f" · {x['INSTNAME'] or '—'}" if x.get("INSTNAME") else ""),
+                       "url": f"https://banks.data.fdic.gov/bankfind-suite/detail/institution/{x['CERT']}"}
+                      for x in result["rows"][:5]],
+            provider_id="fdic-bankfind", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
     def fdic_institutions(self, *, search=None, filters=None, limit=5,
                   execution=None, no_cache=None):
         """company fdic_institutions: US insured-bank master lookup (api.fdic.gov /banks/institutions;
@@ -170,6 +260,35 @@ class CompanyFaces:
                       for b in result["institutions"][:5]],
             provider_id="fdic-bankfind", metas=[r["_meta"]],
             query=quartet,
+        )
+
+    def fdic_locations(self, *, filters=None, fields=None, limit=20, offset=0,
+                       sort_by=None, sort_order=None, execution=None, no_cache=None):
+        """company fdic_locations: US bank branch/office roster (api.fdic.gov /banks/locations;
+        CERT:628 = 5,414 offices; MAINOFF=1 marks the head office, SERVTYPE_DESC the service
+        type; rows verbatim)."""
+        self._co_only("fdic_locations")
+        raw_filters = str(filters or "").strip() or None
+        r = company.fdic_bankfind.locations_raw(filters=raw_filters, fields=fields, limit=limit,
+                                                offset=offset, sort_by=sort_by, sort_order=sort_order,
+                                                cache=self._c._cache,
+                                                no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        top = (result["rows"] or [None])[0]
+        return self._flat_env(
+            tool="fdic_locations",
+            input={"filters": raw_filters, "limit": r["params"]["limit"], "offset": r["params"]["offset"]},
+            reason=(f"FDIC office roster: {result['total']} offices matched"
+                    + (f", top {top['OFFNAME'] or '—'} ({'HEAD OFFICE' if str(top.get('MAINOFF')) == '1' else 'branch'}, {top['SERVTYPE_DESC'] or '—'}, {top['CITY'] or '—'} {top['STALP'] or '—'})" if top
+                       else ", zero hits (an empty result is a legal answer — check the CERT spelling)")),
+            result=result,
+            evidence=[{"quote": f"{x['OFFNAME'] or '—'} · office #{x['OFFNUM']} · {x['SERVTYPE_DESC'] or '—'}"
+                                + (" · HEAD OFFICE" if str(x.get("MAINOFF")) == "1" else "")
+                                + f" · {x['CITY'] or '—'} {x['STALP'] or '—'}",
+                       "url": f"https://banks.data.fdic.gov/bankfind-suite/detail/institution/{x['CERT']}"}
+                      for x in result["rows"][:5]],
+            provider_id="fdic-bankfind", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
         )
 
     def sec_submissions(self, *, cik, execution=None, no_cache=None):
@@ -648,7 +767,116 @@ class CompanyFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    # —— 0.3.59 EU EIOPA IORP register (dictionary slot: es_oepm_bopi < eu_eiopa_iorps <
+    # fdic_failures; method kept adjacent to the European registry cluster it joins — the
+    # live query channel over the register already harvested raw as eu-eiopa-iorps-pensions,
+    # 6,099 schemes live) ——
+
+    def eu_eiopa_iorps(self, limit=100, page=1, execution=None, no_cache=None):
+        """company eu_eiopa_iorps: EIOPA register of occupational pension schemes
+        (registers.eiopa.europa.eu public data exchange POST API; 6,099 IORPs live; per scheme
+        the official name, home/operating country, NCA, address, managing entity, registration
+        window, cross-border status, LEI, id code). Enumeration face — page is 1-BASED
+        (page 0 answers upstream 400, measured); sortField is hardcoded 'id' (an invalid one
+        silently clamps the register to totalItems 0)."""
+        self._co_only("eu_eiopa_iorps")
+        r = company.eu_eiopa.iorps_raw(limit, page, cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="eu_eiopa_iorps",
+            input={"limit": result["params"]["limit"], "page": result["params"]["page"]},
+            reason=(f"EIOPA IORP register: {result['total']} schemes"
+                    + f" — page {result['params']['page']} × {result['params']['limit']}"
+                    + (f" ({len(rows)} rows)" if rows else " — page past the end of 6,099")
+                    + (f", top {top['official_name'] or '—'} ({top.get('type') or '—'}, {top.get('home_country') or '—'},"
+                       f" LEI {top.get('lei') or '—'})" if top else "")
+                    + " — managing_entity is the legal name of the managing entity (the join key onto insurers);"
+                      " no term filter upstream (the data-table filter vocabulary is unmeasured) — enumerate and filter locally"),
+            result=result,
+            evidence=[{"quote": f"{x.get('official_name') or '—'} · {x.get('type') or '—'}"
+                                + f" · {x.get('home_country') or '—'} → operates {x.get('operating_country') or '—'}"
+                                + (f" · LEI {x['lei']}" if x.get("lei") else "")
+                                + (f" · reg {x['registration_start']}" if x.get("registration_start") else ""),
+                       "url": "https://registers.eiopa.europa.eu/PublicDataExchange/"} for x in rows[:5]],
+            provider_id="eu_eiopa", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
     # ---------- 0.3.4 FR annuaire live search face (recherche-entreprises) ----------
+
+    # —— 0.3.58 FR INPI accounting ratios pair (dictionary slot: fi_ytj_companies <
+    # fr_inpi_ratios < fr_inpi_ratios_sectors < fr_recherche_search; ODS v2.1, the fr_regafi
+    # stack on the Ministry's mirror — the only keyless surface over RNE accounts) ——
+
+    def fr_inpi_ratios(self, siren=None, *, type_bilan=None, confidentiality=None,
+                       date_cloture=None, limit=20, offset=0, execution=None, no_cache=None):
+        """company fr_inpi_ratios: FR company accounting ratios per fiscal year (INPI open data
+        via data.economie.gouv.fr ratios_inpi_bce, ~6.8M rows; siren 9-digit exact — quoted by
+        the module; confidentiality walled to the register's own four-value disclosure tier;
+        values are € thousands, passed through verbatim)."""
+        self._co_only("fr_inpi_ratios")
+        if siren is None and not (type_bilan or confidentiality or date_cloture):
+            raise SdkError("usage_error", provider="fr_inpi",
+                           detail="fr_inpi_ratios requires siren (the 9-digit FR company key) or at least "
+                                  "one filter (type_bilan / confidentiality / date_cloture) — the whole-register "
+                                  "enumeration belongs to the corpus line, not the lookup face")
+        raw_siren = str(siren or "").strip() or None
+        r = company.fr_inpi.ratios_raw(raw_siren, type_bilan=type_bilan, confidentiality=confidentiality,
+                                       date_cloture=date_cloture, limit=limit, offset=offset,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        top = (result["rows"] or [None])[0]
+        return self._flat_env(
+            tool="fr_inpi_ratios",
+            input={"siren": raw_siren, "type_bilan": type_bilan, "confidentiality": confidentiality,
+                   "date_cloture": date_cloture, "limit": result["params"]["limit"],
+                   "offset": result["params"]["offset"]},
+            reason=(f"INPI accounting ratios: {result['total_count']} fiscal-year rows matched"
+                    + (f", top row FY closed {top['date_cloture_exercice'] or '—'} — CA €{top['chiffre_d_affaires']:,}k / résultat net €{top['resultat_net']:,}k / taux d'endettement {top['taux_d_endettement']}" if top
+                       else ", zero hits (the SIREN filed no disclosable accounts — check against fr_recherche_search that the company exists and files)")),
+            result=result,
+            evidence=[{"quote": f"SIREN {x['siren']} · FY {x['date_cloture_exercice']} · type_bilan {x['type_bilan']} · {x['confidentiality']}",
+                       "url": "https://data.economie.gouv.fr/explore/dataset/ratios_inpi_bce/"} for x in result["rows"][:5]],
+            provider_id="fr_inpi", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def fr_inpi_ratios_sectors(self, classe_naf=None, *, classe_ca=None, exercice=None,
+                               limit=20, offset=0, execution=None, no_cache=None):
+        """company fr_inpi_ratios_sectors: FR sector ratio benchmarks at q10-q90 quantiles
+        (ratios_inpi_bce_sectors, 22,159 rows; classe_naf = NAF rev.2 class e.g. 1102 ×
+        classe_ca turnover band '<2M' × exercice — the benchmark an individual company's
+        fr_inpi_ratios row compares against)."""
+        self._co_only("fr_inpi_ratios_sectors")
+        if classe_naf is None and not (classe_ca or exercice):
+            raise SdkError("usage_error", provider="fr_inpi",
+                           detail="fr_inpi_ratios_sectors requires classe_naf (NAF rev.2 class code) or at "
+                                  "least one filter (classe_ca / exercice) — 22k rows over 94 columns is the "
+                                  "whole panel, serve it filtered")
+        raw_naf = str(classe_naf or "").strip() or None
+        r = company.fr_inpi.sectors_raw(raw_naf, classe_ca=classe_ca, exercice=exercice,
+                                        limit=limit, offset=offset, cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        top = (result["rows"] or [None])[0]
+        return self._flat_env(
+            tool="fr_inpi_ratios_sectors",
+            input={"classe_naf": raw_naf, "classe_ca": classe_ca, "exercice": exercice,
+                   "limit": result["params"]["limit"], "offset": result["params"]["offset"]},
+            reason=(f"INPI sector benchmarks: {result['total_count']} panel rows matched"
+                    + (f", top {top['classe_naf']} / CA {top['classe_ca'] or '—'} / FY {top['exercice'] or '—'} — marge brute q50 {top.get('part_ca_marge_brute_q50')}" if top
+                       else ", zero hits (the NAF class code is wrong or the band×year cell is empty — NAF classes are 4-digit, e.g. 1102)")),
+            result=result,
+            evidence=[{"quote": f"{x['classe_naf']} · CA {x['classe_ca']} · FY {x['exercice']}"
+                                + (f" · marge brute q10/q50/q90 {x.get('part_ca_marge_brute_q10')}/{x.get('part_ca_marge_brute_q50')}/{x.get('part_ca_marge_brute_q90')}" if x.get("part_ca_marge_brute_q50") is not None else ""),
+                       "url": "https://data.economie.gouv.fr/explore/dataset/ratios_inpi_bce_sectors/"} for x in result["rows"][:5]],
+            provider_id="fr_inpi", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
 
     def fr_recherche_search(self, *, q, page=None, per_page=10, etat_administratif=None,
                             execution=None, no_cache=None):
@@ -1602,6 +1830,108 @@ class CompanyFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    # —— 0.3.57 TR KAP company-disclosure platform registers (dictionary slot: tr_kap_disclosures <
+    # tr_kap_members, both between tr_bddk_institutions and tr_spk_listed; the company domain's TR
+    # depth No. 2 — the disclosed-issuer register + the disclosure stream) ——
+
+    def tr_kap_disclosures(self, from_date, *, to_date=None, limit=20,
+                           execution=None, no_cache=None):
+        """company tr_kap_disclosures: the KAP disclosure stream for a date window
+        (www.kap.org.tr POST /tr/api/disclosure/members/byCriteria, JSON body
+        {fromDate, toDate}; keyless — the research-era three-piece key was measured OPEN
+        all four ways 2026-11-12, so the bare client ships). Rows are disclosures
+        verbatim — publishDate in the upstream's own TR format ("12.11.2026 12:41:43"),
+        kapTitle, disclosureClass/Type/Category, subject, summary, relatedStocks,
+        attachmentCount; corpus reaches 2009-06.
+
+        THE 2,000-ROW RESPONSE CAP: a 10-day window answers EXACTLY 2,000 rows
+        newest-first (measured 2026-11-12); no total echo upstream — none fabricated,
+        likely_truncated flags the cap and the caller narrows the window (the face caps
+        the window at 31 days locally). Egress note: some corporate proxies' exits are
+        TLS-reset for this host (this dev machine's is) — direct connect works."""
+        self._co_only("tr_kap_disclosures")
+        r = company.tr_kap.disclosures_raw(from_date, to_date=to_date, limit=limit,
+                                           cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: v for k, v in r.items() if k != "_meta"}
+        rows = r["rows"]
+        if r["likely_truncated"]:
+            head = (f"KAP disclosures {r['from']}..{r['to']}: {r['total_matched']} rows — EXACTLY "
+                    f"the {r['census']['response_cap']}-row response cap, the window is wider than "
+                    "one response; likely_truncated=true, narrow the window for full coverage "
+                    "(no total echo upstream, none fabricated)")
+        elif rows:
+            head = (f"KAP disclosures {r['from']}..{r['to']}: {r['total_matched']} rows newest-first "
+                    f"— e.g. {rows[0].get('publishDate')} {rows[0].get('kapTitle')}")
+        else:
+            head = (f"KAP disclosures {r['from']}..{r['to']}: zero rows — a window with no "
+                    "disclosures (a legitimate answer; KAP publishes trading-day intraday)")
+        reason = head + "; rows verbatim (publishDate is the upstream's own TR date format); chain: kapTitle/taxNo joins onto tr_kap_members, stockCodes onto BIST tickers"
+        return self._flat_env(
+            tool="tr_kap_disclosures",
+            input={"from": r["from"], "to": r["to"], "limit": r["limit_applied"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x.get('publishDate')} · {x.get('kapTitle')} · "
+                                + str(x.get("disclosureClass")) + "/"
+                                + str(x.get('disclosureType')) + " · "
+                                + str(x.get("subject") or "")[:90],
+                       "url": "https://www.kap.org.tr/tr/bildirim-sorgu"}
+                      for x in rows[:5]],
+            provider_id="tr_kap", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def tr_kap_members(self, type="IGS", *, state="A", limit=20,
+                       execution=None, no_cache=None):
+        """company tr_kap_members: the KAP-member issuer register, one segment per call
+        (www.kap.org.tr GET /tr/api/company/items/{type}/{state}; keyless bare client —
+        the gate was measured open all four ways 2026-11-12). type is the register's own
+        segment code (IGS/YK/PYS/BBDK/IGMS — semantics undocumented upstream; IGS/A
+        measured 756 rows × 27 keys), state A = the live register. Rows carry the issuer
+        join keys verbatim: taxNo + tradeRegNo + tradeRegOffice (the TR company triple),
+        mkkMemberOid (the MKK depository id), stockCode (BIST ticker when listed),
+        kapMemberTitle, paidCapital/kayitliSermayeTavani, faaliyetDurumu, cityName.
+
+        The W-state placeholder is a FILTER LAW: state=W answers ONE fake row (taxNo
+        111111111111, tradeRegNo 'A', no title — the register's placeholder, measured)
+        — dropped from rows[], counted in census.placeholder_rows, never shipped as an
+        issuer. sgbfOrtaklikYapisi is a STRUCTURE flag kept verbatim; no SGBF
+        member-entity face exists by ruling (fund-manager PII red line)."""
+        self._co_only("tr_kap_members")
+        r = company.tr_kap.members_raw(type=type, state=state, limit=limit,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: v for k, v in r.items() if k != "_meta"}
+        rows = r["rows"]
+        cen = r["census"]
+        top = (rows or [None])[0]
+        reason = (f"KAP member register, type {r['type']} / state {r['state']}: "
+                  f"{r['total_matched']} issuers"
+                  + (f" — top hit {top.get('kapMemberTitle')} (taxNo {top.get('taxNo')}"
+                     + (f", BIST {top.get('stockCode')}" if top.get("stockCode") else "") + ")"
+                     if top else "")
+                  + (f"; {cen['placeholder_rows']} placeholder row(s) dropped (the W-state fake "
+                     "record — taxNo 111111111111, tradeRegNo 'A', no title)" if cen["placeholder_rows"] else "")
+                  + "; the TR company triple taxNo+tradeRegNo+tradeRegOffice and mkkMemberOid are "
+                    "the join keys; sgbfOrtaklikYapisi is a structure flag verbatim (no SGBF "
+                    "member-entity face exists by ruling — fund-manager PII red line)")
+        return self._flat_env(
+            tool="tr_kap_members",
+            input={"type": r["type"], "state": r["state"], "limit": r["limit_applied"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x.get('kapMemberTitle')} · taxNo {x.get('taxNo')}"
+                                + (f" · tradeRegNo {x.get('tradeRegNo')} ({x.get('tradeRegOffice')})"
+                                   if x.get("tradeRegNo") else "")
+                                + (f" · BIST {x.get('stockCode')}" if x.get("stockCode") else ""),
+                       "url": "https://www.kap.org.tr/tr/bildirim-sorgu"}
+                      for x in rows[:5]],
+            provider_id="tr_kap", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+
     # —— 0.3.41 DE federal insolvency announcements (dictionary slot: de_inso between cz_ares and edgar/fdic) ——
 
     def de_inso_search(self, state=None, *, subject=None, date_from=None, date_to=None,
@@ -1944,6 +2274,66 @@ class CompanyFaces:
                    "upstream": {"path": "/portal/consultas/listadoentidad.aspx",
                                 "id": 1, "tipoent": cen["tipoent"], "local_scan":
                                     {"name": p["name"], "nif": p["nif"], "numero": p["numero"]}}},
+        )
+
+    # —— 0.3.57 ES OEPM industrial-property gazette index (dictionary slot: es_oepm between
+    # es_cnmv_entities and fdic_institutions; the company domain's IP face No. 2 after the
+    # jp_jplatpat trio — trademarks/patents are company-hard-keyed surfaces) ——
+
+    def es_oepm_bopi(self, tomo, date, *, execution=None, no_cache=None):
+        """company es_oepm_bopi: one BOPI issue's publication metadata + the tomo's
+        chapter/modality reference lists (sede.oepm.gob.es/apibopiweb; keyless plain SDK
+        UA). The issue payload is small and half-empty BY DESIGN: id and
+        fechaPublicacion arrive null on every measured issue — idPdfUcm / idXmlUcm /
+        idHtmlUcm are the real keys (the whole issue's PDF/XML/HTML documents, a second
+        surface out of this face's scope — the kr_law ruling). Tomo 1 = marcas
+        (trademarks), tomo 2 = patents / utility models / designs.
+
+        The non-publication negative is a CHANNEL WALL: a weekend AND a pre-digital date
+        (1995) both answer HTTP 200 with a ZERO-BYTE body — the op declares accept:'text'
+        so the empty body passes as "" (the JSON channel would blame a WAF) and the face
+        surfaces published=false, never an error. The chapter list ([{"13": "1.
+        MARCAS"}, …], single-key dicts) and the modality code map ({"1": "M - Marca", …}
+        — incl. F transfer / K rename / L license) ride along as the tomo's decoding
+        dictionaries (cached 7d — structural)."""
+        self._co_only("es_oepm_bopi")
+        r = company.es_oepm.bopi_raw(tomo, date, cache=self._c._cache,
+                                     no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: v for k, v in r.items() if k != "_meta"}
+        ref = r["reference"]
+        if not r["published"]:
+            reason = (f"OEPM BOPI tomo {r['tomo']}, {r['date']}: no issue — the upstream answers "
+                      "200 with a zero-byte body (weekend / gazette holiday / pre-digital date; "
+                      "measured on a Saturday and on 1995-01-04), the register's own no-issue "
+                      "signal, structured as such, never an error")
+        else:
+            iss = r["issue"] or {}
+            reason = (f"OEPM BOPI tomo {r['tomo']}, {r['date']}: issue published — UCM artifact "
+                      f"keys idPdfUcm {iss.get('idPdfUcm')} / idXmlUcm {iss.get('idXmlUcm')} / "
+                      f"idHtmlUcm {iss.get('idHtmlUcm')} (the whole issue's documents — a second "
+                      "surface out of scope); id/fechaPublicacion arrive null upstream, kept "
+                      "verbatim; reference: "
+                      + str(len(ref["capitulos"])) + " chapters, "
+                      + str(len(ref["modalidades"])) + " modality codes")
+        return self._flat_env(
+            tool="es_oepm_bopi",
+            input={"tomo": r["tomo"], "date": r["date"]},
+            reason=reason,
+            result=result,
+            evidence=([{"quote": f"tomo {r['tomo']} · {r['date']} · idPdfUcm "
+                                + str((r["issue"] or {}).get("idPdfUcm"))
+                                + " · idXmlUcm " + str((r["issue"] or {}).get("idXmlUcm")),
+                       "url": (f"https://sede.oepm.gob.es/apibopiweb/publicacionesBopiTomoYFecha/"
+                               f"{r['tomo']}/{r['date'][8:10]}-{r['date'][5:7]}-{r['date'][:4]}")}]
+                      if r["published"] else
+                      [{"quote": "200 OK, zero-byte body — the register's own no-issue signal",
+                        "url": "https://sede.oepm.gob.es/apibopiweb/publicacionesBopiTomoYFecha/"
+                               + f"{r['tomo']}/{r['date'][8:10]}-{r['date'][5:7]}-{r['date'][:4]}"}]),
+            provider_id="es_oepm", metas=[r["_meta"]],
+            query={"source": "raw",
+                   "upstream": {"path": "/apibopiweb/publicacionesBopiTomoYFecha/{tomo}/{ddmmyyyy}",
+                                "tomo": r["tomo"], "ddmmyyyy":
+                                    f"{r['date'][8:10]}-{r['date'][5:7]}-{r['date'][:4]}"}},
         )
 
     # —— 0.3.42 JP FSA licensed/registered institution farm (dictionary slot: jp_fsa between je_jfsc and kz_gbd) ——
@@ -2399,3 +2789,246 @@ class CompanyFaces:
                               reason=reason, result=res, evidence=ev, provider_id="nyc_dcwp",
                               metas=[r["_meta"]],
                               query={"source": "raw", "upstream": r["params"]})
+
+    # —— 0.3.56 Batch B 大国主轴 I（DE/JP/KR 三国既有辖域加深——de_register 实时检索面 + jplatpat 哈希门三面 +
+    # kr_kipris 专利旗舰面；字典槽位 alphabetical：de_inso < de_register < edgar_*；jp_fsa < jp_jplatpat < kr_*；
+    # kr_hometax < kr_kipris）——
+
+    def de_register_search(self, name=None, *, exact=True, q=None, offset=0,
+                           execution=None, no_cache=None):
+        """company de_register_search: German Unternehmensregister live register search
+        (unternehmensregister.de three-hop keyless: /api/search-token → RSC /de/suche →
+        embedded JSON). ~ DE the live company register (the offeneregister mirror is frozen
+        at 2018); name = the exact channel (companyName + ExactMatch=true — best-effort:
+        the same query returned Siemens AG HRB 6684 on 11-02 and Siemens Energy AG
+        HRB 252581 on 11-12), q = the fuzzy companySearchTerm channel. Rows are the
+        companyDto register entries (euid "DED2601V.HRB6684" = THE EU interconnection key;
+        register_court_code+register_number is the compound join key — an HRB number is
+        only unique per court); the company's publication event stream (announcements with
+        free-PDF encrypted_payload) rides alongside in result.publications. 60 rows/page,
+        from=<offset> paging, 1,000-hit query cap; deletedFlag is the struck-off flag,
+        lastUpdate ticks weekly. The search hop is never cached (the token rides the URL —
+        the mx_cnv ruling); the token itself is cached 45min (upstream validity 1h)."""
+        self._co_only("de_register_search")
+        r = company.de_register.search_raw(name, exact=exact, q=q, offset=offset,
+                                           cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        if rows:
+            top = rows[0]
+            reason = (f"Unternehmensregister: {len(rows)} register entries from row {result['current_page']}"
+                      f" (page {result['current_page']} of {result['total_pages']})"
+                      + (" — 1,000-hit cap reached" if result.get("has_reached_results_limit") else "")
+                      + f" — sample {top.get('name') or '—'} · {top.get('euid') or '—'}"
+                      f" ({top.get('register_court_code') or '—'} {top.get('register_type') or '—'}"
+                      f" {top.get('registerNumber') or '—'}, {top.get('state_name') or '—'})"
+                      + (" · struck-off (deletedFlag)" if top.get("deletedFlag") else "")
+                      + f" · lastUpdate {top.get('lastUpdate') or '—'}"
+                      + (f" · {len(result['publications'])} publication events ride alongside"
+                         if result["publications"] else "")
+                      + " — euid is the strong join key; HRB number needs its court code")
+        else:
+            reason = ("Unternehmensregister: zero register entries — a legitimate narrow query "
+                      "(exact matching is best-effort: try the fuzzy q channel), or an offset past the end")
+        return self._flat_env(
+            tool="de_register_search",
+            input={"name": name, "exact": exact, "q": q, "offset": offset},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('name') or '—'} · {x.get('euid') or '—'} ·"
+                                f" {(x.get('register_court_code') or '—')} {(x.get('registerNumber') or '—')}"
+                                f" · {'struck-off' if x.get('deletedFlag') else (x.get('lastUpdate') or '—')}",
+                       "url": "https://www.unternehmensregister.de/"}
+                      for x in rows[:5]],
+            provider_id="de_register", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def _jp_jplatpat_face(self, tool, face, q, year, year_sign, no_cache=None):
+        r = getattr(company.jp_jplatpat, face + "_search_raw")(
+            q, year=year, year_sign=year_sign,
+            cache=self._c._cache,
+            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        holder_key = "APPN_RIGHT_HOLDER_HOLDER" if face == "trademark" else "APPN_RIGHT_HOLDER"
+        if rows:
+            top = rows[0]
+            holders = top.get(holder_key) or []
+            an = top.get("APP_NUM_DISP") or top.get("APP_NUM") or top.get("DOCU_NUM") or "—"
+            reason = (f"J-PlatPat {face}: {result['total']:,} hits for \"{result['params']['q']}\""
+                      + (f" ({result['params']['year_sign']}{result['params']['year']} slice)"
+                         if result["params"]["year"] else "")
+                      + f", {len(rows)} rows returned"
+                      + (f" — auto-narrowed from {result['auto_narrow']['prev_count']:,}"
+                         " (the 3,000 per-call cap; slice by year/facet to walk deeper)"
+                         if result.get("auto_narrow") else "")
+                      + f" — sample {an} · {(holders[0] if holders else '—')}"
+                      + " — holder names are NAME-level joins (no 法人番号; align NTA bulk for a hard key)")
+        else:
+            reason = (f"J-PlatPat {face}: zero rows for \"{result['params']['q']}\" — a legitimate narrow "
+                      "query (katakana must ride full-width), or the C90003-E 3,000-cap wall without "
+                      "auto-narrow (slice by year)")
+        return self._flat_env(
+            tool=tool,
+            input={"q": result["params"]["q"], "year": result["params"]["year"],
+                   "year_sign": result["params"]["year_sign"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('APP_NUM_DISP') or x.get('APP_NUM') or x.get('DOCU_NUM') or '—'} ·"
+                                f" {'; '.join(x.get(holder_key) or []) or '—'} ·"
+                                f" {(x.get('APP_DATE_INTL_REG_DATE_AFT_SPC_DATE') or x.get('APP_DATE') or '—')}",
+                       "url": "https://www.j-platpat.inpit.go.jp/"}
+                      for x in rows[:5]],
+            provider_id="jp_jplatpat", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def jp_trademark_search(self, q=None, *, year=None, year_sign=None,
+                            execution=None, no_cache=None):
+        """company jp_trademark_search: J-PlatPat trademark search (JPO official portal,
+        wst0303 JSON face — the client-computed hash cookie gate broken zero-credential:
+        Z=sha256(U+L+ECKY) for ECRL=105). 41-key rows with the holder array
+        APPN_RIGHT_HOLDER_HOLDER (name-level join), Nice PER_DIVISION facets, status, dates,
+        app/reg numbers; the register reaches 1953 (full history, live). q = keyword —
+        holder names ride the same simple-keyword face (no dedicated applicant endpoint);
+        katakana must be FULL-WIDTH, latin self-normalizes. year + year_sign ('='|'>='|'<='|'>')
+        slice PER_APP_Y_BY — the SIGN is mandatory (a bare year is silently ignored);
+        single-call cap 3,000 with auto-narrow reporting the pre-narrow total; 4s/request
+        politeness (RSLT_CD=8 is the captcha — the face raises rather than retries)."""
+        self._co_only("jp_trademark_search")
+        return self._jp_jplatpat_face("jp_trademark_search", "trademark", q, year, year_sign,
+                                      no_cache=no_cache)
+
+    def jp_patent_search(self, q=None, *, year=None, year_sign=None,
+                         execution=None, no_cache=None):
+        """company jp_patent_search: J-PlatPat patent·utility-model search (wsp0103; 37-key
+        rows, holder APPN_RIGHT_HOLDER, FI facets, STAGE/DETAILED_EVENT status fields, app/
+        publication/grant numbers — 特願2025-161044 display forms verbatim). year slices
+        KNOWN_Y_BY (公知年). Same hash-gate/key/cap laws as jp_trademark_search."""
+        self._co_only("jp_patent_search")
+        return self._jp_jplatpat_face("jp_patent_search", "patent", q, year, year_sign,
+                                      no_cache=no_cache)
+
+    def jp_design_search(self, q=None, *, year=None, year_sign=None,
+                         execution=None, no_cache=None):
+        """company jp_design_search: J-PlatPat design (意匠) search (wsd0203; 27-key rows,
+        holder APPN_RIGHT_HOLDER, DESIGN_GOODS, JPN design classifications, international
+        registration numbers DM/232315-002 verbatim). year slices PER_APP_Y_BY. Same
+        hash-gate/key/cap laws as jp_trademark_search."""
+        self._co_only("jp_design_search")
+        return self._jp_jplatpat_face("jp_design_search", "design", q, year, year_sign,
+                                      no_cache=no_cache)
+
+    def kr_kipris_patents(self, q=None, *, page=1, page_size=20,
+                          execution=None, no_cache=None):
+        """company kr_kipris_patents: KIPRIS domestic patent·utility-model search (KIPO portal
+        kpat/resulta.do, keyless form-POST — a JSON body answers the empty "98" code, so the
+        face rides the verified form channel; queryText=expression=historyQuery all carry the
+        query). THE KR IP pillar: 84-key rows at up to 2,000/page — and the row field APC is
+        the 사업자등록번호 (business registration number), the IP family's second hard
+        corporate key after AU's ABN (pipe-separated when multiple). q = keyword or the
+        upstream date DSL verbatim (OPD=[YYYYMMDD~YYYYMMDD] publication / PD application /
+        RPD registration). resultCode "98" = ZERO-HIT query mapped to rows=[] + zero_hit=True —
+        weekend/holiday dates and unindexed date axes answer 98, NOT an error (a batch walker
+        must not treat 98 as a failure); "99" = the 255-page wall. Empty cells arrive as the
+        literal "&nbsp;" — verbatim. True pagination (page1∩page2 = 0 measured)."""
+        self._co_only("kr_kipris_patents")
+        r = company.kr_kipris.search_raw(q, page=page, page_size=page_size,
+                                         cache=self._c._cache,
+                                         no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        if rows:
+            top = rows[0]
+            reason = (f"KIPRIS: {result['total']:,} domestic patents·utility models hit"
+                      f" \"{result['params']['q']}\", {len(rows)} rows from page {result['params']['page']}"
+                      f" — sample {top.get('AN') or '—'} · {(top.get('AP') or '—')} [APC"
+                      f" {top.get('APC') or '—'}]"
+                      f" · {(top.get('TL') or '—')[:60]}"
+                      + (" — APC (사업자등록번호) is the hard join key (pipe-separated when multiple)"
+                         if top.get("APC") else " — this row carries no APC (name-level only)"))
+        elif result.get("zero_hit"):
+            reason = (f"KIPRIS: zero hits for \"{result['params']['q']}\" (resultCode 98 = the upstream's "
+                      "zero-hit answer — weekend/holiday publication dates and lagging date axes are "
+                      "legitimate empties, not errors)")
+        else:
+            reason = (f"KIPRIS: zero rows for \"{result['params']['q']}\"")
+        return self._flat_env(
+            tool="kr_kipris_patents",
+            input={"q": result["params"]["q"], "page": result["params"]["page"],
+                   "page_size": result["params"]["page_size"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('AN') or '—'} · {(x.get('AP') or '—')} [APC {x.get('APC') or '—'}]"
+                                f" · {(x.get('TL') or '—')[:60]} · {(x.get('IPC') or '—')}",
+                       "url": "https://www.kipris.or.kr/khome/search/searchResult.do?tab=patent"}
+                      for x in rows[:5]],
+            provider_id="kr_kipris", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # ===================== 0.3.60 batch E2 — BNDES financing operations (BR) =====================
+
+    def br_bndes_financiamento(self, name=None, *, uf=None, natureza=None, ano=None,
+                               municipio=None, rows=20, start=0, facet=False,
+                               execution=None, no_cache=None):
+        """company br_bndes_financiamento: BNDES financing operations (the "Operações" gateway,
+        gateway.apis.bndes.gov.br — the keyless Solr gateway over the CNPJ-contracted
+        operations). name = the CLIENT NAME (the query runs over the client-name index; the
+        wildcard enumeration is refused upstream with 403); uf / natureza / ano / municipio are
+        the upstream fq filters (server-side); facet = the classic facet form (facet=true&
+        facet.field=…).
+        LIVE LAWS (measured 2026-11-13): the gateway's Tomcat REJECTS the characters that are
+        invalid in an RFC 3986 request target (a raw json.facet body answers 400 "Invalid
+        character found in the request target", and so does an fq with raw parentheses/quotes —
+        the transport percent-encodes the values and the upstream decodes them correctly); the
+        CLIENT's CNPJ is MASKED in the index (documentoCliente = "XXXXXXXXX00146", only the last
+        five digits), so the join key onto a company register is the client NAME plus the
+        uf/municipio pair — while the financing agent's CNPJ (cnpjAgenteFinanceiro) is NOT
+        masked; the wildcard / *:* enumeration is refused, so a named term is always required.
+        Rows: the beneficiary (cliente), the masked CNPJ, the financing agent + its CNPJ, the
+        client nature (PRIVADA / PÚBLICA DIRETA / PÚBLICA INDIRETA), the state and municipality,
+        the contract/disbursed values, the interest rate, the instrument and product, the
+        supported sector and the CNAE."""
+        self._co_only("br_bndes_financiamento")
+        r = company.br_bndes.operations_raw(name, uf=uf, natureza=natureza, ano=ano,
+                                             municipio=municipio, rows=rows, start=start,
+                                             facet=facet, cache=self._c._cache,
+                                             no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows_out = result["rows"]
+        p = result["params"]
+        if rows_out:
+            top = rows_out[0]
+            reason = (f"BNDES financing operations: {result['total']} operations for "
+                      f"\"{p.get('q')}\", {len(rows_out)} rows returned"
+                      + (f" (uf {p.get('uf')})" if p.get("uf") else "")
+                      + (f" (year {p.get('ano')})" if p.get("ano") else "")
+                      + f" — sample {top.get('client') or '—'}"
+                      + f" · {top.get('client_nature') or '—'}"
+                      + f" · {top.get('uf') or '—'}/{top.get('municipality') or '—'}"
+                      + f" · contracted {top.get('contract_value') or '—'}"
+                      + f" · disbursed {top.get('disbursed_value') or '—'}"
+                      + " — the client's CNPJ is masked upstream; the name + uf/municipio pair is "
+                        "the join key (the financing agent's CNPJ is not masked)")
+        else:
+            reason = (f"BNDES financing operations: zero operations for \"{p.get('q')}\""
+                      + (f" under uf={p.get('uf')}" if p.get("uf") else "")
+                      + " (an empty result is a legitimate answer — the client has no BNDES "
+                        "contracted operation)")
+        return self._flat_env(
+            tool="br_bndes_financiamento",
+            input={"name": p.get("q"), "uf": p.get("uf"), "natureza": p.get("natureza"),
+                   "ano": p.get("ano"), "municipio": p.get("municipio"),
+                   "rows": p.get("rows"), "start": p.get("start")},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('client') or '—'} · {x.get('uf') or '—'}/"
+                                f"{x.get('municipality') or '—'} · {x.get('year') or '—'}"
+                                + f" · contracted {x.get('contract_value') or '—'}"
+                                + f" · disbursed {x.get('disbursed_value') or '—'}"
+                                + (f" · {x.get('sector') or '—'}" if x.get("sector") else ""),
+                       "url": "https://gateway.apis.bndes.gov.br/operacoes/web/select?q="
+                              + str(p.get("q") or "")}
+                      for x in rows_out[:5]],
+            provider_id="br_bndes", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": p},
+        )

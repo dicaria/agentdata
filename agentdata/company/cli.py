@@ -51,6 +51,36 @@ def register(v, g):
     f_b4.add_argument("--uf", default=None, help="2-letter state code (exact, e.g. SP)")
     f_b4.add_argument("--cnpj-root", dest="cnpj_root", default=None, help="8-digit CNPJ root (exact)")
     f_b4.add_argument("--limit", type=int, default=20, help="Rows back (local payload wall; 1-100)")
+    # —— 0.3.60 BR BNDES financing operations (dictionary slot: br_bndes between br_bacen and ca_ccaa) ——
+    f_bndes = v.add_parser("br_bndes_financiamento", parents=[g()],
+                            help="Brazil BNDES financing operations — the client-side contract/disbursement panel (gateway.apis.bndes.gov.br)",
+                            description="BNDES Operações gateway (keyless Solr over the CNPJ-contracted operations): "
+                                        "the query runs over the CLIENT-NAME index (cliente_t_p) and the document "
+                                        "type is pinned to the CNPJ contracts; the uf / natureza / ano / municipio "
+                                        "filters are server-side fq clauses; rows carry the beneficiary, the MASKED "
+                                        "client CNPJ (documentoCliente = XXXXXXXXX00146 — only the last five digits "
+                                        "survive, so the join key onto a company register is the NAME plus the "
+                                        "uf/municipio pair), the financing agent and its UNMASKED CNPJ, the client "
+                                        "nature (PRIVADA / PÚBLICA DIRETA / PÚBLICA INDIRETA), the contracted and "
+                                        "disbursed values, the interest rate, the instrument/product and the "
+                                        "supported sector. The wildcard enumeration (*:*) is refused upstream, so a "
+                                        "client name is always required. The gateway's Tomcat rejects raw {}/()/\" in "
+                                        "the request target — the facets therefore ride the classic form "
+                                        "(facet=true&facet.field=…)")
+    f_bndes.add_argument("--name", default=None,
+                         help="Client company name (the query term over the client-name index; required)")
+    f_bndes.add_argument("--uf", default=None,
+                         help="2-letter state code (server-side fq filter, e.g. SP)")
+    f_bndes.add_argument("--natureza", default=None,
+                         help="Client nature (server-side fq filter: PRIVADA | PÚBLICA DIRETA | PÚBLICA INDIRETA)")
+    f_bndes.add_argument("--ano", default=None,
+                         help="Contract year (server-side fq filter on anoPosicao, e.g. 2013)")
+    f_bndes.add_argument("--municipio", default=None,
+                         help="Municipality (server-side fq filter on municipio_sfm)")
+    f_bndes.add_argument("--rows", type=int, default=20, help="Rows back (upstream param: rows; 1-500)")
+    f_bndes.add_argument("--start", type=int, default=0, help="Row offset (upstream param: start; >=0)")
+    f_bndes.add_argument("--facet", action="store_true",
+                         help="Ask for the facet panel (the classic facet=true&facet.field=cliente_t_p form)")
     # —— 0.3.43 CA OSB CCAA restructuring roster (dictionary slot: ca_osb between br_bacen and ch_zefix) ——
     f_caosb = v.add_parser("ca_ccaa_records", parents=[g()],
                            help="Canada CCAA large-company restructuring roster — cumulative 2009→2026, 730 proceedings (OSB open data)",
@@ -198,6 +228,33 @@ def register(v, g):
                           help="Case number '<Abteilung> <SIGN> <lfd>/<Jahr>' (upstream param: iaz_aktenzeichen; SIGN in AR/IE/IK/IN; the Abteilung may be absent, e.g. 'IN 261/24')")
     f_inso_s.add_argument("--limit", type=int, default=20,
                           help="Rows to return (local payload wall 1-2000, default 20; total_matched echoes the full count)")
+    # —— 0.3.56 DE Unternehmensregister live search (dictionary slot: de_register between de_inso and fdic) ——
+    f_dereg = v.add_parser("de_register_search", parents=[g()],
+                           help="German Unternehmensregister live search (unternehmensregister.de; --name exact XOR --q fuzzy)",
+                           description="THE live DE company register (the offeneregister mirror "
+                                       "is frozen at 2018): three-hop keyless chain — /api/"
+                                       "search-token (1h validity, cached 45min) → RSC /de/"
+                                       "suche → embedded JSON in the text/x-component stream. "
+                                       "--name rides the exact channel (companyName + "
+                                       "ExactMatch=true — BEST-EFFORT: the same query answered "
+                                       "Siemens AG HRB 6684 on 11-02 and Siemens Energy AG "
+                                       "HRB 252581 on 11-12; measured both days); --q rides "
+                                       "the fuzzy companySearchTerm channel. Rows are the "
+                                       "companyDto register entries — euid ('DED2601V.HRB6684')"
+                                       " is THE EU interconnection key and register_court_code+"
+                                       "register_number the compound join key (an HRB number is "
+                                       "only unique per court); the company's publication event "
+                                       "stream (announcements, free-PDF encrypted_payload) rides "
+                                       "alongside in result.publications. 60 rows/page, "
+                                       "--offset paging, 1,000-hit query cap (has_reached_results_"
+                                       "limit flags it); deletedFlag = struck-off. The search hop "
+                                       "is never cached (the token rides the URL)")
+    f_dereg.add_argument("--name", default=None,
+                         help="Company name, EXACT channel (upstream param: companyName with companyNameExactMatch=true; best-effort matching)")
+    f_dereg.add_argument("--q", default=None,
+                         help="Search term, FUZZY channel (upstream param: companySearchTerm; use when --name over-narrows)")
+    f_dereg.add_argument("--offset", type=int, default=0,
+                         help="Row offset (upstream param: from; 60 rows/page)")
     # —— 0.3.45 ES BORME daily gazette 正册双面（lexicographic slot: es_borme between edgar_fts and es_cnmv）——
     f_borme_day = v.add_parser("es_borme_day", parents=[g()],
                                help="BORME daily gazette inventory (one publication day's notices; no-publication day = published:false)",
@@ -258,18 +315,136 @@ def register(v, g):
                         help="Official register number, exact (the passport/branch families key on numero, not NIF)")
     f_cnmv.add_argument("--limit", type=int, default=20,
                         help="Rows to return (local slice wall 1-100, default 20; total_matched echoes the full category count)")
+    # —— 0.3.57 ES OEPM industrial-property gazette index（dictionary slot: es_oepm between es_cnmv and fdic）——
+    f_oepm = v.add_parser("es_oepm_bopi", parents=[g()],
+                          help="OEPM BOPI issue index (one publication day's gazette metadata + the tomo's chapter/modality references)",
+                          description="sede.oepm.gob.es/apibopiweb/publicacionesBopiTomoYFecha/{tomo}/"
+                                      "{DD-MM-YYYY}: the issue's UCM artifact keys (idPdfUcm/"
+                                      "idXmlUcm/idHtmlUcm — the whole issue's documents, a second "
+                                      "surface out of scope). id and fechaPublicacion arrive null "
+                                      "upstream on every measured issue — kept verbatim. The "
+                                      "no-issue negative is a CHANNEL WALL: weekends AND pre-digital "
+                                      "dates (1995 measured) answer 200 with a ZERO-BYTE body; the op "
+                                      "declares accept:'text' so the empty body passes and surfaces "
+                                      "published:false, never an error. The tomo's chapter list "
+                                      "([{\"13\": \"1. MARCAS\"}, …]) and modality code map (F "
+                                      "transfer / K rename / L license) ride along as reference "
+                                      "(cached 7d). Tomo 1 = marcas, tomo 2 = patents / utility "
+                                      "models / designs")
+    f_oepm.add_argument("--tomo", required=True, type=int, choices=[1, 2],
+                        help="BOPI volume (1 = marcas/trademarks, 2 = patents, utility models, designs; REQUIRED)")
+    f_oepm.add_argument("--date", required=True,
+                        help="Publication day YYYY-MM-DD (REQUIRED, zero-padded, weekdays only — BOPI publishes weekday daily)")
+    # —— 0.3.59 EU EIOPA IORP register (letters slot: es_oepm_bopi < eu_eiopa_iorps < fdic_failures) ——
+    f_eiopa = v.add_parser("eu_eiopa_iorps", parents=[g()],
+                           help="EIOPA IORP register (6,099 occupational pension schemes, POST API)",
+                           description="EIOPA register of occupational pension schemes (keyless): per "
+                                       "scheme the official name, home/operating country, NCA, "
+                                       "address, managing entity (the join key onto insurers), "
+                                       "registration window, cross-border status, LEI, id code. "
+                                       "Enumeration face — page is 1-BASED (page 0 answers upstream "
+                                       "400); sortField hardcoded 'id' (an invalid one silently "
+                                       "clamps the register to totalItems 0); no term filter (the "
+                                       "data-table filter vocabulary is unmeasured) — enumerate "
+                                       "and filter locally")
+    f_eiopa.add_argument("--limit", type=int, default=100, help="Rows (upstream body: pageSize; wall 1-100)")
+    f_eiopa.add_argument("--page", type=int, default=1, help="Page, 1-BASED (upstream body: page; 0 → upstream 400)")
+    # —— 0.3.58 FDIC BankFind siblings (dictionary order: fdic_failures < fdic_financials < fdic_history < fdic_institutions < fdic_locations; filters required — the local whole-database safety wall) ——
+    f3f = v.add_parser("fdic_failures", parents=[g()],
+                       help="US bank failure history 1934→today (FDIC /banks/failures; --filters required)",
+                       description="FDIC failures: 4,117 rows 1934→today. filters like 'CERT:3510' or "
+                                   "'PSTALP:TX' (the state field on this index is PSTALP — STALP/CITY/"
+                                   "NAME text filters answer a SILENT zero); FAILDATE normalized "
+                                   "M/D/YYYY→ISO in place; pre-1960 rows carry CERT null (FUND is "
+                                   "the then-key)")
+    f3f.add_argument("--filters", required=True, help="Structured filter (upstream param: filters; e.g. 'CERT:3510' or 'PSTALP:TX' — state field on this index is PSTALP, STALP answers a silent zero)")
+    f3f.add_argument("--fields", default=None, help="Column whitelist override (upstream param: fields; comma-separated — invalid names are SILENTLY DROPPED upstream)")
+    f3f.add_argument("--limit", type=int, default=20, help="Rows to return (upstream param: limit; wall 10000 — 400 validate:too_big above)")
+    f3f.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: offset; row-based)")
+    f3f.add_argument("--sort-by", dest="sort_by", default=None, help="Sort column (upstream param: sort_by, e.g. FAILDATE)")
+    f3f.add_argument("--sort-order", dest="sort_order", default=None, choices=["asc", "desc"], help="Sort direction (upstream param: sort_order)")
+
+    f3n = v.add_parser("fdic_financials", parents=[g()],
+                       help="US bank quarterly financial statements (FDIC /banks/financials; --filters required)",
+                       description="FDIC financials: quarterly statements of financial health (CERT:628 = "
+                                   "170 quarters back to 1984, newest first by default). REPDTE 'YYYYMMDD'→ISO "
+                                   "in place; ASSET/DEP/EQ/NETINC are $ THOUSANDS — the suite's own convention, "
+                                   "passed through verbatim, never rescaled")
+    f3n.add_argument("--filters", required=True, help="Structured filter (upstream param: filters; e.g. 'CERT:628'")
+    f3n.add_argument("--fields", default=None, help="Column whitelist override (upstream param: fields; 161 columns upstream — invalid names SILENTLY DROPPED)")
+    f3n.add_argument("--limit", type=int, default=20, help="Rows to return (upstream param: limit; wall 10000)")
+    f3n.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: offset; row-based)")
+    f3n.add_argument("--sort-by", dest="sort_by", default=None, help="Sort column (upstream param: sort_by, e.g. REPDTE)")
+    f3n.add_argument("--sort-order", dest="sort_order", default=None, choices=["asc", "desc"], help="Sort direction (upstream param: sort_order)")
+
+    f3h = v.add_parser("fdic_history", parents=[g()],
+                       help="US bank structural-change log (FDIC /banks/history; --filters required)",
+                       description="FDIC history: per-CERT change log, 585,634 rows (CERT:628 = 13,418). "
+                                   "CHANGECODE_DESC is the human sentence ('Branch Acquired in Merger/"
+                                   "Consolidation/Failure'); EFFDATE ISO; ENDDATE '9999-12-31' sentinel → null "
+                                   "= still-open change; INSTNAME/FRM_OFF_NAME the rename pair")
+    f3h.add_argument("--filters", required=True, help="Structured filter (upstream param: filters; e.g. 'CERT:628')")
+    f3h.add_argument("--fields", default=None, help="Column whitelist override (upstream param: fields; ~140 columns upstream)")
+    f3h.add_argument("--limit", type=int, default=20, help="Rows to return (upstream param: limit; wall 10000)")
+    f3h.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: offset; row-based)")
+    f3h.add_argument("--sort-by", dest="sort_by", default=None, help="Sort column (upstream param: sort_by, e.g. EFFDATE)")
+    f3h.add_argument("--sort-order", dest="sort_order", default=None, choices=["asc", "desc"], help="Sort direction (upstream param: sort_order)")
+
     f3 = v.add_parser("fdic_institutions", parents=[g()],
                       help="US insured-bank master record (FDIC BankFind; --search/--filters raw channels)",
                       description="FDIC institutions: ES search × structured filters are combinable raw channels (search 'NAME:\"…\"' / filters 'CERT:n'); no upstream limit wall (10,000 verified)")
     f3.add_argument("--search", default=None, help="ES full-text (upstream param: search; e.g. 'NAME:\"First National\" AND ST:TX')")
     f3.add_argument("--filters", default=None, help="Structured filter (upstream param: filters; e.g. 'CERT:628' or 'ST:TX AND CITY:Dallas')")
     f3.add_argument("--limit", type=int, default=5, help="Rows to return (upstream param: limit; no wall verified ≤10000, default 5)")
+
+    f3l = v.add_parser("fdic_locations", parents=[g()],
+                       help="US bank branch/office roster (FDIC /banks/locations; --filters required)",
+                       description="FDIC locations: the branch/office roster (CERT:628 = 5,414 offices). "
+                                   "MAINOFF=1 marks the head office; SERVTYPE_DESC the service type; "
+                                   "OFFNAME/OFFNUM the office identity; rows verbatim")
+    f3l.add_argument("--filters", required=True, help="Structured filter (upstream param: filters; e.g. 'CERT:628' or 'STALP:MI AND MAINOFF:1')")
+    f3l.add_argument("--fields", default=None, help="Column whitelist override (upstream param: fields; 37 columns upstream)")
+    f3l.add_argument("--limit", type=int, default=20, help="Rows to return (upstream param: limit; wall 10000)")
+    f3l.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: offset; row-based)")
+    f3l.add_argument("--sort-by", dest="sort_by", default=None, help="Sort column (upstream param: sort_by)")
+    f3l.add_argument("--sort-order", dest="sort_order", default=None, choices=["asc", "desc"], help="Sort direction (upstream param: sort_order)")
+
     f4 = v.add_parser("fi_ytj_companies", parents=[g()],
                        help="Finnish business register records (PRH YTJ v3; --name search XOR --business-id direct)",
                        description="YTJ v3 companies: name contains-match hits historical/branch names; businessId direct lookup; pagination params are silently ignored upstream — fixed ~63-row pages, totalResults is the real total")
     f4.add_argument("--name", default=None, help="Company name (upstream param: name; contains-match incl. historical names)")
     f4.add_argument("--business-id", dest="business_id", default=None,
                      help="Business id, 0194099-3 form (upstream param: businessId; spaces ok)")
+    # —— 0.3.58 FR INPI accounting ratios pair (dictionary slot: fi_ytj_companies < fr_inpi_ratios < fr_inpi_ratios_sectors < fr_recherche_search) ——
+    f4i = v.add_parser("fr_inpi_ratios", parents=[g()],
+                       help="FR company accounting ratios per fiscal year (INPI open data; --siren 9-digit exact)",
+                       description="INPI ratios_inpi_bce via data.economie.gouv.fr (ODS v2.1, keyless — the "
+                                   "only keyless surface over RNE accounts; data.inpi.fr itself is account+"
+                                   "WAF gated): ~6.8M rows of per-SIREN per-fiscal-year ratios — CA/marge "
+                                   "brute/EBE/EBIT/résultat net levels + taux d'endettement/liquidité/"
+                                   "autonomie/credit clients-fournisseurs jours ratios. Values are € "
+                                   "thousands verbatim; confidentiality walled to the register's own four-"
+                                   "value disclosure tier (Public/Partiellement confidentiel/RAPCAC/"
+                                   "Publication simplifiee)")
+    f4i.add_argument("--siren", default=None, help="FR company key, exactly 9 digits (upstream where: siren=\"…\" — quoted by the module; SIRET roots refused)")
+    f4i.add_argument("--type-bilan", dest="type_bilan", default=None, help="Balance-sheet kind (upstream where: type_bilan; C=complet, S=simplifié — verbatim)")
+    f4i.add_argument("--confidentiality", default=None, help="Disclosure tier (upstream where: confidentiality; closed set Public / Partiellement confidentiel / RAPCAC / Publication simplifiee)")
+    f4i.add_argument("--date-cloture", dest="date_cloture", default=None, help="Fiscal-year close date exact (upstream where: date_cloture_exercice; YYYY-MM-DD)")
+    f4i.add_argument("--limit", type=int, default=20, help="Rows to return (upstream param: limit; ODS v2.1 ceiling 100)")
+    f4i.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: offset)")
+
+    f4s = v.add_parser("fr_inpi_ratios_sectors", parents=[g()],
+                       help="FR sector ratio benchmarks at q10-q90 quantiles (INPI open data; --classe-naf NAF class)",
+                       description="INPI ratios_inpi_bce_sectors (22,159 rows, 94 columns): the sector "
+                                   "benchmark panel — classe_naf (NAF rev.2 class, e.g. 1102) × classe_ca "
+                                   "(turnover band, '<2M' spelling verbatim) × exercice, every ratio at "
+                                   "q10/q25/q50/q75/q90. The benchmark an individual company's "
+                                   "fr_inpi_ratios row compares against — the pairing IS the product")
+    f4s.add_argument("--classe-naf", dest="classe_naf", default=None, help="NAF rev.2 class code, 4-digit (upstream where: classe_naf; e.g. 1102)")
+    f4s.add_argument("--classe-ca", dest="classe_ca", default=None, help="Turnover band (upstream where: classe_ca; upstream spelling '<2M' verbatim)")
+    f4s.add_argument("--exercice", default=None, help="Fiscal year, 4 digits (upstream where: exercice)")
+    f4s.add_argument("--limit", type=int, default=20, help="Rows to return (upstream param: limit; ceiling 100)")
+    f4s.add_argument("--offset", type=int, default=0, help="Row offset (upstream param: offset)")
     # —— 0.3.4 FR annuaire realtime search face (recherche-entreprises) ——
     # —— 0.3.4 FR annuaire realtime search face (recherche-entreprises) ——
     f5 = v.add_parser("fr_recherche_search", parents=[g()],
@@ -437,6 +612,36 @@ def register(v, g):
                       help="Rows per page (upstream body param: PageSize; 1-100 our politeness cap, default 20)")
     f_jf.add_argument("--page", type=int, default=1,
                       help="Page, 1-based (upstream body param: PageNumber; walk while page < pages)")
+    # —— 0.3.56 J-PlatPat IP search faces, part 1 (dictionary slot: jp_design_search < jp_fsa_licensed) ——
+    _JPP_YEAR_SIGN = ["=", ">=", "<=", ">"]
+
+    def _jpp_parser(tool, hint):
+        _p = v.add_parser(tool, parents=[g()],
+                          help=f"J-PlatPat {tool.split('_')[1]} search (JPO official portal; hash-cookie gate broken zero-credential)",
+                          description=f"J-PlatPat {hint}. q = keyword — holder "
+                                      "names ride the same simple-keyword face (no dedicated "
+                                      "applicant endpoint); katakana must ride FULL-WIDTH, latin "
+                                      "self-normalizes ('POWER' matches Ｐｏｗｅｒ rows). year "
+                                      "+ year_sign ('='|'>='|'<='|'>') slice the year axis — the "
+                                      "SIGN is mandatory (a bare year is silently ignored; "
+                                      "measured). Single-call cap 3,000 with AUTO_NARROW reporting "
+                                      "the pre-narrow total (free counting); beyond it C90003-E — "
+                                      "slice by year/facet. Holder names are NAME-LEVEL joins (no "
+                                      "法人番号; align NTA bulk for a hard key). 4s/request "
+                                      "politeness — RSLT_CD=8 is the captcha gate, the face raises "
+                                      "rather than retries. Searches cached 24h (the hash cookie "
+                                      "only needs same-call consistency)")
+        _p.add_argument("--q", required=True,
+                        help="Keyword (company name, mark, or invention title; katakana FULL-WIDTH)")
+        _p.add_argument("--year", type=int, default=None,
+                        help="Year value for the year axis (upstream FILTER_INFO COND)")
+        _p.add_argument("--year-sign", dest="year_sign", default=None, choices=_JPP_YEAR_SIGN,
+                        help="Comparator for --year (upstream COMPAR_COND_SIGN; mandatory with --year)")
+
+    _jpp_parser("jp_design_search",
+                "design face — 27-key rows, holder APPN_RIGHT_HOLDER, DESIGN_GOODS + JPN design "
+                "classifications, international registration numbers (DM/232315-002) verbatim; "
+                "year slices PER_APP_Y_BY")
     # —— 0.3.42 JP FSA licensed/registered institution farm (dictionary slot: jp_fsa between je_jfsc and kz_gbd) ——
     f_jpfsa = v.add_parser("jp_fsa_licensed", parents=[g()],
                            help="FSA licensed/registered institution registers — 31 XLSX, ~4,082 entities (banks/insurers/securities/crypto/trust/FMIs/audit)",
@@ -463,11 +668,45 @@ def register(v, g):
                          help="13-digit JCN / Corporate Number / 法人番号 (exact, local scan)")
     f_jpfsa.add_argument("--limit", type=int, default=20,
                          help="Rows back (local payload wall 1-100, default 20; total_matched echoes the full count)")
+    # —— 0.3.56 J-PlatPat IP search faces, part 2 (dictionary slot: jp_fsa_licensed < jp_{patent,trademark}_search < kr_hometax) ——
+    _jpp_parser("jp_patent_search",
+                "patent face (wsp0103) — 37-key rows, holder APPN_RIGHT_HOLDER, FI facets, "
+                "STAGE/DETAILED_EVENT status fields, app/publication/grant numbers "
+                "(特願2025-161044) verbatim; year slices KNOWN_Y_BY (公知年)")
+    _jpp_parser("jp_trademark_search",
+                "trademark face (wst0303) — 41-key rows, holder array APPN_RIGHT_HOLDER_HOLDER, "
+                "Nice PER_DIVISION facets, status, dates, app/reg numbers; register reaches 1953 "
+                "(full history); year slices PER_APP_Y_BY")
     f_kr = v.add_parser("kr_hometax_biz_status", parents=[g()],
                        help="Korean biz registration status, single lookup (hometax 휴폐업/과세유형; --biz-no)",
                        description="NTS hometax anonymous single-BRN status: four states all legal answers — active (일반/간이/과세특례 taxpayer), closed (ISO closure date extracted), unregistered (result=S, not an error), error; txprNm is always null upstream (no owner-name leak)")
     f_kr.add_argument("--biz-no", dest="biz_no", required=True,
                      help="10-digit business registration number (사업자등록번호; 3-2-5 hyphens optional, e.g. 124-81-00998)")
+    # —— 0.3.56 KIPRIS domestic patent·utility-model search (dictionary slot: kr_kipris between kr_hometax and kz_gbd) ——
+    f_kip = v.add_parser("kr_kipris_patents", parents=[g()],
+                         help="KIPRIS domestic patent·utility-model search (KIPO portal kpat/resulta.do; keyless form-POST)",
+                         description="THE KR IP pillar: 84-key rows at up to 2,000 rows/page — "
+                                     "and the row field APC is the 사업자등록번호 (business "
+                                     "registration number), the IP family's second hard corporate "
+                                     "key after AU's ABN (pipe-separated when multiple). q = "
+                                     "keyword (삼성전자 → 394,837 rows) or the upstream date DSL "
+                                     "verbatim: OPD=[YYYYMMDD~YYYYMMDD] publication / PD "
+                                     "application / RPD registration / OD single-day — windows "
+                                     "compound across the DSL with spaces. resultCode '98' = "
+                                     "ZERO-HIT query mapped to an empty result, NOT an error (a "
+                                     "zero-publication day — Sundays measured — a lagging date "
+                                     "axis, or an unmatched keyword; a batch walker must not "
+                                     "treat 98 as failure); '99' = the 255-page wall (raise; "
+                                     "slice by date window instead). Empty cells arrive as the "
+                                     "literal '&nbsp;' — kept verbatim; TL titles carry <!HS>/"
+                                     "<!HE> highlight tokens. True pagination (page1∩page2 = 0 "
+                                     "measured). Polite agentdata UA passes clean (no UA gate)")
+    f_kip.add_argument("--q", required=True,
+                       help="Keyword or the upstream date DSL verbatim (e.g. 'OPD=[20261103~20261103]'; zero-publication days answer the 98 empty)")
+    f_kip.add_argument("--page", type=int, default=1,
+                       help="Page, 1-based (upstream param: currentPage; wall 255)")
+    f_kip.add_argument("--page-size", dest="page_size", type=int, default=20,
+                       help="Rows per page (upstream param: numPerPage; 1-2000 — the family's highest throughput)")
     # —— 0.3.34 KZ GBD_UL master register (data.egov.kz portal-session face) ——
     f_kz = v.add_parser("kz_gbd_ul_companies", parents=[g()],
                         help="Kazakhstan legal-entities master register (GBD_UL; --text server-side name filter)",
@@ -674,6 +913,52 @@ def register(v, g):
                         help="Lifecycle filter (all = both, default; active = isFaaliyette 1; exited = the screening surface)")
     f_bddk.add_argument("--limit", type=int, default=20,
                         help="Rows to return (local payload wall 1-100, default 20; total_matched echoes the full count)")
+    # —— 0.3.57 TR KAP company-disclosure platform registers (dictionary slot: tr_kap_disclosures < tr_kap_members, between tr_bddk_institutions and tr_spk_listed) ——
+    f_kapd = v.add_parser("tr_kap_disclosures", parents=[g()],
+                          help="KAP disclosure stream by date window (POST byCriteria; 2,000-row response cap — narrow the window)",
+                          description="www.kap.org.tr POST /tr/api/disclosure/members/byCriteria "
+                                      "(JSON body {fromDate, toDate}; keyless — the research-era "
+                                      "three-piece key was measured OPEN all four ways 2026-11-12, "
+                                      "the bare client ships). Rows are disclosures verbatim "
+                                      "(publishDate in the upstream's own TR format '12.11.2026 "
+                                      "12:41:43', kapTitle, disclosureClass/Type/Category, subject, "
+                                      "summary, relatedStocks, attachmentCount); corpus reaches "
+                                      "2009-06, newest-first. THE 2,000-ROW RESPONSE CAP: a 10-day "
+                                      "window answers exactly 2,000 rows — no total echo upstream, "
+                                      "none fabricated; likely_truncated flags it and the caller "
+                                      "narrows the window (the face caps the window at 31 days "
+                                      "locally). Egress note: some corporate proxies' exits are "
+                                      "TLS-reset for this host — direct connect works")
+    f_kapd.add_argument("--from", dest="from_date", required=True,
+                        help="Window start YYYY-MM-DD (REQUIRED; ISO — converted to the upstream's channel verbatim)")
+    f_kapd.add_argument("--to", dest="to_date", default=None,
+                        help="Window end YYYY-MM-DD (default = --from, a single day)")
+    f_kapd.add_argument("--limit", type=int, default=20,
+                        help="Rows to return (local slice wall 1-100, default 20; total_matched echoes the window's full count)")
+    f_kapm = v.add_parser("tr_kap_members", parents=[g()],
+                          help="KAP-member issuer register, one segment per call (756 rows IGS/A × 27 keys, local scan)",
+                          description="www.kap.org.tr GET /tr/api/company/items/{type}/{state}: the "
+                                      "disclosed-issuer register behind the KAP platform. type = the "
+                                      "register's own segment code (IGS/YK/PYS/BBDK/IGMS, semantics "
+                                      "undocumented upstream — passed verbatim; IGS/A measured 756 "
+                                      "rows), state A = the live register. Rows carry the issuer "
+                                      "join keys verbatim: taxNo + tradeRegNo + tradeRegOffice (the "
+                                      "TR company triple), mkkMemberOid (the MKK depository id), "
+                                      "stockCode (the BIST ticker when listed), kapMemberTitle, "
+                                      "paidCapital, faaliyetDurumu, cityName. The W-state "
+                                      "placeholder row (taxNo 111111111111, tradeRegNo 'A', no "
+                                      "title — measured) is DROPPED and counted in "
+                                      "census.placeholder_rows, never shipped as an issuer. "
+                                      "sgbfOrtaklikYapisi is a structure flag verbatim; NO SGBF "
+                                      "member-entity face exists by ruling (fund-manager PII red "
+                                      "line)")
+    f_kapm.add_argument("--type", dest="type", default="IGS",
+                        choices=["IGS", "YK", "PYS", "BBDK", "IGMS"],
+                        help="Register segment (the upstream's own codes, passed verbatim; default IGS — 756 rows live state)")
+    f_kapm.add_argument("--state", default="A", choices=["A", "P", "W"],
+                        help="Register state (A = the live register, default; W answers the placeholder row — dropped, counted)")
+    f_kapm.add_argument("--limit", type=int, default=20,
+                        help="Rows to return (local slice wall 1-100, default 20; total_matched echoes the segment's full count)")
     # —— 0.3.36 TR SPK listed-companies directory (dictionary slot: tr_spk_listed between ted and usaspending) ——
     f_tr = v.add_parser("tr_spk_listed", parents=[g()],
                         help="SPK publicly-listed companies (Borsa 628 + BorsaDisi 121 one-shot walls, local scan)",
@@ -768,6 +1053,10 @@ FLAT = {
                                    "conglomerado": a.conglomerado, "limit": a.limit},
     "br_bacen_institutions": lambda a: {"name": a.name, "family": a.family, "segmento": a.segmento,
                                         "uf": a.uf, "cnpj_root": a.cnpj_root, "limit": a.limit},
+    # 0.3.60 BR BNDES financing operations (dictionary slot: br_bndes between br_bacen and ca_ccaa)
+    "br_bndes_financiamento": lambda a: {"name": a.name, "uf": a.uf, "natureza": a.natureza,
+                                         "ano": a.ano, "municipio": a.municipio,
+                                         "rows": a.rows, "start": a.start, "facet": a.facet},
     # 0.3.43 CA OSB CCAA restructuring roster (dictionary slot: ca_osb between br_bacen and ch_zefix)
     "ca_ccaa_records": lambda a: {"name": a.name, "province": a.province, "monitor": a.monitor,
                                   "osb": a.osb, "limit": a.limit},
@@ -794,14 +1083,35 @@ FLAT = {
                                  "date_from": a.date_from, "date_to": a.date_to,
                                  "name": a.name, "first_name": a.first_name,
                                  "seat": a.seat, "az": a.az, "limit": a.limit},
+    # 0.3.56 DE Unternehmensregister live search (slot: de_inso_search < de_register_search < es_borme_day)
+    "de_register_search": lambda a: {"name": a.name, "q": a.q, "offset": a.offset},
     "es_borme_day": lambda a: {"date": a.date, "kind": a.kind, "limit": a.limit},
     "es_borme_notice": lambda a: {"notice_id": a.id, "name": a.name, "order": a.order,
                                   "limit": a.limit},
     "es_cnmv_entities": lambda a: {"category": a.category, "name": a.name, "nif": a.nif,
                                    "numero": a.numero, "limit": a.limit},
+    # 0.3.57 ES OEPM BOPI index (slot: es_cnmv_entities < es_oepm_bopi < eu_eiopa_iorps)
+    "es_oepm_bopi": lambda a: {"tomo": a.tomo, "date": a.date},
+    # 0.3.59 EU EIOPA IORP register (slot: es_oepm_bopi < eu_eiopa_iorps < fdic_failures)
+    "eu_eiopa_iorps": lambda a: {"limit": a.limit, "page": a.page},
+    # 0.3.58 FDIC BankFind siblings (dictionary order: fdic_failures < fdic_financials < fdic_history < fdic_institutions < fdic_locations)
+    "fdic_failures": lambda a: {"filters": a.filters, "fields": a.fields, "limit": a.limit,
+                                "offset": a.offset, "sort_by": a.sort_by, "sort_order": a.sort_order},
+    "fdic_financials": lambda a: {"filters": a.filters, "fields": a.fields, "limit": a.limit,
+                                  "offset": a.offset, "sort_by": a.sort_by, "sort_order": a.sort_order},
+    "fdic_history": lambda a: {"filters": a.filters, "fields": a.fields, "limit": a.limit,
+                               "offset": a.offset, "sort_by": a.sort_by, "sort_order": a.sort_order},
     "fdic_institutions": lambda a: {"search": a.search, "filters": a.filters,
                             "limit": a.limit},
+    "fdic_locations": lambda a: {"filters": a.filters, "fields": a.fields, "limit": a.limit,
+                                 "offset": a.offset, "sort_by": a.sort_by, "sort_order": a.sort_order},
     "fi_ytj_companies": lambda a: {"name": a.name, "business_id": a.business_id},
+    # 0.3.58 FR INPI ratios pair (slot: fi_ytj_companies < fr_inpi_ratios < fr_inpi_ratios_sectors < fr_recherche_search)
+    "fr_inpi_ratios": lambda a: {"siren": a.siren, "type_bilan": a.type_bilan,
+                                 "confidentiality": a.confidentiality, "date_cloture": a.date_cloture,
+                                 "limit": a.limit, "offset": a.offset},
+    "fr_inpi_ratios_sectors": lambda a: {"classe_naf": a.classe_naf, "classe_ca": a.classe_ca,
+                                         "exercice": a.exercice, "limit": a.limit, "offset": a.offset},
     "fr_recherche_search": lambda a: {"q": a.q, "page": a.page, "per_page": a.per_page,
                             "etat_administratif": a.etat_administratif},
     # 0.3.53 FR Regafi ACPR pair (slot: fr_recherche_search < fr_regafi_authorisations < fr_regafi_entities < gb_*)
@@ -838,10 +1148,17 @@ FLAT = {
                                          "regno": a.regno},
     "je_jfsc_regulated_entities": lambda a: {"keyword": a.keyword, "page_size": a.page_size,
                                              "page": a.page},
+    # 0.3.56 J-PlatPat IP search, part 1 (slot: jp_design_search < jp_fsa_licensed)
+    "jp_design_search": lambda a: {"q": a.q, "year": a.year, "year_sign": a.year_sign},
     # 0.3.42 JP FSA licensed/registered institution farm (dictionary slot: jp_fsa between je_jfsc and kz_gbd)
     "jp_fsa_licensed": lambda a: {"category": a.category, "name": a.name, "jcn": a.jcn,
                                   "limit": a.limit},
+    # 0.3.56 J-PlatPat IP search, part 2 (slot: jp_fsa_licensed < jp_{patent,trademark}_search < kr_hometax)
+    "jp_patent_search": lambda a: {"q": a.q, "year": a.year, "year_sign": a.year_sign},
+    "jp_trademark_search": lambda a: {"q": a.q, "year": a.year, "year_sign": a.year_sign},
     "kr_hometax_biz_status": lambda a: {"biz_no": a.biz_no},
+    # 0.3.56 KIPRIS domestic patent search (slot: kr_hometax_biz_status < kr_kipris_patents < kz_gbd_ul_companies)
+    "kr_kipris_patents": lambda a: {"q": a.q, "page": a.page, "page_size": a.page_size},
     # 0.3.34 KZ GBD_UL master register batch
     "kz_gbd_ul_companies": lambda a: {"text": a.text, "page": a.page, "count": a.count},
     # 0.3.49 US city-license trio (dictionary slot: lacity between kz_gbd_ul and no_brreg — 'k'<'l'<'n')
@@ -873,6 +1190,10 @@ FLAT = {
     # 0.3.40 TR BDDK authorised-institution card register (dictionary slot: tr_bddk between ted and tr_spk)
     "tr_bddk_institutions": lambda a: {"name": a.name, "category": a.category,
                                        "eft": a.eft, "status": a.status, "limit": a.limit},
+    # 0.3.57 TR KAP registers (slot: tr_bddk_institutions < tr_kap_disclosures < tr_kap_members < tr_spk_listed)
+    "tr_kap_disclosures": lambda a: {"from_date": a.from_date, "to_date": a.to_date,
+                                     "limit": a.limit},
+    "tr_kap_members": lambda a: {"type": a.type, "state": a.state, "limit": a.limit},
     # 0.3.36 TR SPK listed-companies directory (dictionary slot: tr_spk_listed between ted and usaspending)
     "tr_spk_listed": lambda a: {"name": a.name, "segment": a.segment,
                                 "mersis": a.mersis, "limit": a.limit},
@@ -898,6 +1219,8 @@ COUNTRY = {
     "br_bacen_dasfn": "BR",
     "br_bacen_domains": "BR",
     "br_bacen_institutions": "BR",
+    # 0.3.60 BR BNDES financing operations (slot: br_bacen_institutions < br_bndes_financiamento < ca_ccaa_records)
+    "br_bndes_financiamento": "BR",
     "ca_ccaa_records": "CA",
     "ch_zefix_firm": "CH",
     "ch_zefix_firm_search": "CH",
@@ -909,11 +1232,24 @@ COUNTRY = {
     "cz_ares_ekonomicke_subjekty_vyhledat": "CZ",
     "de_inso_register_lookup": "DE",
     "de_inso_search": "DE",
+    # 0.3.56 DE Unternehmensregister live search (slot: de_inso_search < de_register_search < es_borme_day)
+    "de_register_search": "DE",
     "es_borme_day": "ES",
     "es_borme_notice": "ES",
     "es_cnmv_entities": "ES",
+    "es_oepm_bopi": "ES",
+    # 0.3.59 EU EIOPA IORP register (slot: es_oepm_bopi < eu_eiopa_iorps < fdic_failures)
+    "eu_eiopa_iorps": "EU",
+    # 0.3.58 FDIC BankFind siblings (dictionary order: fdic_failures < fdic_financials < fdic_history < fdic_institutions < fdic_locations)
+    "fdic_failures": "US",
+    "fdic_financials": "US",
+    "fdic_history": "US",
     "fdic_institutions": "US",
+    "fdic_locations": "US",
     "fi_ytj_companies": "FI",
+    # 0.3.58 FR INPI ratios pair (slot: fi_ytj_companies < fr_inpi_ratios < fr_inpi_ratios_sectors < fr_recherche_search)
+    "fr_inpi_ratios": "FR",
+    "fr_inpi_ratios_sectors": "FR",
     "fr_recherche_search": "FR",
     # 0.3.53 FR Regafi ACPR pair (slot: fr_recherche_search < fr_regafi_* < gb_*)
     "fr_regafi_authorisations": "FR",
@@ -929,8 +1265,15 @@ COUNTRY = {
     "in_sebi_default_brokers": "IN",
     "in_sebi_intermediaries": "IN",
     "je_jfsc_regulated_entities": "JE",
+    # 0.3.56 J-PlatPat IP search, part 1 (slot: jp_design_search < jp_fsa_licensed)
+    "jp_design_search": "JP",
     "jp_fsa_licensed": "JP",
+    # 0.3.56 J-PlatPat IP search, part 2 (slot: jp_fsa_licensed < jp_{patent,trademark}_search < kr_hometax)
+    "jp_patent_search": "JP",
+    "jp_trademark_search": "JP",
     "kr_hometax_biz_status": "KR",
+    # 0.3.56 KIPRIS domestic patent search (slot: kr_hometax_biz_status < kr_kipris_patents < kz_gbd_ul_companies)
+    "kr_kipris_patents": "KR",
     "kz_gbd_ul_companies": "KZ",
     "lacity_registrations": "US",
     "no_brreg_enheter": "NO",
@@ -946,6 +1289,8 @@ COUNTRY = {
     "sg_datagovsg_datasets": "SG",
     "ted_notices_search": "EU",
     "tr_bddk_institutions": "TR",
+    "tr_kap_disclosures": "TR",
+    "tr_kap_members": "TR",
     "tr_spk_listed": "TR",
     # 0.3.48 US state-license Socrata twin batch (US sub-national sources keep the US jurisdiction stamp;
     # tx_tdlr slots before usaspending ('tr'<'tx'<'us'), wa_doh is the company tail ('vi'<'wa'))

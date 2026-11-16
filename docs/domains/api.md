@@ -241,6 +241,11 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
 
 ### 9.6 Domain capability registry (current state)
 
+> Per-face rows below were maintained through 0.3.39; from 0.3.40 onward the authoritative
+> increment log is the version roll at the end of this section plus the §Changelog. The table is
+> a historical snapshot, not the face census — runtime truth is `agentdata capabilities` (and
+> `tests/test_readme_counts.py` gates the published headline counts against the runtime).
+
 | Domain | Flat command | Jurisdiction | Old verb face (frozen for compatibility, **removed in 0.3.0**) | provider | execution | Cache TTL | First shipped |
 |---|---|---|---|---|---|---|---|
 | healthcare | `rxnav_rxcui_by_name` | US | `resolve kind=drug_name` | `rxnav` | local | permanent (RxCUI immutable) | P0 ✅ |
@@ -810,6 +815,61 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   migrated unrenamed — euasl + paris_mou x4 + thetis_mrv from esg (13→7, back to E+S proper) and
   us_fmcsa from company (55→54); +`ca_ccar_search`/`ca_ccar_aircraft` new, the Transport Canada
   CCAR pair — the CA transport axis; no new jurisdiction vocabulary entry); see changelog entry 90)
+  → **0.3.55, 186 faces** (legal +`mx_cnv_sanctions`/`mx_sabg_sanctioned_servants`/
+  `nl_rechtspraak_search`, esg +`mx_sgm_concesiones`: the API-expansion batch A quartet — **the
+  SDK's first NL-legal and first MX legal/esg jurisdictions** (30→32; MX debuts in legal and esg
+  the same day); see changelog entry 92)
+  → **0.3.56, 194 faces** (company +`de_register_search`, the J-PlatPat IP trio
+  `jp_trademark_search`/`jp_patent_search`/`jp_design_search` + `kr_kipris_patents`, healthcare
+  +`jp_navii_facilities`, legal +`kr_law_statutes`/`kr_law_precedents`: the API-expansion batch B
+  major-power axis I — no new jurisdictions (31 held), DE/JP/KR deepened only; see changelog
+  entry 93)
+
+  → **0.3.57, 198 faces** (company +`es_oepm_bopi` + the KAP pair `tr_kap_members`/
+  `tr_kap_disclosures`, legal +`es_boe_sumario`: the API-expansion batch C major-power axis II —
+  no new jurisdictions (31 held), ES/TR deepened only; `tr_ekap` deferred at the verify gate (the
+  human-verification gate came ON); see changelog entry 94)
+
+  → **0.3.58, 207 faces** (company +the FDIC BankFind sibling quartet `fdic_failures`/
+  `fdic_financials`/`fdic_history`/`fdic_locations` + the INPI accounting pair `fr_inpi_ratios`/
+  `fr_inpi_ratios_sectors`, legal +`ca_asc_enforcement`/`ca_bcsc_disciplined`, healthcare
+  +`br_cnes_facilities` (the domain's first BR face): the API-expansion batch D same-stack widening —
+  no new jurisdictions (31 held), US/FR/CA/BR deepened only; `ca_amf` deferred at the verify gate
+  (lautorite.qc.ca CF-403s non-browser clients); the urlencoded channel gains doseq list→repeated-key
+  encoding (inert to every existing scalar op); see changelog entry 95)
+
+  → **0.3.59, 216 faces** (company +`eu_eiopa_iorps` (the EIOPA IORP pension register's POST-only
+  live query channel — the dual-track twin of the raw eu-eiopa-iorps-pensions harvest), legal
+  +`fr_amf_sanction`/`fr_amf_transaction`/`eu_cijeu_search`/`lv_knab_parties`/
+  `lv_knab_payments`/`ch_efk_party_financings`/`in_indiacode_search`/`ch_finma_enforcement_news`:
+  the API-expansion batch E1 enforcement/party-finance cluster first slice — the legal domain's
+  first CH, EU and LV faces (LV new to the whole ledger, 32→33), FR's second legal authority and
+  IN's second legal face; see changelog entry 96)
+
+  → **0.3.60, 230 faces** (legal +`au_frl_titles`/`br_cade_pesquisa_avancada`/`ca_cbsa_rulings`/
+  `ca_cbsa_ruling`/`de_lobbyregister_entries`/`dk_ft_inspektionsredegoerelser_og_afgoerelser`/
+  `it_agcm_ricerca_provvedimenti`/`it_agcm_rating`/`it_agcm_dettaglio`/`pl_uokik_decisions`/
+  `pl_uokik_decision`/`us_cbp_ruling`/`us_cbp_stat`, company +`br_bndes_financiamento`: the
+  API-expansion batch E2 rulings/registers cluster — **the legal domain's first AU, DE, DK and PL
+  faces** (AU and DE pre-exist through healthcare/company; **DK and PL are new to the ledger —
+  33→35**; this roll line originally claimed "zero new countries (33 held)" and was corrected by
+  the 0.3.62 count audit, which derived 35 jurisdictions from the runtime `COUNTRY` truth); see
+  changelog entry 97)
+
+  → **0.3.61, 233 faces** (legal +`fr_court_judgments`/`fr_court_judgment`/`us_occ_ea_search`:
+  the API-expansion batch E3 judgment/enforcement pair-of-providers — the FR administrative-courts
+  portal's monthly zip archives (/DCE Conseil d'État + /DCA appeal courts; the CAA archives carry
+  no Numero_ECLI, ecli=None is the legal shape) and the OCC EASearch structured database under a
+  second provider id (`occ` keeps the 0.3.28 news face; the twin rides `us_occ`, wb/wb_proc
+  precedent); FR/US deepened only, zero new jurisdictions (35 held); see changelog entry 98)
+
+  → **0.3.62, 237 faces** (legal +`nl_acm_publications`/`nl_acm_publication`/
+  `es_cnmv_sanctions`/`kr_fss_sanctions`: the API-expansion batch E4 depth wave — the NL ACM
+  sitemap-channel publications pair (13,401 URLs, slug-substring taxonomy), the ES CNMV
+  sliding-window sanction register under a second provider id (the 0.3.44 company face keeps
+  `es_cnmv`), and the KR FSS xlsx POST×bytes register (letter-keyed cells, 1,245 PDF-carried
+  rows answer honest nulls); NL/ES/KR deepened only, zero new jurisdictions (35 held); see
+  changelog entry 99)
 
 - openFDA query faces **deferred by user ruling** (2026-10-16: FAERS/MAUDE are already harvested and ingested locally, so queries consume the local corpus first; third-party real-time faces wait until an incremental question touches them) — the deferral covers **only the locally ingested FAERS/MAUDE faces**; the `drug/shortages.json` face opened in Wave 5 is an event-stream face not harvested locally, outside the deferral's scope (opened 2026-10-23 as soon as the incremental need arose, see changelog entry 23). The first hosted case awaits a keyed-tool proposal — keys are never shipped down to the SDK (§9.2).
 

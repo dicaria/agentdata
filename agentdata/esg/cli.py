@@ -81,6 +81,38 @@ def register(v, g):
                       description="EUTL official bulk-download catalog (keyless): one call returns all datasets — Azure daily extracts (accounts/operators/holdings csv.gz) + climate.ec.europa.eu yearly files (compliance/verified emissions 2021-2025); zero params upstream; file downloads themselves go through the batch pipeline, this face gives coordinates")
     # Upstream takes zero params: no flags (the catalog ships in one shot; clients filter rows themselves)
 
+    # —— 0.3.55 MX SGM mining cadastre (dictionary slot: eutl < mx_sgm < uk_fhrs; registration order == FLAT order) ——
+    f_sgm = v.add_parser("mx_sgm_concesiones", parents=[g()],
+                         help="Mexican mining-concession cadastre (SGM CartoMinMex ArcGIS layer 49, keyless)",
+                         description="Concesiones mineras: 19,840 concession polygons live 2026-11-12 "
+                                     "(6,117 distinct holders, 8.70M ha, titles granted 1890s→2026, "
+                                     "month-fresh). titulo is the EXACT concession number (214536); "
+                                     "titular/estado/municipio are case-insensitive contains over the "
+                                     "holder company (ctithomolo — MINERA SAUCITO → 472 concessions), "
+                                     "the state (official long forms ride the column, e.g. 'Coahuila "
+                                     "de Zaragoza') and the municipality; at least one filter required "
+                                     "(a bare cadastre scan is a batch concern — the epa_frs wall). "
+                                     "superfic_2 = hectares; inicio_de_ is epoch-ms on the 1899-12-30 "
+                                     "Excel base (negative values = pre-1900) with the derived "
+                                     "inicio_fecha beside it; --geometry returns the SHAPE polygon "
+                                     "(off by default — heavy). total comes from a returnCountOnly "
+                                     "call on the same where; exceeded_transfer_limit in the result "
+                                     "says whether more rows follow (walk offset; maxRecordCount "
+                                     "2000 = the page ceiling). MX has no public RFC register key — "
+                                     "the holder join is by NAME (the CL/CO LatAm cadastre family)")
+    f_sgm.add_argument("--titular", default=None,
+                       help="Holder company, case-insensitive contains (where column: ctithomolo; e.g. MINERA SAUCITO → 472)")
+    f_sgm.add_argument("--estado", default=None,
+                       help="State, contains (where column: estado; official long forms ride the column)")
+    f_sgm.add_argument("--municipio", default=None, help="Municipality, contains (where column: municipio)")
+    f_sgm.add_argument("--titulo", default=None, help="Concession number, EXACT (where column: titulo; e.g. 214536)")
+    f_sgm.add_argument("--limit", type=int, default=50,
+                       help="Rows (upstream params: resultRecordCount; 1-2000 = the service maxRecordCount)")
+    f_sgm.add_argument("--offset", type=int, default=0,
+                       help="Row offset (upstream param: resultOffset; orderByFields=fid pins the walk)")
+    f_sgm.add_argument("--geometry", action="store_true",
+                       help="Return the concession polygon (upstream param: returnGeometry; off by default — heavy)")
+
     # —— 0.3.53 UK FHRS food-hygiene live search (dictionary slot: thetis_mrv_* < uk_fhrs — tail; registration order == FLAT order) ——
     f13 = v.add_parser("uk_fhrs_establishments", parents=[g()],
                        help="UK food-hygiene establishment search (FSA FHRS/FHIS; keyless x-api-version 2)",
@@ -128,6 +160,11 @@ FLAT = {
                                      "epa_region_code": a.epa_region_code,
                                      "start": a.start, "size": a.size},
     "eutl_datasets": lambda a: {},  # upstream zero params (catalog in one shot)
+    # 0.3.55 MX SGM mining cadastre (dictionary slot: eutl < mx_sgm < uk_fhrs)
+    "mx_sgm_concesiones": lambda a: {"titular": a.titular, "estado": a.estado,
+                                     "municipio": a.municipio, "titulo": a.titulo,
+                                     "limit": a.limit, "offset": a.offset,
+                                     "geometry": a.geometry},
     # 0.3.53 UK FHRS food-hygiene live search (tail slot after the 0.3.54 transportation migration)
     "uk_fhrs_establishments": lambda a: {"name": a.name, "address": a.address,
                                          "rating_key": a.rating_key,
@@ -145,6 +182,8 @@ COUNTRY = {
     "eiti_payments": "GLOBAL",
     "epa_frs_facilities": "US",
     "eutl_datasets": "EU",
+    # 0.3.55 MX SGM mining cadastre (dictionary slot: eutl < mx_sgm < uk_fhrs)
+    "mx_sgm_concesiones": "MX",
     # 0.3.53 UK FHRS food-hygiene live search (tail slot after the 0.3.54 transportation migration)
     "uk_fhrs_establishments": "GB",
 }
