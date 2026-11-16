@@ -1871,9 +1871,13 @@ class LegalFaces:
                      if cen["items"] != cen["walked_items"] else "")
             sec_tail = (f", filtered to section {p['section']} ({r['total_matched']} of "
                         f"{r['scanned_rows']} items)" if p["section"] else "")
+            # 3.10 floor: an f-string inside an f-string replacement field cannot reuse
+            # either quote (outer `"` is the delimiter, the join arg already spends `'`),
+            # so the pairs join is hoisted out instead of nested (PEP 701 is 3.12+ only)
+            sec_pairs = ", ".join(f"{s['codigo']}={s['items']}" for s in r["sections"])
             reason = (f"BOE sumario {r['date']} ({r['identificador']}, boletín Núm. "
                       f"{r['boletin_number']}): {cen['items']} items across {cen['sections']} "
-                      f"sections ({', '.join(f'{s['codigo']}={s['items']}' for s in r['sections'])})"
+                      f"sections ({sec_pairs})"
                       + sec_tail + drift
                       + "; identificador is THE key (BOE-A-YYYY-NNNNN chains into the item's "
                         "url_xml/url_html twins — item full text is XML-only upstream, out of "
@@ -2413,8 +2417,11 @@ class LegalFaces:
                       + (" · in force" if top_row.get("isInForce") else " · not in force")
                       + " — the title id is the canonical FRL key (legislation.gov.au/<id>)")
         else:
+            # 3.10 floor: a backslash inside an f-string expression part is 3.12+ only —
+            # hoisted, and quotes picked so no escape is needed anywhere
+            q_disp = f'the search "{p.get("q")}"' if p.get("q") else "the requested collection"
             reason = ("AU Federal Register of Legislation: zero titles for "
-                      f"{'the search \"' + str(p.get('q')) + '\"' if p.get('q') else 'the requested collection'}"
+                      f"{q_disp}"
                       " (an empty result is a legitimate answer)")
         return self._flat_env(
             tool="au_frl_titles",
