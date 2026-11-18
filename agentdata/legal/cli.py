@@ -62,6 +62,35 @@ def register(v, g):
     fa0s.add_argument("--page", type=int, default=1, help="Seitennummer, 1-based (page size pinned at 20 upstream)")
     fa0s.add_argument("--limit", type=int, default=20, help="Rows to return (default 20, 1-100 local slice; the upstream page is pinned at 20)")
 
+    # —— 0.3.63 AU ACCC enforcement-actions face (dictionary slot: at_ris_statutes < au_accc_actions < au_frl_titles; the SECOND AU face) ——
+    f_aacc = v.add_parser("au_accc_actions", parents=[g()],
+                          help="ACCC enforcement actions stream (Compliance & enforcement topic — 125 pages × 25 cards)",
+                          description="Australian Competition & Consumer Commission news-centre "
+                                      "(www.accc.gov.au, keyless but UA-fingerprinted + Drupal lazy "
+                                      "views): the listing renders form + filtered pager but an EMPTY "
+                                      "view-content — the rows exist only through GET /views/ajax "
+                                      "(the viewsAjaxHistory module's own hop) with the full "
+                                      "exposed-input shape (f[] array form; a bare JSON command "
+                                      "object comes back whose insert carries the rendered "
+                                      "listing). Topic 12039 = Compliance and enforcement "
+                                      "(~3,106 items, 125 pages × 25 cards, 0-BASED pages): media "
+                                      "releases / speeches / updates with the accc-date-card "
+                                      "shape — data_url path, ribbon type (Media release / "
+                                      "Speech / Update), publish date as ISO, h2 title, "
+                                      "acccgov-summary, topic badges. --type news|update selects the "
+                                      "content-type tab; q is a page-local substring. CC BY 4.0 — "
+                                      "attribution 'Source: ACCC © Commonwealth of Australia'")
+    f_aacc.add_argument("--topic", type=int, default=None,
+                        help="News-centre topic id (default 12039 = Compliance and enforcement; 141 Food and groceries, 138 Franchising…)")
+    f_aacc.add_argument("--q", default=None,
+                        help="Substring over title+summary (PAGE-LOCAL — walk pages or drop q)")
+    f_aacc.add_argument("--page", type=int, default=0,
+                        help="Page, 0-BASED (the Drupal views convention; 25 cards per page)")
+    f_aacc.add_argument("--type", dest="action_type", default=None, choices=["news", "update"],
+                        help="Content-type tab (accc_news = media releases/speeches, acccgov_update = updates)")
+    f_aacc.add_argument("--limit", type=int, default=20,
+                        help="Rows to return (local slice wall 1-100, default 20; a full page is 25 cards)")
+
     # —— 0.3.60 AU FRL titles face (dictionary slot: au_frl between at_ris and br_bacen; legal's first AU face) ——
     f_aufrl = v.add_parser("au_frl_titles", parents=[g()],
                            help="Australian Federal Register of Legislation titles (OPC OData v1, keyless — 13,754 Acts)",
@@ -628,6 +657,30 @@ def register(v, g):
     fg.add_argument("--page-size", dest="page_size", type=int, default=20, help="Rows per page (upstream param: results-page-size; 1-100 hard max, probed 2026-11-03)")
     fg.add_argument("--sort", default=None, choices=["latest-date", "oldest-date"], help="Sort (upstream param: sort-by; upstream default latest-date)")
 
+    # —— 0.3.64 batch E6 — UK NMW naming-scheme pair (dictionary slot: gb_gazette_notices < gb_nmw_round < gb_nmw_rounds < gb_tna_caselaw_judgment; registration order == FLAT order) ——
+    f_nr = v.add_parser("gb_nmw_round", parents=[g()],
+                        help="One NMW naming-scheme round: press-release dossier + the named-employers xlsx coordinates",
+                        description="The 'named and shamed' register's round detail (gov.uk, keyless, OGL): "
+                                    "title/description/published/updated + xlsx_urls — the URL(s) of the official "
+                                    "named-employers list on assets.publishing.service.gov.uk (Round 22 = 492 "
+                                    "employers × 15 columns with three-tier ONS SIC codes, arrears £, workers, "
+                                    "arrears period). The list body rides the batch line, never the JSON face "
+                                    "(the EUASL coordinate precedent). The content API body is EMPTY for these "
+                                    "pages — the attachment exists only in the HTML. Attachment names carry no "
+                                    "year suffix (…_16_October.xlsx); hand-assembling them 404s")
+    f_nr.add_argument("--slug", required=True, help="Press-release tail segment (from gb_nmw_rounds rows; e.g. 6-million-repaid-to-workers-as-government-cracks-down-on-employers-underpaying-their-staff)")
+    f_ns = v.add_parser("gb_nmw_rounds", parents=[g()],
+                        help="NMW naming-scheme rounds index (the 'named and shamed' register, 41 releases, newest first)",
+                        description="The UK National Minimum Wage naming-scheme discovery face (gov.uk search "
+                                    "API, keyless, OGL): the register's own query pinned (\"named and shamed\" "
+                                    "\"minimum wage\" + press_release, newest first). 41 results live — Round 22 "
+                                    "(2026-01-19, 492 employers, £6M repaid) at top, the full history back to "
+                                    "2013 walks through --start offsets. Not every hit is a numbered round "
+                                    "(rate-reminder and underpayment-statistics releases ride the same query — "
+                                    "titles tell them apart, kept verbatim)")
+    f_ns.add_argument("--count", type=int, default=20, help="Rows per page 1-100 (gov.uk family politeness cap)")
+    f_ns.add_argument("--start", type=int, default=0, help="Offset (walks back toward Round 1, 2013)")
+
     # —— 0.3.8 legal caselaw line: TNA Find Case Law two faces (atom search + Akoma Ntoso single record, live-probed 2026-10-29; dictionary-order slots between gb_ec_loans and lda; ISO-prefixed 0.3.13) ——
 
     f11 = v.add_parser("gb_tna_caselaw_judgment", parents=[g()],
@@ -721,6 +774,53 @@ def register(v, g):
     f_sp.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream param: currentPage)")
     f_sp.add_argument("--limit", type=int, default=20,
                       help="Rows per page (upstream param: pageSize; 1-1000 honoured, probed)")
+
+    # —— 0.3.63 IN CCI dual registers (dictionary slot: ie_sipo_lobbying < in_cci_antitrust_orders < in_cci_combinations < in_indiacode_search; Laravel CSRF + DataTables pair) ——
+    f_ccia = v.add_parser("in_cci_antitrust_orders", parents=[g()],
+                          help="CCI antitrust order register (Competition Act 2002 — 1,246 rows, DataTables POST)",
+                          description="Competition Commission of India antitrust orders "
+                                      "(www.cci.gov.in, keyless but Laravel CSRF'd): the /antitrust/"
+                                      "orders/list DataTables POST replayed byte-equal (tab_type="
+                                      "antitrust, the 5 measured columns, dir asc). The token "
+                                      "input's attributes read name='_token' type='hidden' value=… — "
+                                      "type sits BETWEEN name and value (the misalignment law). Rows: "
+                                      "case_no, the Act section, order type ('Anti-trust Section 19 "
+                                      "(1)'), the description VERBATIM — recent rows read 'XYZ' "
+                                      "because the parties live in the order PDF, never guessed — "
+                                      "dd/mm/yyyy dates, the attachment JSON and the /orders/details "
+                                      "links. q rides search[value] (upstream-global); case_no/"
+                                      "order_type are page-local substrings. TERMS 🔴 NIC "
+                                      "prior-permission family — query live, no hosted redistribution")
+    f_ccia.add_argument("--q", default=None, help="Global search term (upstream param: search[value])")
+    f_ccia.add_argument("--case-no", dest="case_no", default=None,
+                        help="Case number substring, page-local (e.g. 02/2026)")
+    f_ccia.add_argument("--type", dest="order_type", default=None,
+                        help="Order-type substring, page-local (e.g. 'Section 19 (1)')")
+    f_ccia.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream start offset derived)")
+    f_ccia.add_argument("--limit", type=int, default=20,
+                        help="Rows per page (upstream DataTables length; 1-100; 10 is the page's own shape)")
+
+    f_ccic = v.add_parser("in_cci_combinations", parents=[g()],
+                          help="CCI combination order register (s.6(2)/s.31 notifications — 1,491 rows, DataTables GET)",
+                          description="Competition Commission of India combination orders "
+                                      "(www.cci.gov.in/combination/orders-section31, keyless + "
+                                      "CSRF): the DataTables GET replayed byte-equal with the 9 "
+                                      "measured columns — the POST answers 405 here (the no-type-"
+                                      "declaration default is GET; the pair's second trap). Rows: "
+                                      "combination_no ('C-2026/10/1485'), party_name (real parties "
+                                      "here, not XYZ), form_type (I/II/III notification forms), "
+                                      "order_type (Green Channel Notices…), notification/decision "
+                                      "dates, summary/order attachments. party rides the upstream "
+                                      "searchString; status/form_type pass through verbatim")
+    f_ccic.add_argument("--party", default=None, help="Party name (upstream param: searchString)")
+    f_ccic.add_argument("--status", default=None,
+                        help="Order status verbatim (upstream param: order_status; substring match locally)")
+    f_ccic.add_argument("--form-type", dest="form_type", default=None,
+                        help="Notification form (upstream param: form_type; I/II/III)")
+    f_ccic.add_argument("--q", default=None, help="Global search term (upstream param: search[value])")
+    f_ccic.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream start offset derived)")
+    f_ccic.add_argument("--limit", type=int, default=20,
+                        help="Rows per page (upstream DataTables length; 1-100; 10 is the page's own shape)")
 
     # —— 0.3.59 India Code acts search (dictionary slot: ie_sipo < in_indiacode < in_sebi; DSpace 7 discovery API) ——
     f_ic = v.add_parser("in_indiacode_search", parents=[g()],
@@ -831,6 +931,51 @@ def register(v, g):
                       help="Document type (the register's own vocabulary, exact match)")
     f_ia.add_argument("--settore", default=None, help="Sector code verbatim (the form's own hidden field; sigla carries the sector letter anyway)")
     f_ia.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream param: pagina, 10 docs per page)")
+
+    # —— 0.3.63 JP JFTC case database pair (dictionary slot: it_arera_decisions < jp_jftc_decision < jp_jftc_decisions < kr_fss_sanctions; UA-fingerprint + Laravel CSRF) ——
+    f_jd1 = v.add_parser("jp_jftc_decision", parents=[g()],
+                         help="ONE JFTC case full text (DC005 — 主文+事実及び理由, era dates normalized)",
+                         description="Japan Fair Trade Commission case database detail "
+                                     "(snk.jftc.go.jp/DC005, keyless but UA-fingerprinted): the "
+                                     "h_cont structured header — title, 適用法条 + court, 事件番号 "
+                                     "(full-width digits upstream, verbatim kept — 令和７年（行夕）第１９４号), "
+                                     "the h3 section (決定/審決/判決) with its era date normalized to "
+                                     "ISO (R=2018+n / H=1988+n / S=1925+n), the parties block verbatim "
+                                     "INCLUDING the 《氏名》 official anonymization, the judge panel — "
+                                     "plus the full 主文+事実及び理由 text. case_id = the DC005 path "
+                                     "token from jp_jftc_decisions rows (e.g. R080220R07G05000194K). "
+                                     "PDFs live on the list row (a.pdf_dl), not the detail page. "
+                                     "TERMS 🟢 PDL 1.0 — attribution 出典：公正取引委員会")
+    f_jd1.add_argument("--case-id", dest="case_id", required=True,
+                       help="DC005 path token (from jp_jftc_decisions rows)")
+
+    f_jd2 = v.add_parser("jp_jftc_decisions", parents=[g()],
+                         help="JFTC 審決・判決 database search (6,220 rows; dsubject company slots; 1-based pages × 10)",
+                         description="Japan Fair Trade Commission case search (snk.jftc.go.jp DC004, "
+                                     "keyless but UA-fingerprinted + Laravel CSRF — the pinned Chrome "
+                                     "header suite rides every op; bare urllib answers 403). The "
+                                     "session bootstrap caches {token, cookie} TOGETHER (a Laravel "
+                                     "token is session-bound); a stale pair 419s and the face "
+                                     "re-bootstraps once. ONE-FORM SEARCH: the tabs are one form — "
+                                     "measured search_type=1 + dsubject[0]=ソニー → 14 rows, bare sweep "
+                                     "→ 6,220. Rows carry rank, the DC005 case_id, type span (決定/"
+                                     "審決/判決/排除命令/課徴金納付命令), court, 事件番号, the era 処分年月日 "
+                                     "as ISO + verbatim, 適用法条, pdf_url + KB and the two inline 概要 "
+                                     "blocks. --page is 1-BASED, 10 rows/page (maxOnePageItem is NOT "
+                                     "honoured — measured)")
+    f_jd2.add_argument("--subject", action="append", default=None,
+                       help="被審人 company-name slot (repeat up to 5; upstream dsubject[0-4], ANDed — e.g. ソニー)")
+    f_jd2.add_argument("--branch", default=None,
+                       help="Case-class select token (upstream param: branch; J01 判 / J03 納 / J05 訟…)")
+    f_jd2.add_argument("--year", type=int, default=None,
+                       help="Event-number era year 1-99 (upstream param: year, with --era)")
+    f_jd2.add_argument("--number", default=None,
+                       help="Event running number (upstream param: number, e.g. 194 for 第194号)")
+    f_jd2.add_argument("--era", default="R", choices=["R", "H", "S"],
+                       help="Era for the event number (R=令和 default, H=平成, S=昭和)")
+    f_jd2.add_argument("--page", type=int, default=1, help="Page, 1-BASED (10 rows per page upstream)")
+    f_jd2.add_argument("--limit", type=int, default=20,
+                       help="Rows to return (local slice wall 1-100, default 20; a page is 10 rows)")
 
     # —— 0.3.62 KR FSS sanctions one-shot excel register (dictionary slot: kr_fss between it_arera and kr_law; POST × bytes first combination) ——
     f_kfss = v.add_parser("kr_fss_sanctions", parents=[g()],
@@ -1215,6 +1360,18 @@ def register(v, g):
                                       "upstream's search endpoint is reCAPTCHA-gated, so the corpus is reachable by "
                                       "ruling number only")
 
+    # —— 0.3.64 batch E6 — CFTC dispositions register (dictionary slot: us_cftc_dispositions < us_cftc_enforcement; registration order == FLAT order) ——
+    f_fd = v.add_parser("us_cftc_dispositions", parents=[g()],
+                        help="CFTC reparation decisions (complainant v. registrant, ~456 rows, 0-based pages)",
+                        description="The CFTC's reparations-decisions register as one Drupal views table "
+                                    "(keyless): complainant v. registrant captions — \"David Kaminski v. "
+                                    "TradeStation Securities, Inc.\". 46 pages × 10 ≈456 rows, newest-first "
+                                    "(2026-10-26 live top); each row's anchor IS the decision PDF "
+                                    "(/sites/default/files/YYYY/MM/, prefix https://www.cftc.gov) and the "
+                                    "docket number rides the blurb cell (CFTC Docket No. 25-R016). The same "
+                                    "browser header suite as us_cftc_enforcement (bare UA 403'd live)")
+    f_fd.add_argument("--page", type=int, default=0, help="Page, 0-based upstream verbatim (live range 0..45, 10 rows per page)")
+
     # —— 0.3.51 US CFTC enforcement face (dictionary slot: us_cftc between ua_nazk and us_ferc; registration order == FLAT order) ——
     f_fc = v.add_parser("us_cftc_enforcement", parents=[g()],
                         help="CFTC enforcement-actions index (1995→2026, ~2,610 actions, 0-based pages)",
@@ -1234,6 +1391,37 @@ def register(v, g):
                                     "publicreporting/data.cftc.gov are dead exits")
     f_fc.add_argument("--year", type=int, default=None, help="Year 1995-current, except 1998 (not offered by the register's own dropdown)")
     f_fc.add_argument("--page", type=int, default=0, help="Page, 0-based upstream verbatim (live range 0..260, ~10 rows per page)")
+
+    # —— 0.3.65 batch E7 — CFTC opinions register (dictionary slot: us_cftc_enforcement < us_cftc_opinions < us_cftc_redlist; registration order == FLAT order) ——
+    f_op = v.add_parser("us_cftc_opinions", parents=[g()],
+                        help="CFTC OGC opinions & adjudicatory orders (≈87 decisions 2012→2025, 0-based pages)",
+                        description="The CFTC Office of General Counsel's Opinions & Adjudicatory "
+                                    "Orders register (keyless): reparations appeals and initial "
+                                    "decisions with parties-first captions (\"Eric Thompson, … v. …\"). "
+                                    "≈87 rows over 9 pages (0..8) of 10, last page 7, date-descending "
+                                    "2012→2025. DUAL-ERA PDF paths verbatim: recent rows "
+                                    "/sites/default/files/YYYY/MM/, older rows the legacy "
+                                    "/idc/groups/public/%40lropinionsandadjudicaryorders/ path "
+                                    "(%40=@; \"adjudicary\" is the upstream's own misspelling — never "
+                                    "normalized). The docket number rides inline in the caption "
+                                    "(\"CFTC Docket No. 23-R001\"); rows without one report None. "
+                                    "Same host and browser-header suite as us_cftc_enforcement")
+    f_op.add_argument("--page", type=int, default=0, help="Page, 0-based upstream verbatim (live range 0..8, 10 rows per page, last page 7)")
+
+    # —— 0.3.64 batch E6 — CFTC RED List (dictionary slot: us_cftc_enforcement < us_cftc_redlist < us_ferc_elibrary; registration order == FLAT order) ——
+    f_rl = v.add_parser("us_cftc_redlist", parents=[g()],
+                        help="CFTC RED List — unregistered foreign entities (284 entities, alphabetical pages)",
+                        description="The CFTC's Registration D.E.ficiency List (keyless): unregistered FOREIGN "
+                                    "entities the commission has charged or settled with (forex/derivatives "
+                                    "solicitations) — complementary to OFAC CSL, a non-sanctions negative "
+                                    "register. 29 pages × 10, last page 4 rows → 284 entities live; the "
+                                    "register's own order is ALPHABETICAL by company (page 0 \"1Billion Forex\" "
+                                    "→ \"Abnas Global Securities\"; page 28 \"WinOptions\"→\"YesOption\") — Date "
+                                    "Entered scatters 2015→2023 within a page. Each row anchors a Drupal node "
+                                    "detail page (/REDlist/node/<id>, titled \"RED List: <name>\"). "
+                                    "?items_per_page is decorative — a widened ask answers ZERO rows, page "
+                                    "size stays the upstream 10")
+    f_rl.add_argument("--page", type=int, default=0, help="Page, 0-based upstream verbatim (live range 0..28, 10 rows per page)")
 
     # —— 0.3.50 US FERC eLibrary face (dictionary slot: us_ferc between ua_nazk and us_occ; registration order == FLAT order) ——
     f_fr = v.add_parser("us_ferc_elibrary", parents=[g()],
@@ -1342,6 +1530,9 @@ FLAT = {
                                    "norm": a.norm, "date_from": a.date_from, "date_to": a.date_to,
                                    "page": a.page, "limit": a.limit},
     "at_ris_statutes": lambda a: {"q": a.q, "page": a.page, "limit": a.limit},
+    # 0.3.63 batch E5 — AU ACCC enforcement-actions face (slot: at_ris_statutes < au_accc_actions < au_frl_titles)
+    "au_accc_actions": lambda a: {"topic": a.topic, "q": a.q, "page": a.page,
+                                  "action_type": a.action_type, "limit": a.limit},
     # 0.3.60 batch E2 — API-faces depth wave (AU/BR/CA/DE/DK/IT/PL/US; zero new countries, four new legal jurisdictions)
     "au_frl_titles": lambda a: {"collection": a.collection, "term": a.term, "top": a.top},
     # 0.3.38 BR BACEN special-regimes face (dictionary slot: br_bacen between afdb and ca_sema)
@@ -1426,6 +1617,9 @@ FLAT = {
     "gb_gazette_notices": lambda a: {"text": a.text, "noticetypes": a.noticetypes, "insolvency": a.insolvency,
                                      "start_date": a.start_date, "end_date": a.end_date,
                                      "page": a.page, "page_size": a.page_size, "sort": a.sort},
+    # 0.3.64 batch E6 — UK NMW naming-scheme pair (dictionary slot: gb_gazette_notices < gb_nmw_* < gb_tna_*)
+    "gb_nmw_round": lambda a: {"slug": a.slug},
+    "gb_nmw_rounds": lambda a: {"count": a.count, "start": a.start},
     # 0.3.8 TNA caselaw two faces (eight upstream-verbatim params; court/tribunal append into lists for explode)
     "gb_tna_caselaw_judgment": lambda a: {"document_uri": a.document_uri},
     "gb_tna_caselaw_search": lambda a: {"query": a.query, "court": a.court, "tribunal": a.tribunal,
@@ -1442,6 +1636,11 @@ FLAT = {
                                    "return_date_from": a.return_date_from,
                                    "return_date_to": a.return_date_to,
                                    "page": a.page, "limit": a.limit},
+    # 0.3.63 batch E5 — IN CCI dual registers (slot: ie_sipo_lobbying < in_cci_antitrust_orders < in_cci_combinations < in_indiacode_search)
+    "in_cci_antitrust_orders": lambda a: {"q": a.q, "case_no": a.case_no, "order_type": a.order_type,
+                                          "page": a.page, "limit": a.limit},
+    "in_cci_combinations": lambda a: {"party": a.party, "status": a.status, "form_type": a.form_type,
+                                      "q": a.q, "page": a.page, "limit": a.limit},
     # 0.3.35 IN SEBI orders face (dictionary slot: in_sebi between ie_revenue and lda)
     "in_indiacode_search": lambda a: {"q": a.q, "limit": a.limit, "page": a.page},
     "in_sebi_orders": lambda a: {"category": a.category, "search": a.search,
@@ -1455,6 +1654,10 @@ FLAT = {
     # 0.3.51 IT ARERA decisions face (dictionary slot: it_arera between in_sebi and lda)
     "it_arera_decisions": lambda a: {"anno": a.anno, "numero": a.numero, "tipologia": a.tipologia,
                                      "settore": a.settore, "page": a.page},
+    # 0.3.63 batch E5 — JP JFTC case database pair (slot: it_arera_decisions < jp_jftc_decision < jp_jftc_decisions < kr_fss_sanctions)
+    "jp_jftc_decision": lambda a: {"case_id": a.case_id},
+    "jp_jftc_decisions": lambda a: {"subject": a.subject, "branch": a.branch, "year": a.year,
+                                    "number": a.number, "era": a.era, "page": a.page, "limit": a.limit},
     # 0.3.56 KR 국가법령정보센터 dual-pillar list search (slot: it_arera_decisions < kr_fss_sanctions < kr_law_{precedents,statutes} < lda_filings)
     "kr_fss_sanctions": lambda a: {"org": a.org, "date_from": a.date_from, "date_to": a.date_to,
                                    "layer": a.layer, "limit": a.limit},
@@ -1495,8 +1698,14 @@ FLAT = {
     # 0.3.60 US CBP CROSS pair (dictionary slot: us_cbp_* between ua_nazk_party_reports and us_cftc_enforcement)
     "us_cbp_ruling": lambda a: {"ruling_number": a.ruling_number},
     "us_cbp_stat": lambda a: {},
+    # 0.3.64 batch E6 — CFTC register pair (dictionary slot: us_cftc_dispositions < us_cftc_enforcement < us_cftc_redlist)
+    "us_cftc_dispositions": lambda a: {"page": a.page},
     # 0.3.51 US CFTC enforcement face (dictionary slot: us_cftc between ua_nazk and us_ferc)
     "us_cftc_enforcement": lambda a: {"year": a.year, "page": a.page},
+    # 0.3.65 batch E7 — CFTC OGC opinions register (adjudicatory orders)
+    "us_cftc_opinions": lambda a: {"page": a.page},
+    # 0.3.64 batch E6 — CFTC RED List (registration-deficiency register)
+    "us_cftc_redlist": lambda a: {"page": a.page},
     # 0.3.50 US FERC eLibrary face (dictionary slot: us_ferc between ua_nazk and us_occ)
     "us_ferc_elibrary": lambda a: {"text": a.text, "docket": a.docket, "date_type": a.date_type,
                                    "date_from": a.date_from, "date_to": a.date_to,
@@ -1521,6 +1730,8 @@ COUNTRY = {
     # 0.3.47 AT RIS OGD: data.bka.gv.at is Austria's federal legal register
     "at_ris_judgments": "AT",
     "at_ris_statutes": "AT",
+    # 0.3.63 AU ACCC enforcement actions (slot: at_ris_statutes < au_accc_actions < au_frl_titles)
+    "au_accc_actions": "AU",
     # 0.3.60 AU Federal Register of Legislation (slot: at_ris_statutes < au_frl_titles < br_bacen_complaints)
     "au_frl_titles": "AU",
     "br_bacen_complaints": "BR",
@@ -1565,11 +1776,17 @@ COUNTRY = {
     "gb_ec_donations": "GB",
     "gb_ec_loans": "GB",
     "gb_gazette_notices": "GB",
+    # 0.3.64 batch E6 — UK NMW naming-scheme pair (slot: gb_gazette_notices < gb_nmw_* < gb_tna_*)
+    "gb_nmw_round": "GB",
+    "gb_nmw_rounds": "GB",
     "gb_tna_caselaw_judgment": "GB",
     "gb_tna_caselaw_search": "GB",
     "idb_debarred_entities": "GLOBAL",
     "ie_revenue_defaulters": "IE",
     "ie_sipo_lobbying": "IE",
+    # 0.3.63 IN CCI dual registers (slot: ie_sipo_lobbying < in_cci_* < in_indiacode_search)
+    "in_cci_antitrust_orders": "IN",
+    "in_cci_combinations": "IN",
     "in_indiacode_search": "IN",
     "in_sebi_orders": "IN",
     # 0.3.60 IT AGCM triplet (slot: in_sebi_orders < it_agcm_* < it_arera_decisions)
@@ -1577,6 +1794,9 @@ COUNTRY = {
     "it_agcm_rating": "IT",
     "it_agcm_ricerca_provvedimenti": "IT",
     "it_arera_decisions": "IT",
+    # 0.3.63 JP JFTC case database pair (slot: it_arera_decisions < jp_jftc_* < kr_fss_sanctions — JP's first legal faces)
+    "jp_jftc_decision": "JP",
+    "jp_jftc_decisions": "JP",
     # 0.3.56 KR 국가법령정보센터 dual-pillar list search (slot: it_arera_decisions < kr_fss_sanctions < kr_law_{precedents,statutes} < lda_filings)
     "kr_fss_sanctions": "KR",
     "kr_law_precedents": "KR",
@@ -1602,7 +1822,11 @@ COUNTRY = {
     # 0.3.60 US CBP CROSS pair (slot: ua_nazk_party_reports < us_cbp_* < us_cftc_enforcement)
     "us_cbp_ruling": "US",
     "us_cbp_stat": "US",
+    # 0.3.64 batch E6 — CFTC register pair (slot: us_cftc_dispositions < us_cftc_enforcement < us_cftc_redlist)
+    "us_cftc_dispositions": "US",
     "us_cftc_enforcement": "US",
+    "us_cftc_opinions": "US",
+    "us_cftc_redlist": "US",
     "us_ferc_elibrary": "US",
     "us_occ_ea_search": "US",
     "us_occ_enforcements": "US",

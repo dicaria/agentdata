@@ -284,14 +284,14 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
 | company | `gleif_direct_parent` | GLOBAL | `related kind=parent` (merged face, split in two in 0.2.1) | `gleif` | local | 30 days (ownership chains change rarely) | Wave 1 ✅ |
 | company | `gleif_ultimate_parent` | GLOBAL | `related kind=parent` (merged face, split in two in 0.2.1) | `gleif` | local | 30 days (ownership chains change rarely) | Wave 1 ✅ |
 | company | `fdic_institutions` | US | `resolve kind=cert` | `fdic-bankfind` | local | 30 days (registration master changes slowly) | Wave 1 ✅ |
-| company | `sec_submissions` | US | `resolve kind=cik` | `edgar-cik` | local | 7 days (identity current values/filing counts can change) | Wave 2 ✅ |
+| company | `us_sec_submissions` | US | `resolve kind=cik` | `edgar-cik` | local | 7 days (identity current values/filing counts can change) | Wave 2 ✅ |
 | company | `ror_organizations` | GLOBAL | `resolve kind=ror` | `ror` | local | search 7 days / single record 30 days (quarterly releases) | Wave 3 ✅ |
 | company | `vies_vat` | EU | `resolve kind=vat` | `vies` | local | 7 days (validation verdict; masked name/address recorded as null) | Wave 4 ✅ |
 | company | `usaspending_spending_by_award` | US | `related kind=fed_awards` | `usaspending` | local | 24 hours | Wave 1 ✅ |
 | company | `ted_notices_search` | EU | `related kind=eu_tenders` | `ted` | local | 24 hours (notice stream updates daily) | Wave 4 ✅ |
 | company | `gb_fts_release_packages` | GB | `related kind=uk_tenders` | `fts` | local | 24 hours (releases roll continuously) | Wave 4 ✅ |
 | company | `gb_contracts_finder_published_notices` | GB | `related kind=uk_cf_tenders` | `cf` | local | 24 hours (releases roll continuously) | Wave 4 ✅ |
-| company | `sec_fulltext_search` | US | `fulltext` | `edgar-fts` | local | 24 hours | Wave 1 ✅ |
+| company | `us_sec_fulltext_search` | US | `fulltext` | `edgar-fts` | local | 24 hours | Wave 1 ✅ |
 | company | `ch_zefix_firm_search` | CH | —— (born flat) | `ch_zefix` | local | 7 days (current-value query) | 0.3.3 ✅ |
 | company | `ch_zefix_firm` | CH | —— (born flat) | `ch_zefix` | local | 30 days (profiles/M&A edges change slowly) | 0.3.3 ✅ |
 | company | `no_brreg_enheter` | NO | —— (born flat) | `no_brreg` | local | 7 days (current-value query) | 0.3.3 ✅ |
@@ -869,7 +869,67 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   sliding-window sanction register under a second provider id (the 0.3.44 company face keeps
   `es_cnmv`), and the KR FSS xlsx POST×bytes register (letter-keyed cells, 1,245 PDF-carried
   rows answer honest nulls); NL/ES/KR deepened only, zero new jurisdictions (35 held); see
-  changelog entry 99)
+  changelog entry 99) → **0.3.63, 242 faces** (legal +`jp_jftc_decisions`/`jp_jftc_decision`/
+  `in_cci_antitrust_orders`/`in_cci_combinations`/`au_accc_actions`: the API-expansion
+  batch E5 depth wave — the JFTC decision pair behind the UA gate and the CSRF token/cookie
+  pair dance (era tables R/H/S, full-width event numbers — JP's first legal faces), the CCI
+  token-misalignment registers pair (DataTables POST channel with the GET-405 twin trap, XYZ
+  masking kept verbatim), and the ACCC lazy-views actions feed (/views/ajax two-hop, f[]
+  array form, WAF rows-window cooldown self-heals in ~25 min); AU/IN/JP deepened only, zero
+  new jurisdictions (35 held); see changelog entry 100) → **0.3.64, 246 faces** (legal
+  +`gb_nmw_rounds`/`gb_nmw_round`/`us_cftc_redlist`/`us_cftc_dispositions`: the API-expansion
+  batch E6 — the negative-list batch; the UK NMW "named and shamed" pair (the search API
+  pinned to the register's own query as the discovery face, the press-release HTML as the
+  dossier face because the content API body is empty for these pages — attachments live only
+  in the HTML, names carry no year suffix) and the CFTC pair extending us_cftc in place (the
+  RED List's 284 unregistered entities alphabetical with items_per_page decorative, the
+  reparation decisions anchoring the PDF itself with dockets riding the blurb); GB/US
+  deepened only, zero new jurisdictions (35 held); same-day re-probes negative — uk_ico's
+  Cloudflare challenge now covers the sitemap, us_fcc still the 387B stub; see changelog
+  entry 101) → **0.3.65, 247 faces** (legal
+  +`us_cftc_opinions`: batch E7 single-face deepening — the OGC Opinions & Adjudicatory
+  Orders register, the appeals layer above the dispositions court; dual-era PDF paths kept
+  verbatim (recent /sites/default/files/YYYY/MM/ + the legacy /idc/groups/public/
+  %40lropinionsandadjudicaryorders/ — %40 is the encoded @ and "adjudicary" the upstream's
+  own misspelling, never normalized), multi-docket rows' "CFTC Docket Nos. …; and …" list
+  captured whole as one docket_no, and the legacy docket shapes tolerated (CFTC prefix
+  dropped / non-R numbering / NFA space pairs) while dispositions' shared regex stays
+  CFTC-anchored; US deepened only, zero new jurisdictions (35 held); survey negatives —
+  kr_ftc reorganized off its boards, TED v3 search 429s with key risk, and Climate TRACE
+  turned out already shipped since the 0.2.6 era (a stale roadmap row, not a candidate);
+  see changelog entry 102) → **0.3.66, 251 faces** (company
+  +`us_sec_companyconcept`/`us_sec_companyfacts`/`us_sec_frames`/`us_sec_tickers`: batch E8 — the
+  2026-10-19 deferral REOPENED by the 2026-11-17 user ruling (the local XBRL bulk the ruling
+  leaned on was lost with the E: drive; the MCP/OmniHub PATH_ALLOWLIST surface carries no
+  financial-data paths); one keyless provider `edgar_xbrl` on data.sec.gov with the tickers
+  op riding an ABSOLUTE path to www.sec.gov (one provider id, two hosts, each with its own
+  polite bucket); three live laws baked in — concept drift (Revenues dead after 2018 →
+  RevenueFromContractWithCustomerExcludingAssessedTax, Apple lacks EarningsPerShareDiluted,
+  tags verbatim, absence a legal answer), fy/fp stamps the FILING not the fact period, and
+  the CY frame closed set; rate 5/5 with edgar_cik 5 = the official 10 req/s (§7 exception
+  register's third member); US deepened only, zero new jurisdictions (35 held); see changelog
+  entry 103)
+→ **0.3.67, 251 faces** (company `us_sec_fulltext_search` --census: batch E9 — the premium
+  §9.6 fix ticket; faces/providers/jurisdictions all held (a mode on an existing face); the
+  full-window sweep — date bisection until every leaf exact, every page harvested
+  (from-offset/100-page; the upstream ignores page/offset/start), _id/adsh dedup, plus
+  --census-entity (local whole-word entity post-filter — company:"..." is not a
+  server-side field filter) and --census-max-requests (default 400, loud exhaustion);
+  reference-date anchors 87/37/54 = strict supersets of the hand 47/33/43 with transparent
+  composition; see changelog entry 104)
+→ **0.3.68, 256 faces** (company +`ch_six_fqs_search`/`eu_euronext_instrument_search`/
+  `it_borsa_quote`/`jp_jpx_stock_detail`/`jp_jpx_stock_list`: batch E10 — the developed-economy
+  exchange faces, +4 providers, 35 jurisdictions held, the first Italian company face; SIX FQS
+  column oracle (invalid select names 400-rejected — refused locally; price columns opt-in under
+  the SIX commercial-use caveat), the Euronext venue resolver (one ISIN many MICs, join on
+  ISIN+MIC, zero-hit sentinel row dropped), the Borsa ISIN card (slug decorative, lang pinned
+  it, silent generic-page shape → found=false never fabricated, IT number parsing, and the
+  breadcrumb-bridge extraction law that falsified the content-negotiation theory), the JPX
+  qjsonp pair behind its Referer door (4,490-name universe with board + 33-sector industry,
+  57-field issue card with embedded OHLCV/EPS history); two same-day upstream flips deferred
+  with probe evidence — Wiener Börse TLS (a *.factsetdigitalsolutions.com cert on both hosts)
+  and TMX (tsx.com flipped to an AWS WAF JS challenge after the morning's green probes; urllib
+  cannot execute challenge JS); see changelog entry 105)
 
 - openFDA query faces **deferred by user ruling** (2026-10-16: FAERS/MAUDE are already harvested and ingested locally, so queries consume the local corpus first; third-party real-time faces wait until an incremental question touches them) — the deferral covers **only the locally ingested FAERS/MAUDE faces**; the `drug/shortages.json` face opened in Wave 5 is an event-stream face not harvested locally, outside the deferral's scope (opened 2026-10-23 as soon as the incremental need arose, see changelog entry 23). The first hosted case awaits a keyed-tool proposal — keys are never shipped down to the SDK (§9.2).
 

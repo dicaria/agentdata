@@ -267,3 +267,71 @@ def render(caps, fmt="json"):
     if fmt == "md":
         return _md(caps)
     return json.dumps(caps, ensure_ascii=False, indent=2)
+
+
+# ---------- hosted meta (premium family; 2026-11-16 MVP) ----------
+# The gateway serves a hosted artifact (/v1/meta/faces — keyless index; /v1/meta/faces/{face} —
+# full record, PAT) that is this same reflection surface joined with the operational registry
+# (provider/rate/ttl per face). `capabilities --remote` pulls it and reports drift against the
+# local tree: hosted-only faces mean the installed SDK is behind (`pip install -U agentdata`);
+# local-only faces mean the hosted artifact was not regenerated with the release. Premium is
+# part of the SDK surface by construction — the hosted layer is a deployment of it, not a
+# separate product.
+
+_META_ENV = "AGENTDATA_META_BASE_URL"
+
+
+def hosted_meta_fetch(path, api_key=None, timeout=15.0):
+    """GET one /v1/meta endpoint from the gateway (AGENTDATA_META_BASE_URL).
+
+    https required; http is tolerated only on loopback (local testing). Index reads are
+    keyless; a single face's full record takes a Bearer PAT (AGENTDATA_API_KEY)."""
+    import os
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    from .errors import SdkError
+
+    base = os.environ.get(_META_ENV, "").strip()
+    if not base:
+        raise SdkError("usage_error", detail=(
+            "--remote needs the env " + _META_ENV + " (the Dicaria gateway, e.g. "
+            "https://api.dicaria.com; local tests may point it at http://127.0.0.1:5200)"))
+    parts = urllib.parse.urlsplit(base)
+    loopback = (parts.hostname or "") in ("127.0.0.1", "localhost", "::1")
+    if parts.scheme != "https" and not (loopback and parts.scheme == "http"):
+        raise SdkError("usage_error", detail=(
+            _META_ENV + " must be https (http is only accepted on loopback for testing): " + base))
+    url = base.rstrip("/") + path
+    headers = {"Accept": "application/json"}
+    if api_key:
+        headers["Authorization"] = "Bearer " + api_key
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            doc = json.loads(e.read().decode("utf-8"))
+        except Exception:
+            doc = {}
+        message = (doc.get("error") or {}).get("message") or e.reason
+        raise SdkError("usage_error" if e.code < 500 else "upstream_error",
+                       detail=f"meta endpoint {path} -> HTTP {e.code}: {message}")
+    except urllib.error.URLError as e:
+        raise SdkError("upstream_error", detail=f"meta endpoint unreachable: {getattr(e, 'reason', e)}")
+
+
+def hosted_drift(local_caps, hosted_index):
+    """Local reflection vs hosted artifact. Both directions are actionable, so both are named."""
+    local = {f["face"]: d["domain"] for d in local_caps["realtime"] for f in d["faces"]}
+    hosted = {f["face"]: f.get("domain") for f in hosted_index.get("faces", [])}
+    return {
+        "in_sync": set(local) == set(hosted),
+        "local_sdk_version": local_caps.get("sdk_version"),
+        "hosted_sdk_version": hosted_index.get("sdk_version"),
+        "counts": {"local": len(local), "hosted": len(hosted)},
+        "hosted_only": sorted(set(hosted) - set(local)),  # installed SDK behind → pip install -U agentdata
+        "local_only": sorted(set(local) - set(hosted)),   # hosted artifact stale → regenerate on release
+    }

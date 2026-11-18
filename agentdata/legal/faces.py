@@ -852,6 +852,75 @@ class LegalFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    # ---------- 0.3.64 batch E6 — UK NMW naming-scheme pair (dictionary slot: gb_gazette_notices < gb_nmw_round < gb_nmw_rounds < gb_tna_caselaw_judgment) ----------
+
+    def gb_nmw_rounds(self, *, count=20, start=0, execution=None, no_cache=None):
+        """legal gb_nmw_rounds: the UK National Minimum Wage naming-scheme rounds index
+        (gov.uk search API, keyless, OGL; the register's own discovery query pinned:
+        "named and shamed" "minimum wage" + press_release, newest first). 41 results live
+        (Round 22 2026-01-19 at top — 492 employers, £6M repaid); the full history walks
+        back through start= offsets. Not every hit is a numbered round (rate-reminder and
+        statistics releases ride the same query — titles tell them apart, kept verbatim).
+        The named-employers xlsx rides each round's detail face as a coordinate, never
+        bytes (the EUASL precedent)."""
+        self._lg_only("gb_nmw_rounds")
+        r = legal.gb_nmw.rounds_raw(count=count, start=start,
+                                    cache=self._c._cache,
+                                    no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if result["rows"]:
+            reason = (f"NMW naming-scheme rounds ({result['limit_applied']}/page, offset {start}): "
+                      f"{result['count']} rows of {result['total']} — newest first; the numbered "
+                      f"rounds carry the named-employers list as an xlsx attachment (Round 22 = "
+                      f"492 employers × 15 columns with three-tier ONS SIC codes)")
+        else:
+            reason = (f"NMW naming-scheme rounds (offset {start}): zero rows — the offset is past "
+                      f"the {result['total']}-result register")
+        return self._flat_env(
+            tool="gb_nmw_rounds",
+            input={"count": result["limit_applied"], "start": start},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x['public_timestamp'][:10] if x['public_timestamp'] else '—'} — "
+                               f"{(x['title'] or '')[:110]}",
+                       "url": x["url"]}
+                      for x in result["rows"][:5]],
+            provider_id="gb_nmw", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def gb_nmw_round(self, slug, *, execution=None, no_cache=None):
+        """legal gb_nmw_round: one naming-scheme round's dossier (gov.uk press-release
+        page, keyless, OGL): title/description/published/updated + xlsx_urls — the
+        coordinate(s) of the official named-employers list on
+        assets.publishing.service.gov.uk (Round_22_NMW_Naming_Scheme__List_of_employers_
+        as_of_16_October.xlsx; attachment names carry NO year suffix — hand-assembling
+        them 404s). The content API body is empty for these pages (the attachment exists
+        only in the HTML); a release with no list (rate reminders) answers xlsx_urls=[]
+        honestly."""
+        self._lg_only("gb_nmw_round")
+        r = legal.gb_nmw.round_raw(slug, cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if result["xlsx_urls"]:
+            reason = (f"NMW round {result['slug']}: {len(result['xlsx_urls'])} named-employers "
+                      f"list(s) on the assets host — the official list is the xlsx body "
+                      f"(batch line); published {result['published'] or '—'}")
+        else:
+            reason = (f"NMW round {result['slug']}: no xlsx attachment — not a numbered round "
+                      f"(a rate-reminder or statistics release riding the same query)")
+        return self._flat_env(
+            tool="gb_nmw_round",
+            input={"slug": result["slug"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{(result['title'] or '')[:110]} · "
+                               f"{len(result['xlsx_urls'])} xlsx · {result['published'] or '—'}",
+                       "url": result["xlsx_urls"][0] if result["xlsx_urls"] else result["url"]}],
+            provider_id="gb_nmw", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"slug": result["slug"]}},
+        )
+
     def ie_revenue_defaulters(self, part=None, *, year=None, month=None,
                               execution=None, no_cache=None):
         """legal ie_revenue_defaulters: Irish Revenue List of Defaulters (revenue.ie, keyless; the
@@ -2340,6 +2409,38 @@ class LegalFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    # ---------- 0.3.64 batch E6 — CFTC register pair (dictionary slot: us_cftc_dispositions < us_cftc_enforcement < us_cftc_redlist) ----------
+
+    def us_cftc_dispositions(self, *, page=0, execution=None, no_cache=None):
+        """legal us_cftc_dispositions: the CFTC reparations-decisions register
+        (www.cftc.gov Drupal views, keyless; complainant v. registrant captions —
+        "David Kaminski v. TradeStation Securities, Inc."). 46 pages × 10 ≈456 rows,
+        newest-first (2026-10-26 live top); each row's anchor IS the decision PDF
+        (/sites/default/files/YYYY/MM/) and the docket number rides the blurb cell
+        (CFTC Docket No. 25-R016). page is 0-based upstream verbatim."""
+        self._lg_only("us_cftc_dispositions")
+        r = legal.us_cftc.dispositions_raw(page=page, cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if result["rows"]:
+            reason = (f"CFTC reparation decisions (page {result['page']}): {result['count']} rows — "
+                      f"the register runs ~456 decisions over 46 pages (0..45), newest first; each "
+                      f"row anchors its decision PDF and the docket number (e.g. 25-R016)")
+        else:
+            reason = (f"CFTC reparation decisions (page {result['page']}): zero rows — a page past "
+                      f"the live end (0..45)")
+        return self._flat_env(
+            tool="us_cftc_dispositions",
+            input={"page": result["page"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"[{x['docket_no'] or '—'}] {x['date']} — {x['title'][:100]}",
+                       "url": "https://www.cftc.gov" + str(x["pdf_path"] or "")}
+                      for x in result["rows"][:5]],
+            provider_id="us_cftc", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
     def us_cftc_enforcement(self, year=None, *, page=0, execution=None, no_cache=None):
         """legal us_cftc_enforcement: CFTC enforcement-actions index (www.cftc.gov Drupal
         views, keyless; the commission's full history 1995→2026, ≈2,610 actions over ~261
@@ -2374,6 +2475,73 @@ class LegalFaces:
             evidence=[{"quote": f"[{x['release_number']}] {x['date']} — {x['title'][:110]}"
                                 + (f" · {len(x['related_docs'])} docs" if x["related_docs"] else ""),
                        "url": "https://www.cftc.gov" + str(x["release_path"] or "")}
+                      for x in result["rows"][:5]],
+            provider_id="us_cftc", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def us_cftc_opinions(self, *, page=0, execution=None, no_cache=None):
+        """legal us_cftc_opinions: the CFTC OGC Opinions & Adjudicatory Orders register
+        (www.cftc.gov Drupal views, keyless; reparations appeals and initial decisions,
+        parties-first captions — "Eric Thompson, Jonathan Morse, … v. …"). ≈87 rows over
+        9 pages (0..8) of 10, date-descending 2012→2025. DUAL-ERA PDF paths verbatim:
+        recent rows /sites/default/files/YYYY/MM/, older rows the legacy /idc/groups/
+        public/%40lropinionsandadjudicaryorders/ path (%40=@; "adjudicary" is the
+        upstream's own misspelling). The docket number rides inline in the blurb
+        ("CFTC Docket No. 23-R001"); rows without one report None. page is 0-based
+        upstream verbatim."""
+        self._lg_only("us_cftc_opinions")
+        r = legal.us_cftc.opinions_raw(page=page, cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if result["rows"]:
+            reason = (f"CFTC opinions & adjudicatory orders (page {result['page']}): "
+                      f"{result['count']} rows — ≈87 decisions over 9 pages (0..8), newest "
+                      f"first (2012→2025); anchors are dual-era decision PDFs and the docket "
+                      f"number rides inline in the caption")
+        else:
+            reason = (f"CFTC opinions & adjudicatory orders (page {result['page']}): zero rows "
+                      f"— a page past the live end (0..8)")
+        return self._flat_env(
+            tool="us_cftc_opinions",
+            input={"page": result["page"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"[{x['docket_no'] or '—'}] {x['date']} — {x['title'][:100]}",
+                       "url": "https://www.cftc.gov" + str(x["pdf_path"] or "")}
+                      for x in result["rows"][:5]],
+            provider_id="us_cftc", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def us_cftc_redlist(self, *, page=0, execution=None, no_cache=None):
+        """legal us_cftc_redlist: the CFTC RED List — registration-deficiency register
+        (www.cftc.gov Drupal views, keyless): unregistered FOREIGN entities the commission
+        has charged or settled with (forex/derivatives solicitations). Complementary to
+        OFAC CSL — a non-sanctions, unregistered-entity negative register. 29 pages × 10,
+        last page 4 rows → 284 entities live; the register's own order is ALPHABETICAL by
+        company (Date Entered scatters 2015→2023 within a page); each row anchors a Drupal
+        node detail page (/REDlist/node/<id>, titled "RED List: <name>"). ?items_per_page
+        is decorative (a widened ask answers zero rows — page size stays 10)."""
+        self._lg_only("us_cftc_redlist")
+        r = legal.us_cftc.redlist_raw(page=page, cache=self._c._cache,
+                                      no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if result["rows"]:
+            reason = (f"CFTC RED List (page {result['page']}): {result['count']} rows — 284 "
+                      f"unregistered entities over 29 alphabetical pages (0..28); names anchor "
+                      f"their /REDlist/node detail pages; dates are entry dates, scattered by "
+                      f"name order (2015→2023)")
+        else:
+            reason = (f"CFTC RED List (page {result['page']}): zero rows — a page past the "
+                      f"alphabetical end (0..28)")
+        return self._flat_env(
+            tool="us_cftc_redlist",
+            input={"page": result["page"]},
+            reason=reason,
+            result=result,
+            evidence=[{"quote": f"{x['name']} — entered {x['date']}",
+                       "url": "https://www.cftc.gov" + str(x["node_path"] or "")}
                       for x in result["rows"][:5]],
             provider_id="us_cftc", metas=[r["_meta"]],
             query={"source": "raw", "upstream": r["params"]},
@@ -3168,5 +3336,197 @@ class LegalFaces:
                        "url": "https://www.fss.or.kr/fss/job/openInfo/list.do?menuNo=200476"}
                       for x in rows[:5]],
             provider_id="kr_fss", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result.get("params", {})},
+        )
+
+    def jp_jftc_decisions(self, subject=None, branch=None, year=None, number=None,
+                          era="R", page=1, *, limit=20, execution=None, no_cache=None):
+        """legal jp_jftc_decisions: the Japan FTC 審決・判決 database search
+        (snk.jftc.go.jp DC004, keyless but UA-fingerprinted + Laravel CSRF):
+        the JFTC's own case search over 6,220 rows (2026-11-16). Rows carry
+        rank, the DC005 case_id, title, the type span (決定/審決/判決/排除命令/
+        課徴金納付命令), court, 事件番号, the era 処分年月日 normalized to ISO
+        (令和08年02月20日 → 2026-02-20; R=2018+n / H=1988+n / S=1925+n), 適用法条,
+        the pdf_url + KB and the two inline 概要 blocks. subject = 被審人 slots
+        (1-5, upstream dsubject[0-4] — ソニー → 14 rows); branch = the
+        case-class token (J01 判 / J03 納 / J05 訟…); year/number = the event
+        no. --page is 1-BASED, 10 rows/page (maxOnePageItem is NOT honoured
+        upstream — measured). The session bootstrap caches {token, cookie}
+        together; a stale pair 419s and the face re-bootstraps once."""
+        self._lg_only("jp_jftc_decisions")
+        r = legal.jp_jftc.decisions_raw(subject, branch, year, number, era, page,
+                                        limit=limit, cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        if rows:
+            s = rows[0]
+            reason = (f"JFTC decisions: {result['total_matched']:,} rows upstream, page "
+                      f"{result['page']}/{result['pages'] or '?'} (10/page, 1-based) — sample "
+                      f"{(s.get('disposal_date_iso') or '—')} {s.get('type') or '—'} "
+                      f"{(s.get('title') or '')[:60]}")
+        else:
+            reason = (f"JFTC decisions: zero rows on page {result.get('page')} — a subject "
+                      f"slot/branch/event-no with no match (ソニー → 14; bare sweep → 6,220)")
+        return self._flat_env(
+            tool="jp_jftc_decisions",
+            input={"subject": subject, "branch": branch, "year": year, "number": number,
+                   "era": era, "page": page, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('rank')} · {x.get('event_no') or '—'} · "
+                                f"{x.get('disposal_date_iso') or '—'} · {(x.get('title') or '')[:60]}",
+                       "url": x.get("url")} for x in rows[:5]],
+            provider_id="jp_jftc", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result.get("params", {})},
+        )
+
+    def jp_jftc_decision(self, case_id, *, execution=None, no_cache=None):
+        """legal jp_jftc_decision: ONE JFTC case full text (snk.jftc.go.jp DC005,
+        keyless + fingerprint suite): the h_cont structured header (title, 適用法条
+        + court, 事件番号 — full-width digits upstream, verbatim kept — the h3
+        section 決定/審決/判決 + its era date as ISO, the parties block verbatim
+        INCLUDING the 《氏名》 official anonymization, the judge panel) plus the
+        full 主文+事実及び理由 text. case_id = the DC005 path token from
+        jp_jftc_decisions rows (e.g. R080220R07G05000194K). PDFs live on the
+        list row (a.pdf_dl), not the detail page."""
+        self._lg_only("jp_jftc_decision")
+        r = legal.jp_jftc.decision_raw(case_id, cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        reason = (f"JFTC decision {result.get('case_id')}: {result.get('title') or '—'}"
+                  + (f" · {result.get('section')} {result.get('section_date_iso') or ''}" if result.get("section") else "")
+                  + (f" · {result.get('law')}" if result.get("law") else "")
+                  + f" · text {len(result.get('text') or '')} chars")
+        return self._flat_env(
+            tool="jp_jftc_decision",
+            input={"case_id": result.get("params", {}).get("case_id")},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{k}: {str(v)[:90]}", "url": result.get("url")}
+                      for k, v in (("title", result.get("title")),
+                                   ("event_no", result.get("event_no")),
+                                   ("law", result.get("law")),
+                                   ("section", result.get("section")),
+                                   ("judges", result.get("judges"))) if v],
+            provider_id="jp_jftc", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result.get("params", {})},
+        )
+
+    def in_cci_antitrust_orders(self, q=None, case_no=None, order_type=None, page=1, *,
+                                limit=20, execution=None, no_cache=None):
+        """legal in_cci_antitrust_orders: the Competition Commission of India
+        antitrust order register (www.cci.gov.in /antitrust/orders/list, keyless
+        but Laravel CSRF'd — the DataTables POST replayed byte-equal with
+        tab_type=antitrust and the 5 measured columns; 1,246 rows on
+        2026-11-16). Rows carry case_no, the Act section, the order type
+        ('Anti-trust Section 19 (1)'), the description VERBATIM — recent rows
+        read 'XYZ' because the parties live in the order PDF, never guessed —
+        the dd/mm/yyyy dates and the attachment JSON (title/file/KB) plus the
+        /orders/details direct links. q rides search[value] (upstream-global);
+        case_no/order_type are page-local substrings."""
+        self._lg_only("in_cci_antitrust_orders")
+        r = legal.in_cci.antitrust_orders_raw(q, case_no, order_type, page, limit=limit,
+                                              cache=self._c._cache,
+                                              no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        if rows:
+            s = rows[0]
+            reason = (f"CCI antitrust orders: {result['total_records']:,} rows upstream, page "
+                      f"{result['page']}/{result['pages'] or '?'} — sample "
+                      f"{s.get('case_no')} {s.get('section') or '—'} "
+                      f"{(s.get('description') or '')[:60]}")
+        else:
+            reason = ("CCI antitrust orders: zero rows on this page for the filters — "
+                      "q is upstream-global, case_no/order_type page-local")
+        return self._flat_env(
+            tool="in_cci_antitrust_orders",
+            input={"q": q, "case_no": case_no, "order_type": order_type,
+                   "page": page, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('case_no')} · {x.get('section') or '—'} · "
+                                f"{x.get('order_date')} · {(x.get('description') or '')[:70]}",
+                       "url": (x.get("detail_urls") or [None])[0]} for x in rows[:5]],
+            provider_id="in_cci", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result.get("params", {})},
+        )
+
+    def in_cci_combinations(self, party=None, status=None, form_type=None, q=None,
+                            page=1, *, limit=20, execution=None, no_cache=None):
+        """legal in_cci_combinations: the CCI combination-order register
+        (www.cci.gov.in /combination/orders-section31, keyless + CSRF — the
+        DataTables GET replayed byte-equal with the 9 measured columns; the
+        POST answers 405; 1,491 rows on 2026-11-16). Rows carry combination_no
+        ('C-2026/10/1485'), party_name (real parties here, not XYZ), the form
+        (I/II/III), order_type (Green Channel Notices…), notification/
+        decision dates and the summary/order attachments. party rides the
+        upstream searchString; status/form_type pass through verbatim."""
+        self._lg_only("in_cci_combinations")
+        r = legal.in_cci.combinations_raw(party, status, form_type, q, page, limit=limit,
+                                          cache=self._c._cache,
+                                          no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        if rows:
+            s = rows[0]
+            reason = (f"CCI combinations: {result['total_records']:,} rows upstream, page "
+                      f"{result['page']}/{result['pages'] or '?'} — sample "
+                      f"{s.get('combination_no')} {s.get('form_type') or '—'} "
+                      f"{(s.get('party_name') or '')[:60]}")
+        else:
+            reason = ("CCI combinations: zero rows on this page for the filters — "
+                      "party/searchString upstream, status/form_type verbatim")
+        return self._flat_env(
+            tool="in_cci_combinations",
+            input={"party": party, "status": status, "form_type": form_type,
+                   "q": q, "page": page, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('combination_no')} · {x.get('order_type') or '—'} · "
+                                f"{(x.get('party_name') or '')[:70]}",
+                       "url": (x.get("detail_urls") or [None])[0]} for x in rows[:5]],
+            provider_id="in_cci", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result.get("params", {})},
+        )
+
+    def au_accc_actions(self, topic=None, q=None, page=0, action_type=None, *,
+                        limit=20, execution=None, no_cache=None):
+        """legal au_accc_actions: the ACCC enforcement-actions stream
+        (www.accc.gov.au news-centre, keyless but UA-fingerprinted + Drupal
+        lazy views — the listing renders form + filtered pager but an EMPTY
+        view-content; the rows exist only through GET /views/ajax, the
+        viewsAjaxHistory module's own hop with the full exposed-input shape).
+        Topic 12039 = Compliance and enforcement (~3,106 items /
+        125 pages, 25 cards/page on 2026-11-16): media releases, speeches and
+        updates with the accc-date-card shape — data_url path (the item key),
+        ribbon type (Media release / Speech / Update), publish day-month-year
+        as ISO, the h2 title (entities unescaped), the acccgov-summary and
+        the topic badges. --page is 0-BASED; --type news|update selects the
+        content-type tab; q is a page-local substring."""
+        self._lg_only("au_accc_actions")
+        r = legal.au_accc.actions_raw(topic, q, page, action_type, limit=limit,
+                                      cache=self._c._cache,
+                                      no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        if rows:
+            s = rows[0]
+            reason = (f"ACCC actions: page {result['page']} of {result['pages'] or '?'} "
+                      f"({result['page_size']} cards/page, topic "
+                      f"{result['params'].get('topic')}) — sample "
+                      f"{s.get('date_iso') or '—'} {s.get('item_type') or '—'} "
+                      f"{(s.get('title') or '')[:55]}")
+        else:
+            reason = ("ACCC actions: zero rows on this page — the upstream lazy views "
+                      "sometimes gates the /views/ajax rows window (form+pager still "
+                      "render); walk pages, drop q, or retry later — the search box is "
+                      "page-local either way")
+        return self._flat_env(
+            tool="au_accc_actions",
+            input={"topic": topic, "q": q, "page": page,
+                   "action_type": action_type, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('date_iso') or '—'} · {x.get('item_type') or '—'} · "
+                                f"{(x.get('title') or '')[:80]}",
+                       "url": x.get("url")} for x in rows[:5]],
+            provider_id="au_accc", metas=[r["_meta"]],
             query={"source": "raw", "upstream": result.get("params", {})},
         )

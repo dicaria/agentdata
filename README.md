@@ -3,15 +3,15 @@
 [![PyPI](https://img.shields.io/pypi/v/agentdata)](https://pypi.org/project/agentdata/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/dicaria/agentdata/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![Commands](https://img.shields.io/badge/237_commands-9_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
+[![Commands](https://img.shields.io/badge/256_commands-9_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
 
-**One Python client and CLI over 237 public datasets — company registries,
+**One Python client and CLI over 256 public datasets — company registries,
 sanctions lists, procurement awards, drug approvals — with no API keys and no
 accounts.**
 
 Government data holds the decisive facts about companies, but it is scattered
-across 164 public APIs, each with its own pagination, rate
-limits, and undocumented quirks. **agentdata puts 237 of those datasets behind
+across 173 public APIs, each with its own pagination, rate
+limits, and undocumented quirks. **agentdata puts 256 of those datasets behind
 one interface**: a pure-standard-library client and CLI across 35 jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
 and caching are built in.
 
@@ -21,18 +21,18 @@ and caching are built in.
 python -m pip install agentdata
 ```
 
-For a reproducible install, pin the release: `python -m pip install agentdata==0.3.62`.
+For a reproducible install, pin the release: `python -m pip install agentdata==0.3.68`.
 
 Prefer not to touch PyPI? Install straight from a release tarball:
 
 ```bash
-python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.62.tar.gz
+python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.68.tar.gz
 ```
 
 Or via git (pin a tag for reproducible installs):
 
 ```bash
-python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.62
+python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.68
 ```
 
 Or track the latest release (convenience for agents and scripts — a fresh
@@ -165,7 +165,7 @@ You can — and then you get to rediscover what is already pinned here:
 - **Quirks are pre-solved, not rediscovered.** Every command encodes traps we
   hit against the live API: anti-forgery token dances, Socrata parameters that
   are silently ignored, registries that clamp your page size without an error.
-- **One envelope across all 237 commands.** Query echo, `reason`, `evidence`,
+- **One envelope across all 256 commands.** Query echo, `reason`, `evidence`,
   source metadata, `jurisdiction` — your code parses one shape.
 - **Upstream parameter names, verbatim.** What the official API docs call a
   parameter is what the SDK takes — no invented vocabulary to unlearn.
@@ -176,15 +176,15 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Coverage
 
-**237 datasets · 164 upstream providers · 35 jurisdictions:** US 57 · global 40 · EU 17 · UK 13 · Canada 12 · Brazil 10 · France 10 · ES 6 · Türkiye 6 · JP 5 · Korea 5 · Switzerland 4 · DE 4 · India 4 · IT 4 · Australia 3 · Colombia 3 · MX 3 · NL 3 · AT 2 · Czechia 2 · EE 2 · Guernsey 2 · Ireland 2 · LV 2 · Norway 2 · New Zealand 2 · PL 2 · RU 2 · SG 2 · UA 2 · DK 1 · Finland 1 · Jersey 1 · Kazakhstan 1.
+**256 datasets · 173 upstream providers · 35 jurisdictions:** US 64 · global 40 · EU 18 · UK 15 · Canada 12 · Brazil 10 · France 10 · JP 9 · ES 6 · India 6 · Türkiye 6 · Switzerland 5 · IT 5 · Korea 5 · Australia 4 · DE 4 · Colombia 3 · MX 3 · NL 3 · AT 2 · Czechia 2 · EE 2 · Guernsey 2 · Ireland 2 · LV 2 · Norway 2 · New Zealand 2 · PL 2 · RU 2 · SG 2 · UA 2 · DK 1 · Finland 1 · Jersey 1 · Kazakhstan 1.
 
 | Domain | Commands | Sources |
 |---|---|---|
-| `company` | 70 | GLEIF, SEC EDGAR, FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses, ACPR Regafi financial-sector register (FR), J-PlatPat IP trio & KIPRIS patents (JP/KR), Unternehmensregister register search (DE), KAP members & disclosures (TR), OEPM BOPI gazette index (ES), INPI accounting ratios (FR), EIOPA IORP pension register (EU), BNDES financing operations (BR) |
+| `company` | 79 | GLEIF, SEC EDGAR (registry, full-text search & the XBRL structured-facts family), FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses, ACPR Regafi financial-sector register (FR), J-PlatPat IP trio & KIPRIS patents (JP/KR), Unternehmensregister register search (DE), KAP members & disclosures (TR), OEPM BOPI gazette index (ES), INPI accounting ratios (FR), EIOPA IORP pension register (EU), BNDES financing operations (BR) |
 | `economy` | 18 | World Bank WDI, Eurostat, ECB reference rates, FRED, WHO xMart, UN Comtrade, ILOSTAT, BLS, BIS, IMF, OECD, Comext |
 | `esg` | 8 | Climate TRACE, EITI, EU ETS (EUTL), EPA FRS, UK FSA food-hygiene ratings (FHRS), SGM mining concessions (MX) |
 | `healthcare` | 34 | US FDA approvals & recalls, ClinicalTrials.gov, RxNav, DailyMed, AccessGUDID, UK MHRA alerts, Health Canada DPD & MDALL, EUDAMED, RASFF & Safety Gate (EU), TGA (AU), Europe PMC, MeSH, US NPPES provider organizations, NAVII facility search (JP), CNES facility register (BR) |
-| `legal` | 77 | US consolidated screening list, eCFR, Federal Register, LDA filings, CourtListener, DG COMP, UK CMA cases, UK Electoral Commission, The Gazette, Irish Revenue defaulters, US OCC enforcement, TNA case law, SIPRI, SIC sanctions (CO), MDB debarment rosters (WB/AfDB/IDB), Canada SEMA, CFPB consumer complaints, SEBI enforcement orders (IN), SPK administrative fines & trading bans (TR), CBR illegal-finance warning register (RU), BACEN special regimes & complaint rankings (BR), RIS case law & consolidated federal law (AT), FERC eLibrary (US), French competition-authority fines (FR), Italian ARERA decisions (IT), CFTC enforcement actions (US), Irish lobbying register (IE), Estonian party-finance disclosures (EE), Ukrainian party-asset register (UA), CNBV sanctions & disciplined servants (MX), Rechtspraak case law (NL), KR statutes & court precedents, BOE gazette table of contents (ES), ASC enforcement & BCSC disciplined (CA), AMF sanctions & transactions (FR), CJEU case-law search (EU), KNAB party finance (LV), EFK party financings & FINMA enforcement news (CH), India Code (IN), Federal Register of Legislation (AU), CADE competition cases (BR), CBSA advance rulings (CA), Bundestag lobby register (DE), Danish FSA supervision archive, AGCM proceedings trio (IT), UOKiK decisions (PL), CBP CROSS rulings (US), administrative-courts judgment archives (FR), OCC EASearch enforcement database (US), ACM publications (NL), CNMV sanctions (ES), FSS sanctions (KR) |
+| `legal` | 87 | US consolidated screening list, eCFR, Federal Register, LDA filings, CourtListener, DG COMP, UK CMA cases, UK Electoral Commission, The Gazette, Irish Revenue defaulters, US OCC enforcement, TNA case law, SIPRI, SIC sanctions (CO), MDB debarment rosters (WB/AfDB/IDB), Canada SEMA, CFPB consumer complaints, SEBI enforcement orders (IN), SPK administrative fines & trading bans (TR), CBR illegal-finance warning register (RU), BACEN special regimes & complaint rankings (BR), RIS case law & consolidated federal law (AT), FERC eLibrary (US), French competition-authority fines (FR), Italian ARERA decisions (IT), CFTC enforcement actions (US), Irish lobbying register (IE), Estonian party-finance disclosures (EE), Ukrainian party-asset register (UA), CNBV sanctions & disciplined servants (MX), Rechtspraak case law (NL), KR statutes & court precedents, BOE gazette table of contents (ES), ASC enforcement & BCSC disciplined (CA), AMF sanctions & transactions (FR), CJEU case-law search (EU), KNAB party finance (LV), EFK party financings & FINMA enforcement news (CH), India Code (IN), Federal Register of Legislation (AU), CADE competition cases (BR), CBSA advance rulings (CA), Bundestag lobby register (DE), Danish FSA supervision archive, AGCM proceedings trio (IT), UOKiK decisions (PL), CBP CROSS rulings (US), administrative-courts judgment archives (FR), OCC EASearch enforcement database (US), ACM publications (NL), CNMV sanctions (ES), FSS sanctions (KR), JFTC decision database (JP), CCI antitrust orders & combinations registers (IN), ACCC actions feed (AU), NMW naming-scheme rounds & single-round dossiers (UK), CFTC RED List & reparation decisions (US), CFTC OGC opinions & adjudicatory orders (US) |
 | `procurement` | 7 | PNCP (BR), SECOP II (CO), UNGM, World Bank, New York Authorities / MTA / OGS (US) |
 | `research` | 10 | OpenAlex, NIH RePORTER, NSF, Crossref, UKRI GtR, iCite, bioRxiv, OpenCitations |
 | `security` | 4 | OSV, CISA KEV, ENISA EUVD |
@@ -192,7 +192,7 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Full command index
 
-Ten entry points — `agentdata` plus one command per domain — and 237 dataset
+Ten entry points — `agentdata` plus one command per domain — and 256 dataset
 commands under them: one command per upstream dataset, parameters kept under
 their upstream names. The block below is the complete index, grouped by domain
 in `DOMAIN_ORDER` — the order the CLI registers the domains in (the 0.3.10
@@ -208,7 +208,7 @@ see above).
 ```bash
 agentdata capabilities --format md
 
-# company (70)
+# company (79)
 agentdata company gleif_lei_records --lei 5493001KJTIIGC8Y1R12
 agentdata company gleif_lei_records_search --filter-entity-legal-name Nestle --filter-entity-jurisdiction CH --page-size 5
 agentdata company gleif_direct_parent --lei 5493001KJTIIGC8Y1R12
@@ -219,14 +219,18 @@ agentdata company fdic_financials --filters CERT:628 --sort-by REPDTE --sort-ord
 agentdata company fdic_history --filters CERT:628 --limit 3
 agentdata company fdic_institutions --filters CERT:628
 agentdata company fdic_locations --filters STALP:TX --limit 5
-agentdata company sec_submissions --cik 320193
+agentdata company us_sec_submissions --cik 320193
+agentdata company us_sec_companyconcept --cik 320193 --concept RevenueFromContractWithCustomerExcludingAssessedTax
+agentdata company us_sec_companyfacts --cik 320193
+agentdata company us_sec_frames --concept NetIncomeLoss --frame CY2024
+agentdata company us_sec_tickers --ticker AAPL
 agentdata company ror_organizations --query EMBL
 agentdata company vies_vat --vat DE811907980
 agentdata company usaspending_spending_by_award --recipient-search-text "Lockheed Martin" --start-date 2024-01-01 --end-date 2024-12-31 --limit 3
 agentdata company ted_notices_search --query 'organisation-name-buyer=Siemens* AND organisation-country-buyer=DEU' --limit 5
 agentdata company gb_fts_release_packages --name nhs --updated-from 2026-10-01 --updated-to 2026-10-27 --limit 5
 agentdata company gb_contracts_finder_published_notices --name council --published-from 2026-10-20 --published-to 2026-10-27 --limit 5
-agentdata company sec_fulltext_search --q "artificial intelligence" --forms 8-K --limit 5
+agentdata company us_sec_fulltext_search --q "artificial intelligence" --forms 8-K --limit 5
 agentdata company ch_zefix_firm_search --name "Nestle" --max-entries 3
 agentdata company ch_zefix_firm --ehraid 347554
 agentdata company no_brreg_enheter --navn equinor --size 2
@@ -295,6 +299,11 @@ agentdata company wa_doh_credentials --where "credentialtype='Physician And Surg
 agentdata company chi_bacp_licenses --where "license_description='Consumption on Premises - Incidental Activity' and license_status='AAI'" --limit 3
 agentdata company lacity_registrations --where "naics like '7213%' and council_district='10'" --limit 3
 agentdata company nyc_dcwp_licenses --where "business_category='Secondhand Dealer - General' and license_status='Active'" --limit 3
+agentdata company ch_six_fqs_search --segment EQ --pagesize 5
+agentdata company eu_euronext_instrument_search --q "air liquide"
+agentdata company it_borsa_quote --isin IT0003132476
+agentdata company jp_jpx_stock_detail --qcode 7203
+agentdata company jp_jpx_stock_list --section 1 --maxdisp 50
 
 # economy (18)
 agentdata economy bis_sdmx_series --flow WS_CBPOL --key M.US --start 2026-01-01
@@ -364,7 +373,7 @@ agentdata healthcare safety_gate_report --report-id 10000329 --limit 5
 agentdata healthcare us_npi_organizations --organization-name "Mayo Clinic" --state MN --limit 3
 agentdata healthcare jp_navii_facilities --q 内科
 
-# legal (77)
+# legal (87)
 agentdata legal afdb_debarred_entities --name "CHINA RAILWAY" --limit 3
 agentdata legal ca_asc_enforcement --q Thomson --limit 5
 agentdata legal ca_bcsc_disciplined --q Posen --limit 3
@@ -396,6 +405,8 @@ agentdata legal gb_tna_caselaw_search --party Barclays --per-page 3
 agentdata legal gb_tna_caselaw_judgment --document-uri ewhc/admin/2026/2298
 agentdata legal wb_debarred_firms --name "CHINA RAILWAY" --country CN --limit 3
 agentdata legal gb_gazette_notices --insolvency --text "acme" --page-size 5
+agentdata legal gb_nmw_round --slug 6-million-repaid-to-workers-as-government-cracks-down-on-employers-underpaying-their-staff
+agentdata legal gb_nmw_rounds --count 5
 agentdata legal ie_revenue_defaulters --part 1
 agentdata legal us_occ_enforcements --year 2026 --month October
 agentdata legal cfpb_complaints --search-term Discover --field company --size 3
@@ -427,7 +438,10 @@ agentdata legal it_agcm_ricerca_provvedimenti --words Telecom --maxresults 5
 agentdata legal it_arera_decisions --anno 2022 --numero 312
 agentdata legal us_cbp_ruling --ruling-number 954699
 agentdata legal us_cbp_stat
+agentdata legal us_cftc_dispositions --page 0
 agentdata legal us_cftc_enforcement --year 1995 --page 260
+agentdata legal us_cftc_opinions --page 0
+agentdata legal us_cftc_redlist --page 0
 agentdata legal lv_knab_parties --limit 100
 agentdata legal lv_knab_payments --party-public-id <public_id>
 agentdata legal mx_cnv_sanctions --page-size 3 --order-field imposedOn --order-type DESC
@@ -444,6 +458,11 @@ agentdata legal nl_acm_publications --category kartel --limit 5
 agentdata legal nl_acm_publication --doc-id 896
 agentdata legal es_cnmv_sanctions --party Sapiens
 agentdata legal kr_fss_sanctions --layer institution --limit 5
+agentdata legal au_accc_actions --limit 5
+agentdata legal in_cci_antitrust_orders --q electricity --limit 5
+agentdata legal in_cci_combinations --status Approved --form-type I --limit 5
+agentdata legal jp_jftc_decision --case-id R080220R07G05000194K
+agentdata legal jp_jftc_decisions --subject ソニー --limit 5
 
 # procurement (7)
 agentdata procurement br_pncp_contracts --data-inicial 20260901 --data-final 20260930 --pagina 1
@@ -514,6 +533,108 @@ runs on the same machine — that is by design.
 
 The complete batch log — every release back to 0.1.0 — is kept in the Chinese
 [README.md](README.md#版本). The most recent batches:
+
+**0.3.68 — Batch E10, the developed-economy exchange faces: five listed-universe/quote faces
+(+5 faces, 251→256; 169→173 providers; 35 jurisdictions held; company 74→79 — first Italian
+company face, zero new jurisdictions).** `ch_six_fqs_search` — the SIX Swiss Exchange FQS
+command API (column oracle pinned: invalid select names are 400-rejected verbatim, so the
+engine refuses them locally; price columns are opt-in under SIX's commercial-use caveat).
+`eu_euronext_instrument_search` — the live Euronext venue resolver: one ISIN lists on many
+MICs, the join key is ISIN+MIC, and the zero-hit sentinel row is dropped rather than counted.
+`it_borsa_quote` — the Borsa Italiana dati-completi card by ISIN (market cap parsed from
+Italian number format; an unknown ISIN or mismatched MIC serves a generic page silently —
+reported `found=false`, never a fabricated card). `jp_jpx_stock_list` + `jp_jpx_stock_detail`
+— the JPX qjsonp gateway behind its Referer door: the 4,490-name listed universe page by page
+(board + 33-sector industry on every row) and the 57-field issue card (ISIN, market cap JPY,
+shares, embedded daily OHLCV, EPS history). Two same-day upstream flips deferred with probe
+evidence: Wiener Börse (TLS serving a `*.factsetdigitalsolutions.com` certificate on both
+hosts) and TMX (tsx.com flipped to an AWS WAF JS challenge between the morning's green probes
+and the afternoon smoke — a urllib client cannot execute the challenge; re-probe later).
+
+**0.3.67 — Batch E9, the reliability fix: `us_sec_fulltext_search --census` (+0 faces, 251/169/35
+held — a mode on an existing face).** The plain mode returns one 100-hit page and post-filtering it
+systematically undercounts; census sweeps the whole window — date bisection until every leaf window
+is exact, every page harvested, deduped by filing accession. `--census-entity` is the local
+whole-word entity filter (the upstream does not parse company:"..." — the quoted prefix is just a
+search term; "IREN" never hits "Siren"); a single-day window still over the 10,000 floor is reported
+in overflow_windows, never dropped; the request budget (default 400) fails loudly with progress.
+Reference-date anchors, all complete and equal to manual windowed re-runs: IREN×Nvidia 87 filings
+(50 current-name + 37 old-name Iris Energy — one issuer), CoreWeave×OpenAI 37 (34 issuer + 3
+co-filed 425), APLD×Nvidia 54 (the hand count of 43 had dropped the S-1 registration family) —
+strict supersets with transparent composition.
+
+**0.3.66 — Batch E8, the deferral reopening: the SEC XBRL structured-facts family (+4 faces on one new provider, 247→251; 168→169 providers and 35 jurisdictions held; company 70→74 — US deepened only).**
+
+One keyless provider `edgar_xbrl` on data.sec.gov, live-probed 2026-11-17 — the quantitative
+layer under the `edgar_cik` registry layer, reopening the 2026-10-19 deferral (the local XBRL
+bulk that ruling leaned on was lost with the E: drive, and the MCP/OmniHub surface carries no
+financial-data paths). `us_sec_companyconcept` is the cheap server-side point query (18 KB vs the
+4 MB dump), `us_sec_companyfacts` is the issuer dump in inventory mode (taxonomy → concept-name
+list — the drift-discovery face) XOR concept mode, `us_sec_frames` answers one concept × unit ×
+period cross-section for the whole market (NetIncomeLoss CY2024 = 6,084 entities), and
+`us_sec_tickers` is the ticker↔CIK directory riding an ABSOLUTE path to www.sec.gov (one provider
+id, two hosts, each with its own polite bucket; exactly one selector — bare enumeration
+refused, rows 10,404 ↔ 7,997 CIKs because share classes share a CIK). Three live laws baked
+in: the CONCEPT-DRIFT LAW (us-gaap tags drift across taxonomy versions — Revenues is dead
+after 2018 → RevenueFromContractWithCustomerExcludingAssessedTax; issuers simply lack
+concepts — Apple has no EarningsPerShareDiluted; tags pass through verbatim, absence is a
+legal answer); the FY/FP LAW (a fact's fy/fp stamp the FILING, not the fact period — Apple's
+FY2026 10-K carries the FY2025 comparison period stamped fy=2026; period membership reads
+off start/end); and the FRAME LAW (CY<year> / CY<year>Q<n> / CY<year>Q<n>I only). Rate 5/5 —
+edgar_cik 5 + edgar_xbrl 5 = 10 ≤ the official 10 req/s with a declared UA (the §7 exception
+register's third member); TTL companyfacts/companyconcept/frames 7d, tickers 24h; rate-limits
+v1.54 (169 providers / 251 faces); pinned by `tests/test_flat_0366.py`.
+
+**0.3.65 — Batch E7, single-face deepening: US CFTC OGC Opinions & Adjudicatory Orders (+1 face born flat, 246→247; 168 providers and 35 jurisdictions held; legal 86→87 — US deepened only).**
+
+One keyless face on the extended-in-place `us_cftc` provider, live-probed 2026-11-17. `us_cftc_opinions`
+reads the Office of the General Counsel's reparations-appeals register — the layer above the
+dispositions court: parties-first captions ("Eric Thompson, … v. …"), ≈87 decisions over 9 pages
+(0..8), date-descending 2012→2025. Three live laws baked in: the register anchors DUAL-ERA PDF
+paths (recent `/sites/default/files/YYYY/MM/` plus the legacy
+`/idc/groups/public/%40lropinionsandadjudicaryorders/documents/legalpleading/` kept verbatim —
+%40 is the encoded @ and "adjudicary" is the upstream's own misspelling, never normalized);
+multi-docket rows caption the plural "CFTC Docket Nos. 20-R007; …; and 20-R025" — the whole
+semicolon list captured as one `docket_no` string; and legacy-era docket captions scatter across
+tolerance shapes (the "CFTC " prefix dropped, non-R numbering "11-E-01", NFA arbitration pairs
+"CRAA 12-03"), while the two 2012 rows with no caption at all report None honestly. Same host
+browser-suite gate as the other three views; TTL 24h; rate-limits v1.53 (168 providers / 247
+faces); pinned by `tests/test_flat_0365.py`.
+
+**0.3.64 — Batch E6, the negative-list batch: UK NMW naming-scheme pair + US CFTC RED List & reparation decisions (+4 faces born flat, 242→246; 167→168 providers; legal 82→86 — GB/US deepened only, zero new jurisdictions).**
+
+Two keyless providers, live-probed 2026-11-16. `gb_nmw_rounds`/`gb_nmw_round` read the
+government's "named and shamed" underpayment register: the discovery face pins the gov.uk
+search API to the scheme's own query (41 releases, Round 22 newest), and the dossier face
+fetches the press-release HTML because the content API answers an EMPTY body for these pages
+(attachments live only in the HTML) — the named-employers xlsx coordinates come out per round,
+with the no-year-suffix law (hand-assembling `…_16_October_2025.xlsx` 404s; the real file has
+no year). On the US side `us_cftc_redlist`/`us_cftc_dispositions` extend the CFTC provider in
+place: the RED List's 284 unregistered foreign entities are ALPHABETICAL with dates scattered
+(widening `items_per_page` answers zero rows — the views setting is decorative), and the
+reparation decisions anchor IS the decision PDF with the docket riding the blurb cell.
+Re-probes the same day: uk_ico's Cloudflare managed challenge now covers the main-site sitemap
+(was keyless 2026-10-30) and us_fcc still answers the 387B Access-Denied stub — both stay
+deferred. Polite tiers: gb_nmw 1 rps / us_cftc stays 0.5 rps (the two new ops ride the
+provider's existing tier); rate-limits ledger
+v1.52 (168 providers / 246 faces); compliance booklet v2.6 (🔴16/🟡23/🟢92/⚪37); pinned by
+tests/test_flat_0364.py.
+
+**0.3.63 — Batch E5 depth wave: JP JFTC decision pair + IN CCI register pair + AU ACCC actions feed (+5 faces born flat, 237→242; 164→167 providers; legal 77→82 — AU/IN/JP deepened only, zero new jurisdictions; Japan's first legal faces).**
+
+Three keyless providers, live-probed 2026-11-16. `jp_jftc_decisions`/`jp_jftc_decision`
+read the JFTC decision database behind a UA gate and the CSRF token/cookie pair dance
+(token scraped per session, both must ride together); the era tables (R/H/S → 2019-… mapping)
+and full-width event numbers are kept verbatim, and `case_id` is the hard key across the
+pair. The CCI registers pair (`in_cci_antitrust_orders`/`in_cci_combinations`) rides the
+DataTables POST channel — the GET twin answers 405 (the pair trap) — and tokens MISALIGN
+across the two registers, so column offsets never transfer; the XYZ placeholder party names
+ship verbatim (upstream's own masking), and combination rows keep their raw HTML soup
+byte-exact. `au_accc_actions` rides the lazy-views two-hop (GET /views/ajax with
+view_path=/node/162342, `f[]` array form, bare JSON command envelope, 0-based page): the
+rows window is WAF-gated — ~50 rapid calls close it (even an exact replay answers the 64KB
+shell) and it self-heals after ~25 minutes; the RSS feed was rejected (no topic/type
+filters).
 
 **0.3.62 — Batch E4 depth wave: NL ACM publications pair + ES CNMV sanctions + KR FSS sanctions (+4 faces born flat, 233→237; 161→164 providers; legal 73→77 — NL/ES/KR deepened only, zero new jurisdictions).**
 

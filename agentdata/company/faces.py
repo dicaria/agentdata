@@ -5,6 +5,9 @@ internals (_flat_env/_c/_request…), method names globally unique across domain
 """
 from ..errors import SdkError
 
+import json  # XBRL fact rows re-serialized verbatim into evidence quotes (E8)
+import warnings  # deprecated sec_* alias shims (us_ prefix rename, pre-release 2026-11-17)
+
 from .. import company  # domain-module path invocation (historical shape, kept for minimal churn in C2)
 
 class CompanyFaces:
@@ -291,20 +294,20 @@ class CompanyFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
-    def sec_submissions(self, *, cik, execution=None, no_cache=None):
-        """company sec_submissions: SEC CIK → registrant identity card (data.sec.gov submissions single record;
+    def us_sec_submissions(self, *, cik, execution=None, no_cache=None):
+        """company us_sec_submissions: SEC CIK → registrant identity card (data.sec.gov submissions single record;
         bare digits / leading zeros / the CIK prefix — all three spellings accepted — non-digits stripped, padded to 10)."""
-        self._co_only("sec_submissions")
+        self._co_only("us_sec_submissions")
         v = str(cik or "").strip()
         if not v:
-            raise SdkError("usage_error", provider="edgar-cik", detail="sec_submissions requires cik (1-10 digits, CIK prefix allowed)")
+            raise SdkError("usage_error", provider="edgar-cik", detail="us_sec_submissions requires cik (1-10 digits, CIK prefix allowed)")
         r = company.edgar_cik.lookup_cik(v, cache=self._c._cache,
                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
         result = {k: x for k, x in r.items() if k != "_meta"}
         tk = (f" ({'/'.join(result['tickers'])}·{'/'.join(result['exchanges']) or '?'})"
               if result.get("tickers") else " (no ticker — unlisted or no trading venue registered)")
         return self._flat_env(
-            tool="sec_submissions", input={"cik": v},
+            tool="us_sec_submissions", input={"cik": v},
             reason=(f"SEC normalization: CIK {int(result['cik'])} → {result.get('name') or '(no legal name)'}{tk}"
                     + (f", {result['filer_category']}" if result.get("filer_category") else "")),
             result=result,
@@ -315,6 +318,55 @@ class CompanyFaces:
                        "url": f"https://data.sec.gov/submissions/CIK{result['cik']}.json"}],
             provider_id="edgar-cik", metas=[r["_meta"]],
             query={"source": "raw", "upstream": {"cik10": result["cik"]}},
+        )
+
+    def sec_submissions(self, *, cik, execution=None, no_cache=None):
+        """company sec_submissions: DEPRECATED alias of us_sec_submissions (renamed 2026-11-17
+        pre-release so the SEC cluster carries the us_ jurisdiction prefix like every other face;
+        kept working with a DeprecationWarning, removal slated 0.4.x)."""
+        warnings.warn("sec_submissions is deprecated — use us_sec_submissions (removal slated 0.4.x)",
+                      DeprecationWarning, stacklevel=2)
+        return self.us_sec_submissions(cik=cik, execution=execution, no_cache=no_cache)
+
+    # —— 0.3.66 SEC ticker directory (dictionary order: us_sec_tickers sorts after
+    # us_sec_submissions — the reverse-lookup face the submissions card lacks: it only takes CIK
+    # input, ticker→CIK had no face before this) ——
+
+    def us_sec_tickers(self, *, ticker=None, name=None, cik=None,
+                       execution=None, no_cache=None):
+        """company us_sec_tickers: SEC ticker↔CIK directory (10,404 rows) — exactly one selector:
+        --ticker exact (case-insensitive) / --name title substring / --cik reverse (all tickers
+        of one registrant — share classes share a CIK: 10,404 rows resolve to 7,997 CIKs)."""
+        self._co_only("us_sec_tickers")
+        given = [x for x in (ticker, name, cik) if x is not None and str(x).strip()]
+        if len(given) != 1:
+            raise SdkError("usage_error", provider="edgar_xbrl",
+                           detail="us_sec_tickers requires exactly one of --ticker / --name / --cik "
+                                  "(bare enumeration of all 10,404 rows is not a face — use the "
+                                  "corpus line for bulk; got "
+                                  + str(len(given)) + " selectors)")
+        cache, nc = self._c._cache, self._c.no_cache if no_cache is None else bool(no_cache)
+        r = company.edgar_xbrl.tickers_raw(cache=cache, no_cache=nc)
+        rows_raw = list((r["data"] or {}).values())
+        sel = ticker if ticker is not None else (name if name is not None else cik)
+        sel_name = "ticker" if ticker is not None else ("name" if name is not None else "cik")
+        rows = company.edgar_xbrl.tickers_lookup(rows_raw, ticker=ticker, name=name, cik=cik)
+        if sel_name == "ticker":
+            sel_disp = str(sel).strip().upper()
+        else:
+            sel_disp = str(sel).strip()
+        head = (f"{rows[0]['ticker']} → CIK {rows[0]['cik']} {rows[0]['title']}" if rows else None)
+        return self._flat_env(
+            tool="us_sec_tickers",
+            input={sel_name: sel_disp},
+            reason=(f"SEC ticker directory: {sel_name} \"{sel_disp}\" — {len(rows)} of {len(rows_raw)} rows matched"
+                    + (f", top {head}" if head else " (zero hits are a legal answer — check the spelling; "
+                       "OTC-only issuers may be absent from the directory)")),
+            result={"total": len(rows), "rows": rows, "selector": {sel_name: sel_disp}},
+            evidence=[{"quote": f"{x['ticker']} → CIK {x['cik']} = {x['title']}",
+                       "url": "https://www.sec.gov/files/company_tickers.json"} for x in rows[:5]],
+            provider_id="edgar_xbrl", metas=[r],
+            query={"source": "raw", "upstream": {"directory": "company_tickers.json"}},
         )
 
     def ror_organizations(self, *, query=None, ror_id=None, page=None, all_status=None,
@@ -557,15 +609,184 @@ class CompanyFaces:
             query=quartet,
         )
 
-    def sec_fulltext_search(self, *, q, forms=None, startdt=None, enddt=None, limit=10,
-                execution=None, no_cache=None):
-        """company sec_fulltext_search: SEC filing full-text search 2001+ (EDGAR FTS four params verbatim;
+    # —— 0.3.66 SEC XBRL structured-facts family (dictionary order: us_sec_companyconcept <
+    # us_sec_companyfacts < us_sec_frames < us_sec_fulltext_search — 'c'<'f'; the quantitative layer under the
+    # edgar_cik registry layer — the 2026-10-19 deferral reopened 2026-11-17: the local XBRL
+    # bulk it leaned on was lost with the E: drive and the MCP/OmniHub surface carries no
+    # financial-data paths. Names carry the us_ jurisdiction prefix from birth — the whole
+    # cluster was renamed pre-release 2026-11-17 (user ruling: one pass, docs included); the
+    # two faces that had shipped (submissions/fulltext_search) keep deprecated sec_* aliases) ——
+
+    def us_sec_companyconcept(self, *, cik, concept, taxonomy="us-gaap", form=None,
+                              execution=None, no_cache=None):
+        """company us_sec_companyconcept: single-concept server-side time series (the cheap point
+        query — 18KB vs companyfacts' 4MB; 404 = the issuer never filed this concept)."""
+        self._co_only("us_sec_companyconcept")
+        cik10 = company.edgar_cik.normalize_cik(cik)
+        raw_tx = company.edgar_xbrl._clean_tag(taxonomy, "taxonomy", company.edgar_xbrl._TAX_RE)
+        tag = company.edgar_xbrl._clean_tag(concept, "concept")
+        raw_form = str(form or "").strip() or None
+        cache, nc = self._c._cache, self._c.no_cache if no_cache is None else bool(no_cache)
+        r = company.edgar_xbrl.concept_raw(cik10, raw_tx, tag, cache=cache, no_cache=nc)
+        card = company.edgar_xbrl.concept_from_upstream(r["data"] or {}, raw_form)
+        latest = card.get("latest_fact") or {}
+        return self._flat_env(
+            tool="us_sec_companyconcept",
+            input={"cik": cik10, "taxonomy": raw_tx, "concept": tag, "form": raw_form},
+            reason=(f"SEC XBRL concept: {card['entity_name']} {raw_tx}/{tag} — {card['facts_total']} facts"
+                    + (f" (form filter {raw_form}: {card['facts_before_form_filter']} before)" if raw_form else "")
+                    + (f", latest {latest.get('val'):,} ({latest.get('form')} filed {latest.get('filed')})"
+                       if latest else ", no facts survive the filter")),
+            result=card,
+            evidence=[{"quote": json.dumps(latest, default=str)},
+                      {"quote": f"{card['entity_name']} — {tag}: {card.get('label') or '—'}",
+                       "url": f"https://data.sec.gov/api/xbrl/companyconcept/CIK{cik10}/{raw_tx}/{tag}.json"}],
+            provider_id="edgar_xbrl", metas=[r],
+            query={"source": "raw", "upstream": {"cik10": cik10, "taxonomy": raw_tx, "tag": tag}},
+        )
+
+    def us_sec_companyfacts(self, *, cik, taxonomy=None, concept=None, form=None,
+                            execution=None, no_cache=None):
+        """company us_sec_companyfacts: issuer-level XBRL dump — inventory mode (no concept:
+        taxonomy → concept-name list, the drift-discovery face) XOR concept mode (the tag's
+        full series across taxonomies). Concept names pass through VERBATIM — they drift
+        (Revenues → RevenueFromContractWithCustomerExcludingAssessedTax after 2018) and
+        issuers simply lack some (Apple has no EarningsPerShareDiluted)."""
+        self._co_only("us_sec_companyfacts")
+        cik10 = company.edgar_cik.normalize_cik(cik)
+        raw_tx = str(taxonomy or "").strip() or None
+        if raw_tx is not None:
+            company.edgar_xbrl._clean_tag(raw_tx, "taxonomy", company.edgar_xbrl._TAX_RE)
+        raw_form = str(form or "").strip() or None
+        cache, nc = self._c._cache, self._c.no_cache if no_cache is None else bool(no_cache)
+        r = company.edgar_xbrl.facts_raw(cik10, cache=cache, no_cache=nc)
+        d = r["data"] or {}
+        name = d.get("entityName") or "(no name)"
+        if not concept:
+            if raw_tx and raw_tx not in (d.get("facts") or {}):
+                raise SdkError("usage_error", provider="edgar_xbrl",
+                               detail=f"taxonomy {raw_tx} not present for CIK {int(cik10)} "
+                                      f"(present: {', '.join(sorted((d.get('facts') or {}).keys())) or 'none'})")
+            inv = company.edgar_xbrl.inventory_from_upstream(d)
+            if raw_tx:
+                inv["taxonomies"] = {raw_tx: inv["taxonomies"][raw_tx]}
+                inv["concepts"] = {raw_tx: inv["concepts"][raw_tx]}
+            total = sum(inv["taxonomies"].values())
+            return self._flat_env(
+                tool="us_sec_companyfacts",
+                input={"cik": cik10, "taxonomy": raw_tx, "concept": None, "form": None},
+                reason=(f"SEC XBRL inventory: CIK {int(cik10)} {name} — "
+                        + " / ".join(f"{tx} {n}" for tx, n in inv["taxonomies"].items())
+                        + f" = {total} concepts (names verbatim — they drift across taxonomies; "
+                        + "point-queries ride --concept)"),
+                result=inv,
+                evidence=[{"quote": f"{tx}: {', '.join(inv['concepts'][tx][:4])}"
+                                    + (f", … ({n} concepts)" if n > 4 else "")}
+                          for tx, n in inv["taxonomies"].items()],
+                provider_id="edgar_xbrl", metas=[r],
+                query={"source": "raw", "upstream": {"cik10": cik10}},
+            )
+        tag = company.edgar_xbrl._clean_tag(concept, "concept")
+        card = company.edgar_xbrl.concept_from_dump(d, tag, raw_form)
+        if card is None:
+            raise SdkError("usage_error", provider="edgar_xbrl",
+                           detail=f"concept {tag} not in CIK {int(cik10)}'s facts (an absent concept is a "
+                                  f"legal answer — issuers lack concepts; call without --concept for the "
+                                  f"inventory of what this issuer DOES file; names drift: Revenues → "
+                                  f"RevenueFromContractWithCustomerExcludingAssessedTax)")
+        latest = card.get("latest_fact") or {}
+        return self._flat_env(
+            tool="us_sec_companyfacts",
+            input={"cik": cik10, "taxonomy": raw_tx, "concept": tag, "form": raw_form},
+            reason=(f"SEC XBRL facts: {name} {card['taxonomy']}/{tag} — {card['facts_total']} facts"
+                    + (f" (form filter {raw_form}: {card['facts_before_form_filter']} before)" if raw_form else "")
+                    + (f", latest {latest.get('val'):,} ({latest.get('form')} filed {latest.get('filed')})"
+                       if latest else ", no facts survive the filter")),
+            result=card,
+            evidence=[{"quote": json.dumps(company.edgar_xbrl._latest_fact(card["units"]), default=str)},
+                      {"quote": f"{card['taxonomy']}/{tag} — {card['facts_total']} facts verbatim",
+                       "url": f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik10}.json"}],
+            provider_id="edgar_xbrl", metas=[r],
+            query={"source": "raw", "upstream": {"cik10": cik10}},
+        )
+
+    def us_sec_frames(self, *, concept, frame, taxonomy="us-gaap", unit="USD",
+                      execution=None, no_cache=None):
+        """company us_sec_frames: one concept × unit × period cross-section — every filer that
+        reported the concept in the frame, one shot (NetIncomeLoss CY2024 = 6,084 entities).
+        Frames: CY<year> / CY<year>Q<n> / CY<year>Q<n>I (instant)."""
+        self._co_only("us_sec_frames")
+        raw_tx = company.edgar_xbrl._clean_tag(taxonomy, "taxonomy", company.edgar_xbrl._TAX_RE)
+        tag = company.edgar_xbrl._clean_tag(concept, "concept")
+        raw_unit = company.edgar_xbrl._clean_tag(unit, "unit", company.edgar_xbrl._TAX_RE)
+        raw_frame = str(frame or "").strip()
+        if not company.edgar_xbrl._FRAME_RE.match(raw_frame):
+            raise SdkError("usage_error", provider="edgar_xbrl",
+                           detail=f"frame must be CY<year> / CY<year>Q<n> / CY<year>Q<n>I (got \"{frame}\")")
+        cache, nc = self._c._cache, self._c.no_cache if no_cache is None else bool(no_cache)
+        r = company.edgar_xbrl.frames_raw(raw_tx, tag, raw_unit, raw_frame, cache=cache, no_cache=nc)
+        result = company.edgar_xbrl.frames_from_upstream(r["data"] or {})
+        rows = result["rows"]
+        vals = [x.get("val") for x in rows if isinstance(x.get("val"), (int, float))]
+        rng = (f", range {min(vals):,}..{max(vals):,}" if vals else "")
+        return self._flat_env(
+            tool="us_sec_frames",
+            input={"taxonomy": raw_tx, "concept": tag, "unit": raw_unit, "frame": raw_frame},
+            reason=(f"SEC XBRL frames {raw_tx}/{tag} {raw_unit} {raw_frame}: {result['total']} entities{rng}"
+                    + (" (a 404 here usually means NO issuer reported the concept in this frame — "
+                       "check the frame spelling before blaming the concept)" if not rows else "")),
+            result=result,
+            evidence=[{"quote": json.dumps(rows[0], default=str),
+                       "url": f"https://data.sec.gov/api/xbrl/frames/{raw_tx}/{tag}/{raw_unit}/{raw_frame}.json"}]
+                      if rows else [],
+            provider_id="edgar_xbrl", metas=[r],
+            query={"source": "raw", "upstream": {"taxonomy": raw_tx, "tag": tag, "unit": raw_unit, "frame": raw_frame}},
+        )
+
+    def us_sec_fulltext_search(self, *, q, forms=None, startdt=None, enddt=None, limit=10,
+                               census=None, census_entity=None, census_max_requests=400,
+                               execution=None, no_cache=None):
+        """company us_sec_fulltext_search: SEC filing full-text search 2001+ (EDGAR FTS four params verbatim;
         either startdt/enddt given → the other is auto-filled — a single end is silently ignored upstream
-        (measured 2026-10-20); after filling, both ends are always present)."""
-        self._co_only("sec_fulltext_search")
+        (measured 2026-10-20); after filling, both ends are always present).
+        census=True → the full-window sweep (0.3.67 §9.6 fix ticket): adaptive date bisection until every
+        leaf window is exact, all pages harvested, rows deduped by _id/adsh — filings_total is the number the
+        plain mode's 100-hit page systematically undercounts. census_entity applies the entity predicate
+        LOCALLY (the upstream does not parse company:"..." as a field filter — probed 2026-11-17)."""
+        self._co_only("us_sec_fulltext_search")
         v = str(q or "").strip()
         if not v:
-            raise SdkError("usage_error", provider="edgar-fts", detail="sec_fulltext_search requires q (EDGAR FTS syntax)")
+            raise SdkError("usage_error", provider="edgar-fts", detail="us_sec_fulltext_search requires q (EDGAR FTS syntax)")
+        if census_entity is not None and not census:
+            raise SdkError("usage_error", provider="edgar-fts",
+                           detail="--census-entity rides only with --census (the entity predicate is the census "
+                                  "mode's local post-filter; plain mode returns one 100-hit page and must not "
+                                  "pretend to filter it)")
+        if census:
+            r = company.edgar_fts.census(v, forms=forms, startdt=startdt, enddt=enddt,
+                                         entity=census_entity, max_requests=census_max_requests,
+                                         limit=limit, cache=self._c._cache,
+                                         no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+            result = {k: x for k, x in r.items() if k != "_meta"}
+            ovf = "" if result["complete"] else f", {len(result['overflow_windows'])} single-day windows still ≥10k (excluded, see overflow_windows)"
+            ent = f" entity-filtered on '{result['entity']}'" if result["entity"] else ""
+            return self._flat_env(
+                tool="us_sec_fulltext_search", input={"q": v, "forms": forms, "startdt": startdt, "enddt": enddt,
+                                       "limit": result["limit_applied"], "census": True,
+                                       "census_entity": result["entity"], "census_max_requests": census_max_requests},
+                reason=(f"EDGAR FTS census: {result['filings_total']} filings / {result['docs_total']} documents "
+                        f"({result['requests']} requests over {len(result['windows'])} windows{ent}{ovf}), "
+                        f"returning {len(result['rows'])} sample rows — adsh shares its key with the SEC corpus line"),
+                result=result,
+                evidence=[{"quote": f"{h['form_type'] or '—'} {h['adsh'] or '—'} = "
+                                    f"{h['company'] or '—'} ({h['file_date'] or '—'})",
+                           "url": h["doc_url"] or "https://efts.sec.gov/LATEST/search-index"}
+                          for h in result["rows"][:5]],
+                provider_id="edgar-fts", metas=[r["_meta"]],
+                query={"source": "raw", "search": v,
+                       "upstream": {"q": v, **({"forms": forms} if forms else {}),
+                                    "window": result["window"], "pagination": "from-offset/100-page"}},
+            )
         r = company.edgar_fts.search_raw(v, forms=forms, startdt=startdt, enddt=enddt,
                                            limit=limit, cache=self._c._cache,
                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
@@ -574,7 +795,7 @@ class CompanyFaces:
         span = f", window {dr['startdt']}~{dr['enddt']}" if dr else ""
         cap = ", capped at ≥ this count" if result.get("total_relation") == "gte" else ""
         return self._flat_env(
-            tool="sec_fulltext_search", input={"q": v, "forms": forms, "startdt": startdt, "enddt": enddt,
+            tool="us_sec_fulltext_search", input={"q": v, "forms": forms, "startdt": startdt, "enddt": enddt,
                                    "limit": result["limit_applied"]},
             reason=(f"EDGAR FTS: {result['total']} hits (2001+ full-text{cap}{span}), "
                     f"returning {len(result['hits'])} rows — adsh shares its key with the SEC corpus line"),
@@ -586,6 +807,19 @@ class CompanyFaces:
             provider_id="edgar-fts", metas=[r["_meta"]],
             query={"source": "raw", "search": v, "upstream": r["params"]},
         )
+
+    def sec_fulltext_search(self, *, q, forms=None, startdt=None, enddt=None, limit=10,
+                            census=None, census_entity=None, census_max_requests=400,
+                            execution=None, no_cache=None):
+        """company sec_fulltext_search: DEPRECATED alias of us_sec_fulltext_search (renamed
+        2026-11-17 pre-release so the SEC cluster carries the us_ jurisdiction prefix like every
+        other face; kept working with a DeprecationWarning, removal slated 0.4.x)."""
+        warnings.warn("sec_fulltext_search is deprecated — use us_sec_fulltext_search (removal slated 0.4.x)",
+                      DeprecationWarning, stacklevel=2)
+        return self.us_sec_fulltext_search(q=q, forms=forms, startdt=startdt, enddt=enddt,
+                                           limit=limit, census=census, census_entity=census_entity,
+                                           census_max_requests=census_max_requests,
+                                           execution=execution, no_cache=no_cache)
 
     # ---------- 0.3.3 European national registry live faces (CH Zefix / NO Brreg / FI YTJ) ----------
 
@@ -650,6 +884,177 @@ class CompanyFaces:
             evidence=evidence,
             provider_id="ch_zefix", metas=[r["_meta"]],
             query={"source": "raw", "upstream": {"ehraid": f["ehraid"]}},
+        )
+
+    # ---------- 0.3.68 E10 developed-economy exchange faces (five: SIX FQS / Euronext / Borsa /
+    # JPX x2 — ca_tmx deferred: tsx.com AWS WAF JS challenge flipped on 2026-11-18 pm, p2c-p2e) ----------
+
+    def ch_six_fqs_search(self, *, segment="EQ", columns=None, order_by="ISIN", page=1, pagesize=100,
+                          execution=None, no_cache=None):
+        """company ch_six_fqs_search: SIX Swiss Exchange reference query (fqs/ref.json command API,
+        15-min delayed; price columns opt-in — SIX closing prices carry a commercial-use caveat)."""
+        self._co_only("ch_six_fqs_search")
+        r = company.ch_six_fqs.search_universe(segment, columns=columns, order_by=order_by,
+                                               page=page, pagesize=pagesize,
+                                               cache=self._c._cache,
+                                               no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        ins = result["instruments"]
+        price_cols = [c for c in result["col_names"] if c in ("ClosingPriceCHF", "NumberInIssue")]
+        top = (ins or [None])[0]
+        head = (f"SIX FQS segment {r['params']['where']}: {len(ins)} rows of {result['total_rows']}"
+                f" (page {result['page']}/{max(1, -(-int(result['total_rows'] or 0) // result['pagesize']))}), "
+                + ("price columns ON (opt-in — SIX commercial-use caveat), " if price_cols else "reference preset, ")
+                + (f"top {top.get('IssuerNameFull') or '—'} ({top.get('ISIN') or '—'}, {top.get('SecTypeDesc') or '—'})"
+                   if top else "empty page"))
+        url = ("https://www.six-group.com/fqs/ref.json?select=%s&where=%s&orderby=%s&page=%s&pagesize=%s"
+               % (r["params"]["select"], r["params"]["where"], r["params"]["orderby"],
+                  result["page"], result["pagesize"]))
+        return self._flat_env(
+            tool="ch_six_fqs_search",
+            input={"segment": str(segment).upper(), "columns": r["params"]["select"],
+                   "order_by": r["params"]["orderby"], "page": result["page"],
+                   "pagesize": result["pagesize"]},
+            reason=head,
+            result=result,
+            evidence=[{"quote": f"{x.get('IssuerNameFull') or '—'} (ISIN {x.get('ISIN') or '—'}, "
+                                f"{x.get('SecTypeDesc') or '—'}, sector {x.get('SBISectorDesc') or '—'})",
+                       "url": url}
+                      for x in ins[:5]],
+            provider_id="ch_six_fqs", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def eu_euronext_instrument_search(self, *, q, execution=None, no_cache=None):
+        """company eu_euronext_instrument_search: Euronext instrument resolver across all seven
+        markets ({isin,mic,name,symbol,link}; join on ISIN+MIC — one ISIN lists on many venues)."""
+        self._co_only("eu_euronext_instrument_search")
+        v = str(q or "").strip()
+        if not v:
+            raise SdkError("usage_error", provider="eu_euronext",
+                           detail="eu_euronext_instrument_search requires q (ISIN, name or mnemonic)")
+        r = company.eu_euronext.search_instruments(v, cache=self._c._cache,
+                                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        ins = result["instruments"]
+        by_isin = {}
+        for x in ins:
+            if x.get("isin"):
+                by_isin.setdefault(x["isin"], []).append(x.get("mic"))
+        top = (ins or [None])[0]
+        head = (f"Euronext resolver \"{v}\": {len(ins)} venue rows across {len(by_isin)} ISIN"
+                + ("s" if len(by_isin) != 1 else "")
+                + (f" — {top.get('isin')} on {'+'.join(sorted(m for m in by_isin.get(top['isin'], []) if m))}"
+                   f" ({top.get('name') or '—'})" if top else "")
+                + " — join on ISIN+MIC, the bare ISIN is ambiguous across venues")
+        return self._flat_env(
+            tool="eu_euronext_instrument_search", input={"q": v},
+            reason=head,
+            result=result,
+            evidence=[{"quote": f"{x.get('name') or '—'} ({x.get('symbol') or '—'} @ {x.get('mic') or '—'}, "
+                                f"ISIN {x.get('isin') or '—'})",
+                       "url": "https://live.euronext.com" + (x.get("link") or "/en/instrumentSearch/searchJSON")}
+                      for x in ins[:5]],
+            provider_id="eu_euronext", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def it_borsa_quote(self, *, isin, mic=None, execution=None, no_cache=None):
+        """company it_borsa_quote: Borsa Italiana dati-completi card by ISIN (market cap parsed from
+        IT number format; unknown ISIN = silent generic page, reported found=false — never fabricated)."""
+        self._co_only("it_borsa_quote")
+        r = company.it_borsa.get_quote(isin, mic=mic, cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        card = result["card"]
+        if not result["found"]:
+            head = (f"Borsa dati-completi: no instrument metadata for {result['isin']}"
+                    + (f" @ {mic}" if mic else "")
+                    + " — the upstream serves a generic page silently for an unknown ISIN/mismatched mic (probed), not a 404")
+        else:
+            cap = card.get("market_cap_eur")
+            head = (f"Borsa card {card.get('ticker') or '—'} ({card.get('name') or card.get('isin')}): "
+                    f"{card.get('segment') or '—'}, super sector {card.get('super_sector') or '—'}"
+                    + ((f", market cap €{cap:,.0f}") if cap is not None else "")
+                    + (f", last {card.get('last_price')}" if card.get("last_price") is not None else "")
+                    + f" — {len(card.get('meta') or {})} label/value pairs verbatim in meta")
+        q = r["params"]
+        evidence = ([{"quote": f"{card.get('ticker')} — {card.get('segment')}: cap {card.get('market_cap_raw') or '—'}",
+                      "url": ("https://www.borsaitaliana.it/borsa/azioni/euronext-growth-milan/dati-completi.html"
+                              f"?isin={q.get('isin')}" + (f"&mic={q.get('mic')}" if q.get("mic") else "") + "&lang=it")}]
+                    if result["found"] else
+                    [{"quote": "no Codice Isin pair in the served page (generic-page silent shape)",
+                      "url": "https://www.borsaitaliana.it/borsa/azioni/euronext-growth-milan/dati-completi.html"
+                             f"?isin={q.get('isin')}&lang=it"}])
+        return self._flat_env(
+            tool="it_borsa_quote", input={"isin": q.get("isin"), "mic": q.get("mic")},
+            reason=head,
+            result=result,
+            evidence=evidence,
+            provider_id="it_borsa", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": q},
+        )
+
+    def jp_jpx_stock_list(self, *, section="1", page=1, maxdisp=100,
+                          execution=None, no_cache=None):
+        """company jp_jpx_stock_list: one page of the JPX listed universe (qjsonp gateway;
+        hitcount/pagecount echo; rows self-describe board + 33-sector industry)."""
+        self._co_only("jp_jpx_stock_list")
+        r = company.jp_jpx.list_stocks(section=section, page=page, maxdisp=maxdisp,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        stocks = result["stocks"]
+        top = (stocks or [None])[0]
+        head = (f"JPX stock_list key2={result['section']} page {result['page']}/{result['pagecount'] or '—'}: "
+                f"{len(stocks)} rows of hitcount {result['hitcount']}"
+                + (f", top {top.get('name_en') or top.get('name_ja') or '—'} ({top.get('code')}, "
+                   f"{top.get('board') or '—'}, {top.get('industry_en') or '—'})" if top else "")
+                + " — rows carry board (LISSE) + 33-sector industry verbatim")
+        url = ("https://quote.jpx.co.jp/jpxhp/jcgi/wrap/qjsonp.aspx?F=ctl/stock_list&key2=%s"
+               "&refindex=01&maxdisp=%s&page=%s" % (result["section"], result["params"]["maxdisp"], result["page"]))
+        return self._flat_env(
+            tool="jp_jpx_stock_list",
+            input={"section": result["section"], "page": result["page"],
+                   "maxdisp": result["params"]["maxdisp"]},
+            reason=head,
+            result=result,
+            evidence=[{"quote": f"{x.get('name_en') or x.get('name_ja') or '—'} ({x.get('code')}, "
+                                f"{x.get('board') or '—'}, {x.get('industry_en') or '—'}, last {x.get('last_price') or '—'})",
+                       "url": url}
+                      for x in stocks[:5]],
+            provider_id="jp_jpx", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
+        )
+
+    def jp_jpx_stock_detail(self, *, qcode, execution=None, no_cache=None):
+        """company jp_jpx_stock_detail: the 57-field JPX issue card (ISIN/MKCP market cap JPY/SHRK
+        shares/A_HISTDAYL daily OHLCV/EPS history — passed through verbatim)."""
+        self._co_only("jp_jpx_stock_detail")
+        r = company.jp_jpx.stock_detail(qcode, cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        d = result["detail"]
+        if d is None:
+            head = (f"JPX stock_detail {qcode}: empty data dict — unknown code (honest zero, "
+                    "the gateway answers 200 with no card rather than an error)")
+        else:
+            head = (f"JPX card {d.get('TTCODE2') or qcode} {d.get('FLLNE') or d.get('FLLN') or '—'}: "
+                    f"ISIN {d.get('ISIN') or '—'}"
+                    + (f", market cap ¥{d.get('MKCP')} JPY" if d.get("MKCP") not in (None, "-", "") else "")
+                    + (f", shares {d.get('SHRK')}" if d.get("SHRK") not in (None, "-", "") else "")
+                    + f", {len(d)} fields verbatim (incl. A_HISTDAYL daily OHLCV + EPS history)")
+        url = f"https://quote.jpx.co.jp/jpxhp/jcgi/wrap/qjsonp.aspx?F=ctl/stock_detail&qcode={qcode}"
+        return self._flat_env(
+            tool="jp_jpx_stock_detail", input={"qcode": str(qcode).strip()},
+            reason=head,
+            result=result,
+            evidence=[{"quote": (f"{d.get('FLLNE') or d.get('FLLN') or '—'} — ISIN {d.get('ISIN')}, "
+                                 f"MKCP {d.get('MKCP')}, SHRK {d.get('SHRK')}" if d
+                                else "section1.data empty — no card for this code"),
+                       "url": url}],
+            provider_id="jp_jpx", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": r["params"]},
         )
 
     def no_brreg_enheter(self, *, navn=None, organisasjonsnummer=None, page=0, size=20,

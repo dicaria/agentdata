@@ -1,10 +1,11 @@
 """company domain package — provider adapters flat layout (one source per file) + faces/cli (0.2.6 per-domain reorg)."""
-from . import (br_bacen, br_bndes, ca_osb, cf, ch_zefix, chi_bacp, co_rues, cz_ares, de_inso,  # noqa: F401
-               de_register, edgar_cik, edgar_fts, es_borme, es_cnmv, es_oepm, fdic_bankfind, eu_eiopa,
-               fi_ytj, fr_inpi, fr_recherche, fr_regafi, fts, gg_gfsc, gleif, in_sebi_intm, je_jfsc,
-               jp_fsa, jp_jplatpat, kr_hometax, kr_kipris, kz_gbd_ul, lacity, no_brreg, nzco, nyc_dcwp,
-               ror, ru_cbr_credit, sg_datagovsg, ted, tr_bddk, tr_kap, tr_spk_borsa, tx_tdlr,
-               usaspending, vies, wa_doh)
+from . import (br_bacen, br_bndes, ca_osb, cf, ch_six_fqs, ch_zefix, chi_bacp, co_rues,  # noqa: F401
+               cz_ares, de_inso, de_register, edgar_cik, edgar_fts, edgar_xbrl, es_borme, es_cnmv,
+               es_oepm, eu_eiopa, eu_euronext, fdic_bankfind, fi_ytj, fr_inpi, fr_recherche,
+               fr_regafi, fts, gg_gfsc, gleif, in_sebi_intm, it_borsa, je_jfsc,
+               jp_fsa, jp_jplatpat, jp_jpx, kr_hometax, kr_kipris, kz_gbd_ul, lacity, no_brreg,
+               nzco, nyc_dcwp, ror, ru_cbr_credit, sg_datagovsg, ted, tr_bddk, tr_kap,
+               tr_spk_borsa, tx_tdlr, usaspending, vies, wa_doh)
 # 0.3.43 rider: jp_fsa was missing from this eager-import list (0.3.42) — the attribute only
 # resolved in processes where a test had imported the submodule directly; a fresh interpreter
 # hit AttributeError on company.jp_fsa. Fix-forward, disclosed in the 0.3.43 changelog entry.
@@ -27,4 +28,15 @@ from . import (br_bacen, br_bndes, ca_osb, cf, ch_zefix, chi_bacp, co_rues, cz_a
 # The four FDIC sibling faces live on the existing fdic_bankfind provider (no new module).
 # 0.3.59: eu_eiopa added in alphabetical slot (fdic_bankfind < eu_eiopa < fi_ytj — 'd'<'u').
 # 0.3.60: br_bndes added in alphabetical slot (br_bacen < br_bndes < ca_osb).
+# 0.3.68: ch_six_fqs/eu_euronext/it_borsa/jp_jpx added in alphabetical slots (ch_six_fqs <
+# ch_zefix — 's'<'z'; eu_eiopa < eu_euronext; in_sebi_intm < it_borsa < je_jfsc;
+# jp_jplatpat < jp_jpx < kr_hometax) — the E10 developed-economy exchange faces. ca_tmx was
+# written then DEFERRED unreleased: tsx.com flipped to an AWS WAF JS challenge 2026-11-18 pm
+# (probe-e10 p2c-p2e — all-UA matrix challenged incl. the morning's working one; urllib cannot
+# execute the challenge JS; re-probe when upstream relents).
+# 0.3.66: edgar_xbrl added in alphabetical slot (edgar_fts < edgar_xbrl < es_borme) — the SEC XBRL
+# structured-facts family (companyfacts/companyconcept/frames/tickers), one provider id whose
+# tickers op rides an ABSOLUTE path to www.sec.gov (build_url passes it through; each host keeps
+# its own polite bucket). E8 batch: the 2026-10-19 deferral reopened — the local XBRL bulk lost
+# with the E: drive, the MCP/OmniHub surface carries no financial-data paths.
 

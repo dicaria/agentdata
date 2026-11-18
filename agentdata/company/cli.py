@@ -104,6 +104,29 @@ def register(v, g):
     f_caosb.add_argument("--osb", default=None,
                          help="OSB File Number exact match, e.g. 0000875-2026-AB (the estate key)")
     f_caosb.add_argument("--limit", type=int, default=20, help="Rows back (local payload wall; 1-100)")
+    # —— 0.3.68 E10 developed-economy exchange faces (dictionary slots: ch_six_fqs < ch_zefix;
+    # ca_tmx deferred 2026-11-18 pm — tsx.com flipped to an AWS WAF JS challenge, probe-e10 p2c-p2e) ——
+    f_six = v.add_parser("ch_six_fqs_search", parents=[g()],
+                         help="SIX Swiss Exchange reference query (six-group.com /fqs/ref.json command API; 15-min delayed)",
+                         description="Command-style query over the SIX listed universe: segments "
+                                     "EQ 813 / BO 3,010 / FU 3,207 / IN 2,548 (re-verified "
+                                     "2026-11-18). Default column preset = reference data (ISIN / "
+                                     "IssuerNameFull / ValorNumber / SBISector(+Desc) / SecTypeDesc "
+                                     "/ FirstTradingDate / Currency); price columns "
+                                     "(ClosingPriceCHF, NumberInIssue) are OPT-IN via --columns "
+                                     "— SIX closing prices carry a commercial-use caveat. Column "
+                                     "oracle: an invalid name is 400-rejected verbatim (IssuerName/"
+                                     "SecType/ICB/Symbol are INVALID; IssuerNameFull/SecTypeDesc "
+                                     "valid — probed); SBISector is EMPTY on most EQ rows (sector "
+                                     "codes fill on bonds) — passed through, never fabricated")
+    f_six.add_argument("--segment", default="EQ", choices=["EQ", "BO", "FU", "EP", "DE", "IN", "OT"],
+                       help="PortalSegment filter (upstream param: where=PortalSegment={seg})")
+    f_six.add_argument("--columns", default=None,
+                       help="Comma list overriding the default reference preset (upstream param: select; e.g. ISIN,IssuerNameFull,ClosingPriceCHF,NumberInIssue — the opt-in price pair)")
+    f_six.add_argument("--order-by", dest="order_by", default="ISIN",
+                       help="Sort column (upstream param: orderby; default ISIN)")
+    f_six.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream param: page)")
+    f_six.add_argument("--pagesize", type=int, default=100, help="Rows per page (upstream param: pagesize; 1-500 politeness cap)")
     f1 = v.add_parser("ch_zefix_firm", parents=[g()],
                        help="Swiss firm full profile by ehraid (Zefix /firm/{ehraid}.json)",
                        description="Zefix single record: purpose full text, oldNames history, hasTakenOver/takenOverBy M&A edges with ehraid/uid/chid cross-references (precedessor/successor)")
@@ -349,6 +372,19 @@ def register(v, g):
                                        "and filter locally")
     f_eiopa.add_argument("--limit", type=int, default=100, help="Rows (upstream body: pageSize; wall 1-100)")
     f_eiopa.add_argument("--page", type=int, default=1, help="Page, 1-BASED (upstream body: page; 0 → upstream 400)")
+    # —— 0.3.68 E10 exchange faces (dictionary slot: eu_eiopa < eu_euronext < fdic_failures) ——
+    f_eunx = v.add_parser("eu_euronext_instrument_search", parents=[g()],
+                          help="Euronext instrument resolver — ISIN / name / mnemonic (live.euronext.com searchJSON; keyless)",
+                          description="One query resolves across all seven Euronext markets: rows "
+                                      "carry isin/mic/name + the venue-specific symbol (parsed out "
+                                      "of the html label) + the detail-page link "
+                                      "(/en/product/equities/{ISIN}-{MIC}). One ISIN lists on "
+                                      "MULTIPLE venues (Air Liquide FR0000120073 → XPAR + MTAH) — "
+                                      "the join key is the ISIN+MIC pair, never the bare ISIN. An "
+                                      "unknown q returns a 'No results found' sentinel row "
+                                      "upstream; the engine drops it, zero hits is a legal answer")
+    f_eunx.add_argument("--q", required=True,
+                        help="ISIN, company name, or ticker mnemonic (upstream param: q; e.g. NL0010273215 / 'Air Liquide' / TTE)")
     # —— 0.3.58 FDIC BankFind siblings (dictionary order: fdic_failures < fdic_financials < fdic_history < fdic_institutions < fdic_locations; filters required — the local whole-database safety wall) ——
     f3f = v.add_parser("fdic_failures", parents=[g()],
                        help="US bank failure history 1934→today (FDIC /banks/failures; --filters required)",
@@ -603,6 +639,24 @@ def register(v, g):
                        help="Name substring over the category (upstream param: search; e.g. MOTILAL → 7 cards)")
     f_in2.add_argument("--regno", default=None,
                        help="Exact registration-number lookup (upstream param: regNo; e.g. INB030484617 → the multi-exchange rows)")
+    # —— 0.3.68 E10 exchange faces (dictionary slot: in_sebi_* < it_borsa < je_jfsc) ——
+    f_boit = v.add_parser("it_borsa_quote", parents=[g()],
+                          help="Borsa Italiana instrument card by ISIN (dati-completi; market cap, 15-min delayed)",
+                          description="The dati-completi card: ID Strumento / Codice Alfanumerico "
+                                      "(ticker) / Super Sector / Mercato-Segmento / "
+                                      "Capitalizzazione di Mercato (IT number format parsed to "
+                                      "numeric EUR) / lot / quote stack / 52-week / performance "
+                                      "pairs, all 28 label/value pairs verbatim in meta{}. LAWS "
+                                      "(probed 2026-11-18): the market path segment is DECORATIVE "
+                                      "(wrong segment answers 200 with identical content — only "
+                                      "isin/mic are authoritative); mic is optional; an unknown "
+                                      "ISIN does NOT 404 — the upstream serves a generic ~118KB "
+                                      "page with no metadata table, reported as found=false, "
+                                      "never a fabricated card")
+    f_boit.add_argument("--isin", required=True,
+                        help="ISIN, 12 chars (upstream param: isin; e.g. IT0003132476 = Eni)")
+    f_boit.add_argument("--mic", default=None,
+                        help="Market MIC, optional (upstream param: mic; e.g. MTAA — omitting it returns the same card, probed)")
     f_jf = v.add_parser("je_jfsc_regulated_entities", parents=[g()],
                         help="Jersey regulated-entities register search (JFSC Umbraco API POST)",
                         description="JFSC regulated entities: site-search rows (Title/Url/Rank) + the official licence text verbatim in LawSection ('Banking (DC) (ref. DC0076), …' → law/code/ref triplets, raw kept). NoResults is a RESULT COUNT, not a zero flag (Keyword Barclays → NoResults=1); Refiners not exposed (space-joined lowercase keys — unstable, rasff precedent); keyword required (empty keyword = whole-register enumeration, unpinned)")
@@ -668,6 +722,36 @@ def register(v, g):
                          help="13-digit JCN / Corporate Number / 法人番号 (exact, local scan)")
     f_jpfsa.add_argument("--limit", type=int, default=20,
                          help="Rows back (local payload wall 1-100, default 20; total_matched echoes the full count)")
+    # —— 0.3.68 E10 exchange faces (dictionary slot: jp_fsa_licensed < jp_jpx_* < jp_patent_search; detail < list, lexicographic) ——
+    f_jpxd = v.add_parser("jp_jpx_stock_detail", parents=[g()],
+                          help="JPX 57-field issue card by code (qjsonp ctl/stock_detail; ISIN/market cap/shares/EPS history)",
+                          description="The per-issue card: ISIN, MKCP market cap (JPY), SHRK "
+                                      "shares issued, LOSH trading lot, A_HISTDAYL embedded daily "
+                                      "OHLCV block, INDEX_INFOMATION yearly EPS history, 52-week "
+                                      "high/low with dates, full quote stack — 57 fields passed "
+                                      "through verbatim (7203 = Toyota: MKCP 49,827,287,188,440 "
+                                      "JPY, SHRK 14,594,987,460). section1.data is a dict keyed "
+                                      "'{code}/T' upstream; the engine takes the single value. An "
+                                      "unknown code returns an empty data dict — honest zero, not "
+                                      "an error")
+    f_jpxd.add_argument("--qcode", required=True,
+                        help="JPX issue code, digits with optional /T (upstream param: qcode; e.g. 7203)")
+    f_jpxl = v.add_parser("jp_jpx_stock_list", parents=[g()],
+                          help="JPX listed-equity universe page (quote.jpx.co.jp qjsonp gateway; keyless + Referer door)",
+                          description="One page (up to 100 rows) of the JPX listed universe: "
+                                      "hitcount 4,490 / pagecount 45 on probe day; rows "
+                                      "self-describe board (LISSE_CNV Prime/Standard/Growth/…) "
+                                      "and 33-sector industry (JSEC + English name) alongside "
+                                      "code (TTCODE2), JP/EN long names (FLLN/FLLNE), last price "
+                                      "(DPP), volume (DV), ROE/PER/PBR. key2=1 walks ALL sections "
+                                      "(pass a section code to narrow); page is 1-based. The "
+                                      "gateway 503s a bare call naming the missing Referer — the "
+                                      "engine pins it (the HTML listing pages are placeholder "
+                                      "shells; this gateway is the only data path)")
+    f_jpxl.add_argument("--section", default="1",
+                        help="Board-section code (upstream param: key2; '1' = all sections — 8 narrower codes exist, rows carry their own board)")
+    f_jpxl.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream param: page; pagecount echoes the wall)")
+    f_jpxl.add_argument("--maxdisp", type=int, default=100, help="Rows per page (upstream param: maxdisp; 1-100, but values under 25 clamp to a 25-row page — pagecount math follows the clamp, probed)")
     # —— 0.3.56 J-PlatPat IP search faces, part 2 (dictionary slot: jp_fsa_licensed < jp_{patent,trademark}_search < kr_hometax) ——
     _jpp_parser("jp_patent_search",
                 "patent face (wsp0103) — 37-key rows, holder APPN_RIGHT_HOLDER, FI facets, "
@@ -824,18 +908,6 @@ def register(v, g):
     f_ruc.add_argument("--limit", type=int, default=20,
                        help="Rows to return (local payload wall 1-100, default 20; total_matched echoes the full count)")
 
-    f15 = v.add_parser("sec_fulltext_search", parents=[g()],
-                       help="SEC filing full-text search 2001+ (EDGAR FTS)",
-                       description="EDGAR full-text search: q/forms/startdt/enddt upstream-verbatim; a single date end is auto-completed (silently ignored upstream), dateRange=custom always two-ended; total_relation gte = capped at 10k")
-    f15.add_argument("--q", required=True, help="Query term (upstream param: q; EDGAR FTS syntax)")
-    f15.add_argument("--forms", default=None, help="Form-type filter (upstream param: forms; e.g. 8-K,10-K)")
-    f15.add_argument("--startdt", default=None, help="Start date YYYY-MM-DD (upstream param: startdt; single end auto-completed to 2001-01-01)")
-    f15.add_argument("--enddt", default=None, help="End date YYYY-MM-DD (upstream param: enddt; single end auto-completed to today)")
-    f15.add_argument("--limit", type=int, default=10, help="Rows to return (client-side slice of the 100-hit page; ≤100)")
-    f16 = v.add_parser("sec_submissions", parents=[g()],
-                      help="SEC CIK→registrant card (data.sec.gov submissions)",
-                      description="Registrant identity card: legal/former names, tickers·exchanges, EIN, SIC, filing totals (accepts bare/zero-padded/CIK-prefixed input)")
-    f16.add_argument("--cik", required=True, help="CIK, 1-10 digits (upstream path param: CIK{cik10}.json)")
     # —— 0.3.46 SG data.gov.sg open-data platform (dictionary slot: sg_datagovsg between sec_* and
     # ted_*; _download sorts before _datasets — '_' < 's'; the ACRA register of record rides the
     # national platform as bulk CSV) ——
@@ -1000,6 +1072,99 @@ def register(v, g):
                       help="Row offset (upstream param: $offset; >=0 — Socrata deep-offset friendly)")
     f_tx.add_argument("--order", default=None,
                       help="Sort column [ASC|DESC] (upstream param: $order; rejects NULLS — e.g. license_number DESC)")
+    # —— 0.3.66 SEC XBRL structured-facts family (dictionary slots: us_sec_companyconcept <
+    # us_sec_companyfacts < us_sec_frames < us_sec_fulltext_search — 'c'<'f'; us_sec_tickers after
+    # us_sec_submissions; the us_sec_* block sorts between tx_tdlr and usaspending — '_'<'a')
+    # —— the quantitative layer under the edgar_cik registry layer; the 2026-10-19 deferral
+    # reopened 2026-11-17 (local XBRL bulk lost with the E: drive; MCP/OmniHub surface carries
+    # no financial-data paths). The whole cluster was renamed pre-release 2026-11-17 (user
+    # ruling: one pass, docs included) — the two faces that had shipped (fulltext_search/
+    # submissions) keep suppressed deprecated parsers routed through root cli's _FLAT_ALIAS
+    # with a stderr warning; removal slated 0.4.x ——
+    f15b = v.add_parser("us_sec_companyconcept", parents=[g()],
+                        help="SEC single-concept time series (the cheap point query, 404 = never filed)",
+                        description="data.sec.gov /api/xbrl/companyconcept — one concept × one "
+                                    "taxonomy (18KB vs companyfacts' 4MB); each fact carries accn "
+                                    "(the filing it was reported in — joins us_sec_submissions / "
+                                    "us_sec_fulltext_search), fy/fp (the FILING's fiscal year — never "
+                                    "the fact period's), form, filed, frame.")
+    f15b.add_argument("--cik", required=True, help="CIK, 1-10 digits (accepts CIK-prefixed)")
+    f15b.add_argument("--concept", required=True, help="Concept tag verbatim (never guessed — a wrong name answers upstream_not_found)")
+    f15b.add_argument("--taxonomy", default="us-gaap", help="Taxonomy segment (us-gaap/dei/ffd; default us-gaap)")
+    f15b.add_argument("--form", default=None, help="Client-side form filter (e.g. 10-K)")
+    f15a = v.add_parser("us_sec_companyfacts", parents=[g()],
+                        help="SEC issuer XBRL dump: concept inventory XOR one concept's full series",
+                        description="data.sec.gov /api/xbrl/companyfacts — inventory mode (no "
+                                    "--concept: taxonomy → concept-name list; names pass through "
+                                    "verbatim, they drift across taxonomies: Revenues → "
+                                    "RevenueFromContractWithCustomerExcludingAssessedTax after 2018; "
+                                    "issuers simply lack some — Apple has no EarningsPerShareDiluted) "
+                                    "or concept mode (the tag's full unit-keyed series, form-filterable). "
+                                    "fy/fp on a fact are the FILING's fiscal year, never the fact "
+                                    "period's — read periods off start/end.")
+    f15a.add_argument("--cik", required=True, help="CIK, 1-10 digits (accepts CIK-prefixed)")
+    f15a.add_argument("--taxonomy", default=None, help="Filter the inventory to one taxonomy (us-gaap/dei/ffd; concept mode ignores this — the find assigns it)")
+    f15a.add_argument("--concept", default=None, help="Concept tag verbatim (e.g. RevenueFromContractWithCustomerExcludingAssessedTax) — switches to concept mode")
+    f15a.add_argument("--form", default=None, help="Client-side form filter (e.g. 10-K)")
+    f15c = v.add_parser("us_sec_frames", parents=[g()],
+                        help="SEC cross-section: one concept × unit × frame, every filer in one shot",
+                        description="data.sec.gov /api/xbrl/frames — one concept × unit × period "
+                                    "cross-section (NetIncomeLoss CY2024 = 6,084 entities probed "
+                                    "2026-11-17). Frames: CY<year> (annual duration), CY<year>Q<n> "
+                                    "(quarter), CY<year>Q<n>I (instant). Rows verbatim: accn/cik/"
+                                    "entityName/loc/start/end/val.")
+    f15c.add_argument("--concept", required=True, help="Concept tag verbatim")
+    f15c.add_argument("--frame", required=True, help="Period: CY2024 / CY2024Q4 / CY2024Q4I")
+    f15c.add_argument("--taxonomy", default="us-gaap", help="Taxonomy segment (default us-gaap)")
+    f15c.add_argument("--unit", default="USD", help="Unit segment (default USD)")
+    f15c.add_argument("--limit", type=int, default=None, help="Display slice (local; the full cross-section always rides the result)")
+    f15c.add_argument("--sort", choices=["val_desc", "val_asc"], default=None, help="Display sort by value (local)")
+    f15 = v.add_parser("us_sec_fulltext_search", parents=[g()],
+                       help="SEC filing full-text search 2001+ (EDGAR FTS)",
+                       description="EDGAR full-text search: q/forms/startdt/enddt upstream-verbatim; a single date end is auto-completed (silently ignored upstream), dateRange=custom always two-ended; total_relation gte = capped at 10k. "
+                                   "--census: the full-window sweep (bisection until every leaf window is exact, all pages harvested, adsh-deduped) — the plain mode returns ONE 100-hit page and post-filtering it systematically undercounts; "
+                                   "quoted predicates (company:\"X\") are NOT server-side field filters — entity scoping is --census-entity's local post-filter")
+    f15.add_argument("--q", required=True, help="Query term (upstream param: q; EDGAR FTS syntax)")
+    f15.add_argument("--forms", default=None, help="Form-type filter (upstream param: forms; e.g. 8-K,10-K)")
+    f15.add_argument("--startdt", default=None, help="Start date YYYY-MM-DD (upstream param: startdt; single end auto-completed to 2001-01-01)")
+    f15.add_argument("--enddt", default=None, help="End date YYYY-MM-DD (upstream param: enddt; single end auto-completed to today)")
+    f15.add_argument("--limit", type=int, default=10, help="Rows to return (client-side slice of the 100-hit page; ≤100)")
+    f15.add_argument("--census", action="store_true", default=False,
+                     help="Full-window census: bisection until every leaf window exact, all pages harvested, _id/adsh deduped (filings_total = the true count the 100-hit page undercounts)")
+    f15.add_argument("--census-entity", dest="census_entity", default=None,
+                     help="Local entity post-filter (case-insensitive whole-word match over display names — \"IREN\" never hits \"Siren\"/\"DirectIrene\") — rides ONLY with --census; the upstream does not parse company:\"...\" as a field filter")
+    f15.add_argument("--census-max-requests", dest="census_max_requests", type=int, default=400,
+                     help="Census request budget (default 400; exhaustion raises usage_error with progress — the 5 rps politeness cap makes large budgets slow)")
+    # deprecated alias parsers (help suppressed — never advertised; root cli's _FLAT_ALIAS warns
+    # to stderr and reroutes; the order/help gates exclude them by name; removal slated 0.4.x)
+    f15_alias = v.add_parser("sec_fulltext_search", parents=[g()], help=argparse.SUPPRESS,
+                             description="DEPRECATED alias of us_sec_fulltext_search (removal slated 0.4.x)")
+    f15_alias.add_argument("--q", required=True)
+    f15_alias.add_argument("--forms", default=None)
+    f15_alias.add_argument("--startdt", default=None)
+    f15_alias.add_argument("--enddt", default=None)
+    f15_alias.add_argument("--limit", type=int, default=10)
+    f15_alias.add_argument("--census", action="store_true", default=False)
+    f15_alias.add_argument("--census-entity", dest="census_entity", default=None)
+    f15_alias.add_argument("--census-max-requests", dest="census_max_requests", type=int, default=400)
+    f16 = v.add_parser("us_sec_submissions", parents=[g()],
+                       help="SEC CIK→registrant card (data.sec.gov submissions)",
+                       description="Registrant identity card: legal/former names, tickers·exchanges, EIN, SIC, filing totals (accepts bare/zero-padded/CIK-prefixed input)")
+    f16.add_argument("--cik", required=True, help="CIK, 1-10 digits (upstream path param: CIK{cik10}.json)")
+    f16_alias = v.add_parser("sec_submissions", parents=[g()], help=argparse.SUPPRESS,
+                             description="DEPRECATED alias of us_sec_submissions (removal slated 0.4.x)")
+    f16_alias.add_argument("--cik", required=True)
+    f16b = v.add_parser("us_sec_tickers", parents=[g()],
+                        help="SEC ticker↔CIK directory (10,404 rows; exactly one selector)",
+                        description="www.sec.gov /files/company_tickers.json — the reverse-lookup "
+                                    "face the submissions card lacks (it only takes CIK input). "
+                                    "--ticker exact (case-insensitive) / --name title substring / "
+                                    "--cik reverse (all tickers of one registrant — share classes "
+                                    "share a CIK: 10,404 rows resolve to 7,997 CIKs, probed "
+                                    "2026-11-17). Row keys renamed cik_str→cik, rest verbatim.")
+    f16b.add_argument("--ticker", default=None, help="Exact ticker (case-insensitive, e.g. AAPL)")
+    f16b.add_argument("--name", default=None, help="Title substring (case-insensitive, e.g. 'bank holding')")
+    f16b.add_argument("--cik", default=None, help="Reverse: all tickers of one CIK (1-10 digits)")
     f18 = v.add_parser("usaspending_spending_by_award", parents=[g()],
                       help="US federal awards by recipient (USAspending spending_by_award POST)",
                       description="Federal contracts/grants: recipient name (array upstream, scalar auto-wrapped); award-type codes, time window (single end auto-completed), fields all upstream-verbatim")
@@ -1060,6 +1225,9 @@ FLAT = {
     # 0.3.43 CA OSB CCAA restructuring roster (dictionary slot: ca_osb between br_bacen and ch_zefix)
     "ca_ccaa_records": lambda a: {"name": a.name, "province": a.province, "monitor": a.monitor,
                                   "osb": a.osb, "limit": a.limit},
+    # 0.3.68 E10 developed-economy exchange faces (six)
+    "ch_six_fqs_search": lambda a: {"segment": a.segment, "columns": a.columns,
+                                    "order_by": a.order_by, "page": a.page, "pagesize": a.pagesize},
     "ch_zefix_firm": lambda a: {"ehraid": a.ehraid},
     # 0.3.3 European country registry realtime faces (five)
     "ch_zefix_firm_search": lambda a: {"name": a.name, "max_entries": a.max_entries, "offset": a.offset},
@@ -1094,6 +1262,7 @@ FLAT = {
     "es_oepm_bopi": lambda a: {"tomo": a.tomo, "date": a.date},
     # 0.3.59 EU EIOPA IORP register (slot: es_oepm_bopi < eu_eiopa_iorps < fdic_failures)
     "eu_eiopa_iorps": lambda a: {"limit": a.limit, "page": a.page},
+    "eu_euronext_instrument_search": lambda a: {"q": a.q},
     # 0.3.58 FDIC BankFind siblings (dictionary order: fdic_failures < fdic_financials < fdic_history < fdic_institutions < fdic_locations)
     "fdic_failures": lambda a: {"filters": a.filters, "fields": a.fields, "limit": a.limit,
                                 "offset": a.offset, "sort_by": a.sort_by, "sort_order": a.sort_order},
@@ -1146,6 +1315,7 @@ FLAT = {
     "in_sebi_default_brokers": lambda a: {},
     "in_sebi_intermediaries": lambda a: {"category": a.category, "search": a.search,
                                          "regno": a.regno},
+    "it_borsa_quote": lambda a: {"isin": a.isin, "mic": a.mic},
     "je_jfsc_regulated_entities": lambda a: {"keyword": a.keyword, "page_size": a.page_size,
                                              "page": a.page},
     # 0.3.56 J-PlatPat IP search, part 1 (slot: jp_design_search < jp_fsa_licensed)
@@ -1153,6 +1323,8 @@ FLAT = {
     # 0.3.42 JP FSA licensed/registered institution farm (dictionary slot: jp_fsa between je_jfsc and kz_gbd)
     "jp_fsa_licensed": lambda a: {"category": a.category, "name": a.name, "jcn": a.jcn,
                                   "limit": a.limit},
+    "jp_jpx_stock_detail": lambda a: {"qcode": a.qcode},
+    "jp_jpx_stock_list": lambda a: {"section": a.section, "page": a.page, "maxdisp": a.maxdisp},
     # 0.3.56 J-PlatPat IP search, part 2 (slot: jp_fsa_licensed < jp_{patent,trademark}_search < kr_hometax)
     "jp_patent_search": lambda a: {"q": a.q, "year": a.year, "year_sign": a.year_sign},
     "jp_trademark_search": lambda a: {"q": a.q, "year": a.year, "year_sign": a.year_sign},
@@ -1175,13 +1347,10 @@ FLAT = {
     "nzco_directors": lambda a: {"company_number": a.company_number},
     "ror_organizations": lambda a: {"query": a.query, "ror_id": a.ror_id, "page": a.page,
                                     "all_status": a.all_status},
-    # 0.3.37 RU CBR credit-organisations face (dictionary slot: ru_cbr between ror and sec)
+    # 0.3.37 RU CBR credit-organisations face (dictionary slot: ru_cbr between ror and sg)
     "ru_cbr_credit_orgs": lambda a: {"name": a.name, "status": a.status, "ogrn": a.ogrn,
                                      "limit": a.limit},
-    "sec_fulltext_search": lambda a: {"q": a.q, "forms": a.forms, "startdt": a.startdt,
-                          "enddt": a.enddt, "limit": a.limit},
-    "sec_submissions": lambda a: {"cik": a.cik},
-    # 0.3.46 SG data.gov.sg open-data platform (dictionary slot: sg_datagovsg between sec_* and ted_*; _download sorts before _datasets — '_' < 's')
+    # 0.3.46 SG data.gov.sg open-data platform (dictionary slot: sg_datagovsg between ru_cbr and ted_*; _download sorts before _datasets — '_' < 's')
     "sg_datagovsg_dataset_download": lambda a: {"dataset_id": a.id},
     "sg_datagovsg_datasets": lambda a: {"page": a.page, "q": a.q, "agency": a.agency,
                                         "fmt": a.fmt, "limit": a.limit},
@@ -1201,6 +1370,23 @@ FLAT = {
     # wa_doh between usaspending and vies_vat — US sub-national faces take the state code prefix, ny_open_data precedent)
     "tx_tdlr_licenses": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset,
                                    "order": a.order},
+    # 0.3.66 SEC XBRL structured-facts family (dictionary slots: us_sec_companyconcept <
+    # us_sec_companyfacts < us_sec_frames < us_sec_fulltext_search — 'c'<'f'; us_sec_tickers after
+    # us_sec_submissions; the block slots between tx_tdlr and usaspending — '_'<'a'. Renamed
+    # pre-release 2026-11-17: the two faces that had shipped keep deprecated sec_* aliases,
+    # routed by root cli's _FLAT_ALIAS — removal slated 0.4.x)
+    "us_sec_companyconcept": lambda a: {"cik": a.cik, "concept": a.concept, "taxonomy": a.taxonomy,
+                              "form": a.form},
+    "us_sec_companyfacts": lambda a: {"cik": a.cik, "taxonomy": a.taxonomy, "concept": a.concept,
+                            "form": a.form},
+    "us_sec_frames": lambda a: {"concept": a.concept, "frame": a.frame, "taxonomy": a.taxonomy,
+                      "unit": a.unit},
+    "us_sec_fulltext_search": lambda a: {"q": a.q, "forms": a.forms, "startdt": a.startdt,
+                            "enddt": a.enddt, "limit": a.limit, "census": a.census,
+                            "census_entity": a.census_entity,
+                            "census_max_requests": a.census_max_requests},
+    "us_sec_submissions": lambda a: {"cik": a.cik},
+    "us_sec_tickers": lambda a: {"ticker": a.ticker, "name": a.name, "cik": a.cik},
     "usaspending_spending_by_award": lambda a: {"recipient_search_text": a.recipient_search_text,
                                      "award_type_codes": a.award_type_codes,
                                      "start_date": a.start_date, "end_date": a.end_date,
@@ -1222,6 +1408,8 @@ COUNTRY = {
     # 0.3.60 BR BNDES financing operations (slot: br_bacen_institutions < br_bndes_financiamento < ca_ccaa_records)
     "br_bndes_financiamento": "BR",
     "ca_ccaa_records": "CA",
+    # 0.3.68 E10 developed-economy exchange faces (six)
+    "ch_six_fqs_search": "CH",
     "ch_zefix_firm": "CH",
     "ch_zefix_firm_search": "CH",
     # 0.3.49 US city-license trio (US city sources keep the US jurisdiction stamp — tx_tdlr/wa_doh 0.3.48 ruling;
@@ -1240,6 +1428,7 @@ COUNTRY = {
     "es_oepm_bopi": "ES",
     # 0.3.59 EU EIOPA IORP register (slot: es_oepm_bopi < eu_eiopa_iorps < fdic_failures)
     "eu_eiopa_iorps": "EU",
+    "eu_euronext_instrument_search": "EU",
     # 0.3.58 FDIC BankFind siblings (dictionary order: fdic_failures < fdic_financials < fdic_history < fdic_institutions < fdic_locations)
     "fdic_failures": "US",
     "fdic_financials": "US",
@@ -1264,10 +1453,13 @@ COUNTRY = {
     "gleif_ultimate_parent": "GLOBAL",
     "in_sebi_default_brokers": "IN",
     "in_sebi_intermediaries": "IN",
+    "it_borsa_quote": "IT",
     "je_jfsc_regulated_entities": "JE",
     # 0.3.56 J-PlatPat IP search, part 1 (slot: jp_design_search < jp_fsa_licensed)
     "jp_design_search": "JP",
     "jp_fsa_licensed": "JP",
+    "jp_jpx_stock_detail": "JP",
+    "jp_jpx_stock_list": "JP",
     # 0.3.56 J-PlatPat IP search, part 2 (slot: jp_fsa_licensed < jp_{patent,trademark}_search < kr_hometax)
     "jp_patent_search": "JP",
     "jp_trademark_search": "JP",
@@ -1283,8 +1475,6 @@ COUNTRY = {
     "nzco_directors": "NZ",
     "ror_organizations": "GLOBAL",
     "ru_cbr_credit_orgs": "RU",
-    "sec_fulltext_search": "US",
-    "sec_submissions": "US",
     "sg_datagovsg_dataset_download": "SG",
     "sg_datagovsg_datasets": "SG",
     "ted_notices_search": "EU",
@@ -1295,6 +1485,14 @@ COUNTRY = {
     # 0.3.48 US state-license Socrata twin batch (US sub-national sources keep the US jurisdiction stamp;
     # tx_tdlr slots before usaspending ('tr'<'tx'<'us'), wa_doh is the company tail ('vi'<'wa'))
     "tx_tdlr_licenses": "US",
+    # 0.3.66 SEC XBRL structured-facts family (us_sec_* slots between tx_tdlr and usaspending — '_'<'a';
+    # renamed pre-release 2026-11-17 — the two shipped faces keep deprecated sec_* aliases, removal 0.4.x)
+    "us_sec_companyconcept": "US",
+    "us_sec_companyfacts": "US",
+    "us_sec_frames": "US",
+    "us_sec_fulltext_search": "US",
+    "us_sec_submissions": "US",
+    "us_sec_tickers": "US",
     "usaspending_spending_by_award": "US",
     "vies_vat": "EU",
     "wa_doh_credentials": "US",
