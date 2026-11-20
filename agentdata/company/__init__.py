@@ -1,11 +1,11 @@
 """company domain package — provider adapters flat layout (one source per file) + faces/cli (0.2.6 per-domain reorg)."""
-from . import (br_bacen, br_bndes, ca_osb, cf, ch_six_fqs, ch_zefix, chi_bacp, co_rues,  # noqa: F401
-               cz_ares, de_inso, de_register, edgar_cik, edgar_fts, edgar_xbrl, es_borme, es_cnmv,
-               es_oepm, eu_eiopa, eu_euronext, fdic_bankfind, fi_ytj, fr_inpi, fr_recherche,
-               fr_regafi, fts, gg_gfsc, gleif, in_sebi_intm, it_borsa, je_jfsc,
-               jp_fsa, jp_jplatpat, jp_jpx, kr_hometax, kr_kipris, kz_gbd_ul, lacity, no_brreg,
-               nzco, nyc_dcwp, ror, ru_cbr_credit, sg_datagovsg, ted, tr_bddk, tr_kap,
-               tr_spk_borsa, tx_tdlr, usaspending, vies, wa_doh)
+from . import (at_wiener, au_asx, br_bacen, br_bndes, ca_osb, cf, ch_six_fqs, ch_zefix, chi_bacp,  # noqa: F401
+               co_rues, cz_ares, de_inso, de_register, edgar_arch, edgar_cik, edgar_fts, edgar_xbrl,
+               es_borme, es_cnmv, es_oepm, eu_eiopa, eu_euronext, fdic_bankfind, fi_ytj, fr_inpi,
+               fr_recherche, fr_regafi, fts, gg_gfsc, gleif, hk_hkex, in_sebi_intm, it_borsa,
+               je_jfsc, jp_fsa, jp_jplatpat, jp_jpx, kr_hometax, kr_kipris, kz_gbd_ul, lacity,
+               no_brreg, nzco, nyc_dcwp, ror, ru_cbr_credit, sg_datagovsg, ted, tr_bddk,
+               tr_kap, tr_spk_borsa, tx_tdlr, usaspending, vies, wa_doh)
 # 0.3.43 rider: jp_fsa was missing from this eager-import list (0.3.42) — the attribute only
 # resolved in processes where a test had imported the submodule directly; a fresh interpreter
 # hit AttributeError on company.jp_fsa. Fix-forward, disclosed in the 0.3.43 changelog entry.
@@ -34,6 +34,15 @@ from . import (br_bacen, br_bndes, ca_osb, cf, ch_six_fqs, ch_zefix, chi_bacp, c
 # written then DEFERRED unreleased: tsx.com flipped to an AWS WAF JS challenge 2026-11-18 pm
 # (probe-e10 p2c-p2e — all-UA matrix challenged incl. the morning's working one; urllib cannot
 # execute the challenge JS; re-probe when upstream relents).
+# 0.3.69: edgar_arch added in alphabetical slot (de_register < edgar_arch < edgar_cik — 'a'<'c')
+# — the E11 filing-document body fetch (www.sec.gov/Archives): the body layer under the filings
+# line (submissions = index, fts = hit metadata, xbrl = facts). Shares the declared-UA fair-access
+# family and the www.sec.gov host bucket with edgar_xbrl's tickers op.
+# 0.3.70: at_wiener/au_asx/hk_hkex added in alphabetical slots (at_wiener < au_asx < br_bacen;
+# gleif < hk_hkex < in_sebi_intm) — the E12 developed-economy exchange faces. at_wiener is the
+# E10 TLS-reversal revival (the factsetdigital cert misconfig was upstream's, fixed same-day);
+# hk_hkex rides ONE provider id over TWO hosts (www.hkex.com.hk universe + www1.hkexnews.hk
+# announcements/documents — absolute-path ops, each host keeps its own polite bucket).
 # 0.3.66: edgar_xbrl added in alphabetical slot (edgar_fts < edgar_xbrl < es_borme) — the SEC XBRL
 # structured-facts family (companyfacts/companyconcept/frames/tickers), one provider id whose
 # tickers op rides an ABSOLUTE path to www.sec.gov (build_url passes it through; each host keeps

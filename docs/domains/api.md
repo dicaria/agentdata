@@ -930,6 +930,20 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   with probe evidence — Wiener Börse TLS (a *.factsetdigitalsolutions.com cert on both hosts)
   and TMX (tsx.com flipped to an AWS WAF JS challenge after the morning's green probes; urllib
   cannot execute challenge JS); see changelog entry 105)
+→ **0.3.69, 257 faces** (company +`us_sec_filing_document`: batch E11 — the SEC Archives
+  body fetch, +1 provider `edgar_arch`, 35 jurisdictions held, the body layer under the
+  filings line (submissions = index, fts = hit metadata, xbrl = facts — the document
+  bytes were only reachable as doc_url links); --url (a doc_url, prefix-walled to
+  sec.gov/Archives) XOR --cik + --accession; auto-primary via the submissions
+  recent-window primaryDocument (index single-candidate rule / usage_error naming
+  candidates beyond); the SGML-envelope two-shape law (older filings wrapped — inner =
+  first <TEXT> to LAST </TEXT> greedy — vs modern bare iXBRL passthrough), index.json a
+  pure directory listing on every era (the type column is an ICON name, no
+  isPrimaryDocument even on 2026 filings), scaffold rows flagged and a scaffold-only dir
+  = bogus accession → upstream_not_found (the upstream answers 200 with a ghost
+  filename1.htm listing — never laundered as an empty dir); bytes via the latin-1
+  round-trip, sha256 over raw, decode chain charset→utf-8→cp1252→replace, --text a
+  stdlib HTMLParser; see changelog entry 106)
 
 - openFDA query faces **deferred by user ruling** (2026-10-16: FAERS/MAUDE are already harvested and ingested locally, so queries consume the local corpus first; third-party real-time faces wait until an incremental question touches them) — the deferral covers **only the locally ingested FAERS/MAUDE faces**; the `drug/shortages.json` face opened in Wave 5 is an event-stream face not harvested locally, outside the deferral's scope (opened 2026-10-23 as soon as the incremental need arose, see changelog entry 23). The first hosted case awaits a keyed-tool proposal — keys are never shipped down to the SDK (§9.2).
 
@@ -954,6 +968,41 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   - **Zero extra release cadence**: the reflection ships with every SDK release and the server
     document inherits it by construction — there is no capability-list release apart from the
     SDK release.
+
+→ **0.3.70, 262 faces** (company +the E12 five: `at_wiener_borse_listed` /
+  `au_asx_listed` / `hk_hkex_securities` / `hk_hkexnews_search` / `hk_hkexnews_document`
+  — the developed-economy exchange universes + the HKEX deep, +3 providers
+  `at_wiener`/`au_asx`/`hk_hkex`, 36 jurisdictions (HK new SDK-wide — the user's HKEX-deep ruling), company 80→85, **AU's first
+  company face**; live-probed 2026-11-18 tmp/probe-e12/): at_wiener is the E10 TLS
+  deferral REVIVED same-day (the morning's *.factsetdigitalsolutions.com mis-chain was
+  upstream's own; the afternoon re-probe got the clean DigiCert chain — the
+  same-day-reversal law: re-probe before any verdict) — the two Austrian segment
+  tables carry the SPAN-STACK law (one td stacks values in nested spans/divs/<br>;
+  split on element boundaries span/a/b/small/div/p/br or date+time glue into
+  "18.11.202612:03:29"), the ISIN rides the company-page slug with a TRAILING SLASH
+  (tail-anchored regex must tolerate /?), and German numbers (comma decimals, dot
+  thousands, Mio.×1e6 / Mrd.×1e9) parse into *_num with verbatim strings alongside;
+  au_asx is the THREE-PART CSV (line 0 banner as-at anchor / blank / header / data;
+  2,060 rows live) where GICS Not Applic (303) and Class Pend (19) are LEGAL values,
+  not dirty data; hk_hkex is ONE provider over TWO hosts (www.hkex.com.hk universe
+  xlsx + www1.hkexnews.hk announcements, each its own polite bucket — the edgar_xbrl
+  precedent): the xlsx parses with stdlib zip+xml alone (values ride per-cell <x:v>
+  t="str"; the 18-column header row verified verbatim — column P's header is a
+  MULTILINE spread-table legend, the probe's stray-"4" reading was a probe artifact
+  the header wall caught on first live call; the DIMENSION LIE — <x:dimension
+  ref="A1:R8"> understates reality, rows are the truth; column R carries the paired
+  RMB counter code); titleSearchServlet.do answers DOUBLE-ENCODED JSON (two
+  json.loads) with three mutually-exclusive modes (stock via prefix.do JSONP →
+  stockId / title keyword / one of the six eds codebooks — codebook lengths GROW:
+  tierone_e 15 probe → 20 live, never pin them) and TWO ERAS (t1/t2/t2g headline
+  categories from 2007-06-25, document_type before that — announcements back to
+  1999-04-01); hk_hkexnews_document reuses the E11 body-fetch pattern (sha256 +
+  content_latin1 lossless round-trip, 748,377B anchor byte-identical with curl) and
+  is where the PATH_SAFE law was born: an op whose {link} substitution carries
+  slashes MUST declare path_safe="/" or build_url quotes the path into the HOST
+  (www1.hkexnews.hk%2Flistedco…) and the proxy answers 400 Tunnel connection
+  failed — a host-shaped URL bug, not a proxy bug; /listedco/ SSRF prefix walls on
+  both entry forms; rate-limits v1.57; see changelog entry 107)
 
 ## 10. The ask verb (P2 design boundary, not implemented)
 

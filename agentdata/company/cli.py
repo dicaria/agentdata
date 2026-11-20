@@ -11,6 +11,34 @@ from .jp_fsa import FAMILIES as jp_fsa_categories  # the 31-register choice list
 
 def register(v, g):
     # —— Flat panel commands (company main face: source-qualified names + upstream params under original names + our defaults; the only face family since 0.3.0) ——
+    # —— 0.3.70 E12 AT/AU exchange universes (dictionary slot: at_wiener_borse_listed < au_asx_listed < br_bacen — the new FLAT head) ——
+    f_wb = v.add_parser("at_wiener_borse_listed", parents=[g()],
+                        help="Wiener Börse listed equities (AT prime 47 + standard ~26, the segment tables)",
+                        description="wienerborse.at server-rendered segment tables — the Austrian "
+                                    "listed-equity universe. The ISIN rides the company-page slug "
+                                    "(the only per-row structured id); SPAN-STACK LAW: stacked cells "
+                                    "(diff.%+abs, date+time, bid/ask price+volume) split on element "
+                                    "boundaries; GERMAN NUMBER LAW: verbatim strings ride every row, "
+                                    "parsed floats ride *_num (11,7500 / 734,2 Mio. / 2,1 Mrd.). "
+                                    "E10 TLS-reversal revival — the factsetdigital cert misconfig "
+                                    "was upstream's, fixed same-day.")
+    f_wb.add_argument("--segment", default="all", choices=["all", "prime", "standard"],
+                      help="Segment: all (default) / prime (47 issuers) / standard (~26)")
+    f_wb.add_argument("--code", default=None,
+                      help="Courtesy alias — ISIN tail or name head (the table quotes carry no ticker column)")
+    f_wb.add_argument("--isin", default=None, help="ISIN exact, AT + 10 alphanumerics (e.g. AT000AGRANA3)")
+    f_wb.add_argument("--name", default=None, help="Name substring (case-insensitive)")
+    f_asx = v.add_parser("au_asx_listed", parents=[g()],
+                         help="ASX listed companies (AU — the exchange's own CSV, 2,060 rows probe day)",
+                         description="www.asx.com.au ASXListedCompanies.csv — a THREE-PART shape: "
+                                     "line 0 the banner as-at anchor, line 1 blank, line 2 the header "
+                                     "(Company name,ASX code,GICS industry group). GICS rides the "
+                                     "27-group closed set — Not Applic (303) and Class Pend (19) are "
+                                     "LEGAL values, not dirty data. AU's first company-domain face.")
+    f_asx.add_argument("--code", default=None, help="ASX code exact, case-insensitive (e.g. BHP)")
+    f_asx.add_argument("--name", default=None, help="Company-name substring (case-insensitive)")
+    f_asx.add_argument("--gics", default=None, help="GICS industry-group substring (e.g. Materials, Not Applic)")
+    f_asx.add_argument("--limit", type=int, default=None, help="Display slice (the full filtered set otherwise)")
     # —— 0.3.38 BR BACEN Olinda registers batch (dictionary slot: br_bacen at the FLAT head, before ch) ——
     f_b1 = v.add_parser("br_bacen_branches", parents=[g()],
                         help="Brazil branch register, whole 13,590-row panel (BACEN Olinda Informes_Agencias)",
@@ -612,6 +640,77 @@ def register(v, g):
                        help="LEI→ultimate parent (GLEIF dedicated endpoint)",
                        description="Ultimate parent card (top of the control chain); 404 = honestly no parent (not an error)")
     f11.add_argument("--lei", required=True, help="LEI, 20 chars ISO 17442 (upstream path param: lei)")
+    # —— 0.3.70 E12 HKEX deep (dictionary slot: gleif_* < hk_hkex_securities < hk_hkexnews_{document,search} < in_sebi_* — '_'<'n'; one provider id over two hosts) ——
+    f_hksec = v.add_parser("hk_hkex_securities", parents=[g()],
+                           help="HKEX listed-securities universe (ListOfSecurities.xlsx, 17,336 rows)",
+                           description="www.hkex.com.hk ListOfSecurities.xlsx — 17,336 rows probe "
+                                       "day: 2,812 equities but ALSO 6,908 derivative warrants and "
+                                       "5,830 CBBC (--category Equity is the working shape). 18 "
+                                       "columns verbatim: column P is the multiline Spread Table "
+                                       "legend (rows carry part codes 1/3/5/4/6), column R carries "
+                                       "the paired RMB counter code (82805). Stdlib zip+xml parse — "
+                                       "the DIMENSION LIE is ignored (<x:dimension ref=A1:R8> "
+                                       "understates reality; rows are the truth). Row 2 = the as-at "
+                                       "anchor.")
+    f_hksec.add_argument("--code", default=None, help="Stock code exact, leading zeros optional both ways (00005/5)")
+    f_hksec.add_argument("--name", default=None, help="Name substring (case-insensitive)")
+    f_hksec.add_argument("--category", default=None,
+                         help="Category exact, case-insensitive (Equity / Debt Securities / DW / CBBC / ETP / REIT)")
+    f_hksec.add_argument("--sub-category", dest="sub_category", default=None,
+                         help="Sub-category exact, case-insensitive (Ordinary Shares / H Shares / …)")
+    f_hksec.add_argument("--limit", type=int, default=None,
+                         help="Display slice (the FULL filtered total always rides result.total)")
+
+    f_hkdoc = v.add_parser("hk_hkexnews_document", parents=[g()],
+                           help="HKEXnews announcement PDF bytes verbatim (sha256 + content_latin1)",
+                           description="www1.hkexnews.hk/listedco/… — the E11 body-fetch pattern: "
+                                       "hk_hkexnews_search's full_url (or FILE_LINK) in, the PDF "
+                                       "bytes out (sha256, size, content_latin1 which round-trips: "
+                                       ".encode('latin-1') == the original bytes; frozen once "
+                                       "published, TTL 7d). Wall: /listedco/ paths only — anything "
+                                       "else never leaves the process. No --text: PDF is not HTML, "
+                                       "text extraction stays on the harvest line.")
+    f_hkdoc.add_argument("--url", default=None,
+                         help="Full URL https://www1.hkexnews.hk/listedco/… (the search face's full_url) — XOR --link")
+    f_hkdoc.add_argument("--link", default=None,
+                         help="FILE_LINK path /listedco/… (the search face's rows carry it) — XOR --url")
+    f_hksearch = v.add_parser("hk_hkexnews_search", parents=[g()],
+                              help="HKEXnews announcements search (stock / title keyword / codebook)",
+                              description="titleSearchServlet.do — the disclosure-grade filings "
+                                          "corpus (11,189 items on probe day alone, searchable back "
+                                          "to 1999-04-01). THREE mutually-exclusive modes: --stock "
+                                          "(code or name, resolved to stockId via the prefix.do "
+                                          "JSONP, searchType=1) XOR --title (keyword, searchType=0) "
+                                          "XOR --codebook (one of the six eds dictionaries verbatim: "
+                                          "tierone_e 20 / tiertwo_e 300 / tiertwogrp_e 12 / doc_e "
+                                          "17 old-era types / activestock_sehk_e 17,652 {i,c,n,s} "
+                                          "resolve map / inactivestock_sehk_e 894 delisted). TWO "
+                                          "ERAS: t1/t2/t2g are the post-2007-06-25 headline codes, "
+                                          "document_type the pre-2007 era. DATE_TIME keeps the HK "
+                                          "DD/MM/YYYY HH:MM shape verbatim; row.full_url feeds "
+                                          "hk_hkexnews_document.")
+    f_hksearch.add_argument("--stock", default=None,
+                            help="Stock code or name (e.g. 00700 or TENCENT — prefix.do resolves to stockId) — XOR --title/--codebook")
+    f_hksearch.add_argument("--title", default=None, help="Title keyword (searchType=0) — XOR --stock/--codebook")
+    f_hksearch.add_argument("--codebook", default=None,
+                            choices=["tierone_e", "tiertwo_e", "tiertwogrp_e", "doc_e",
+                                     "activestock_sehk_e", "inactivestock_sehk_e"],
+                            help="Fetch one of the six eds codebooks verbatim — XOR --stock/--title")
+    f_hksearch.add_argument("--market", default="SEHK", choices=["SEHK", "GEM"],
+                            help="Market: SEHK (default) or GEM (691 items in the same probe window)")
+    f_hksearch.add_argument("--from-date", dest="from_date", default=None,
+                            help="Window start YYYY-MM-DD or YYYYMMDD (optional — the upstream window applies when empty)")
+    f_hksearch.add_argument("--to-date", dest="to_date", default=None,
+                            help="Window end YYYY-MM-DD or YYYYMMDD")
+    f_hksearch.add_argument("--t1", default=None, help="Post-2007 tier-one headline category code (tierone_e)")
+    f_hksearch.add_argument("--t2", default=None, help="Post-2007 tier-two headline code (tiertwo_e)")
+    f_hksearch.add_argument("--t2g", default=None, help="Post-2007 tier-two group code (tiertwogrp_e)")
+    f_hksearch.add_argument("--document-type", dest="document_type", default=None,
+                            help="Pre-2007 era document-type code (doc_e; era 1999-03-31 → 2007-06-24)")
+    f_hksearch.add_argument("--row-range", dest="row_range", type=int, default=100,
+                            help="Page size, 1-1000 (upstream honors up to 1000 — measured)")
+    f_hksearch.add_argument("--first", type=int, default=0,
+                            help="Offset (first= paging; TOTAL_COUNT rides every row)")
     # —— 0.3.35 IN SEBI registers batch (dictionary slot: in_sebi_* between gg_gfsc and je_jfsc) ——
     f_in1 = v.add_parser("in_sebi_default_brokers", parents=[g()],
                          help="SEBI defaulters & expelled stock brokers (the whole negative register, one page)",
@@ -1106,6 +1205,28 @@ def register(v, g):
     f15a.add_argument("--taxonomy", default=None, help="Filter the inventory to one taxonomy (us-gaap/dei/ffd; concept mode ignores this — the find assigns it)")
     f15a.add_argument("--concept", default=None, help="Concept tag verbatim (e.g. RevenueFromContractWithCustomerExcludingAssessedTax) — switches to concept mode")
     f15a.add_argument("--form", default=None, help="Client-side form filter (e.g. 10-K)")
+    # us_sec_filing_document < us_sec_frames — 'fi'<'fr'; the body-fetch face under the same
+    # registration-order law (0.3.69 E11)
+    f15d = v.add_parser("us_sec_filing_document", parents=[g()],
+                        help="Fetch a filed document's bytes from EDGAR Archives (verbatim; --text strips HTML)",
+                        description="www.sec.gov/Archives — the body layer under the filing index "
+                                    "(submissions), full-text hits (fulltext_search) and XBRL facts: "
+                                    "8-K bodies, EX-99 exhibits, 10-K iXBRL. --url (a doc_url from "
+                                    "us_sec_fulltext_search) or --cik + --accession; without --filename "
+                                    "the submissions primaryDocument is used (older-than-recent-window "
+                                    "accessions fall back to --list / explicit --filename). Older "
+                                    "filings arrive SGML-wrapped (<DOCUMENT><TYPE>…<TEXT>) — the "
+                                    "envelope is split and reported; modern filings are bare iXBRL. "
+                                    "--list: the accession directory table (scaffold rows flagged; a "
+                                    "scaffold-only dir = bogus accession, upstream_not_found).")
+    f15d.add_argument("--cik", default=None, help="CIK, 1-10 digits (accepts CIK-prefixed) — with --accession")
+    f15d.add_argument("--accession", default=None, help="Accession number 0001683168-20-000837 (dashes optional)")
+    f15d.add_argument("--filename", default=None, help="Document filename (default: submissions primaryDocument; --list shows the candidates)")
+    f15d.add_argument("--url", default=None, help="Document URL on www.sec.gov/Archives (the doc_url us_sec_fulltext_search returns) — XOR --cik/--accession")
+    f15d.add_argument("--text", action="store_true", default=False,
+                      help="Strip HTML to plain text (stdlib parser: script/style skipped, block tags newline)")
+    f15d.add_argument("--list", dest="list_mode", action="store_true", default=False,
+                      help="Directory mode: the accession's document table instead of one document's body")
     f15c = v.add_parser("us_sec_frames", parents=[g()],
                         help="SEC cross-section: one concept × unit × frame, every filer in one shot",
                         description="data.sec.gov /api/xbrl/frames — one concept × unit × period "
@@ -1209,6 +1330,11 @@ def register(v, g):
 
 FLAT = {
     # company 0.2.0 flat panel (upstream params under original names + our defaults; the lambda only ferries names across namespaces)
+    # 0.3.70 E12 AT/AU exchange universes (the new FLAT head — at_wiener_borse_listed < au_asx_listed < br_bacen)
+    "at_wiener_borse_listed": lambda a: {"segment": a.segment, "code": a.code, "isin": a.isin,
+                                         "name": a.name},
+    "au_asx_listed": lambda a: {"code": a.code, "name": a.name, "gics": a.gics,
+                                "limit": a.limit},
     # 0.3.38 BR BACEN Olinda registers batch (dictionary slot: br_bacen at the FLAT head, before ch)
     "br_bacen_branches": lambda a: {"if_name": a.if_name, "agency": a.agency, "compe": a.compe,
                                     "uf": a.uf, "cnpj_root": a.cnpj_root, "limit": a.limit},
@@ -1311,6 +1437,16 @@ FLAT = {
                                            "filter_entity_status": a.filter_entity_status,
                                            "page_number": a.page_number},
     "gleif_ultimate_parent": lambda a: {"lei": a.lei},
+    # 0.3.70 E12 HKEX deep (slot: gleif_* < hk_hkex_securities < hk_hkexnews_{document,search}
+    # < in_sebi_* — "_" (0x5F) sorts before "n" (0x6E): hk_hkex_securities < hk_hkexn…)
+    "hk_hkex_securities": lambda a: {"code": a.code, "name": a.name, "category": a.category,
+                                      "sub_category": a.sub_category, "limit": a.limit},
+    "hk_hkexnews_document": lambda a: {"url": a.url, "link": a.link},
+    "hk_hkexnews_search": lambda a: {"stock": a.stock, "title": a.title, "codebook": a.codebook,
+                                      "market": a.market, "from_date": a.from_date,
+                                      "to_date": a.to_date, "t1": a.t1, "t2": a.t2, "t2g": a.t2g,
+                                      "document_type": a.document_type,
+                                      "row_range": a.row_range, "first": a.first},
     # 0.3.35 IN SEBI registers batch
     "in_sebi_default_brokers": lambda a: {},
     "in_sebi_intermediaries": lambda a: {"category": a.category, "search": a.search,
@@ -1379,6 +1515,9 @@ FLAT = {
                               "form": a.form},
     "us_sec_companyfacts": lambda a: {"cik": a.cik, "taxonomy": a.taxonomy, "concept": a.concept,
                             "form": a.form},
+    # 0.3.69 E11 filing-document body fetch (slot: companyfacts < filing_document < frames — 'fi'<'fr')
+    "us_sec_filing_document": lambda a: {"cik": a.cik, "accession": a.accession, "filename": a.filename,
+                               "url": a.url, "text": a.text, "list_mode": a.list_mode},
     "us_sec_frames": lambda a: {"concept": a.concept, "frame": a.frame, "taxonomy": a.taxonomy,
                       "unit": a.unit},
     "us_sec_fulltext_search": lambda a: {"q": a.q, "forms": a.forms, "startdt": a.startdt,
@@ -1401,6 +1540,9 @@ FLAT = {
 # 0.3.10 jurisdiction chapter: face → jurisdiction (default = the issuing authority's jurisdiction; bodies
 # covering global phenomena = GLOBAL; vocabulary = ISO-3166 alpha-2 + EU + GLOBAL) — merged into _JURISDICTION by the root cli.py; success envelopes carry the jurisdiction chapter
 COUNTRY = {
+    # 0.3.70 E12 AT/AU exchange universes (the map head)
+    "at_wiener_borse_listed": "AT",
+    "au_asx_listed": "AU",
     "br_bacen_branches": "BR",
     "br_bacen_dasfn": "BR",
     "br_bacen_domains": "BR",
@@ -1451,6 +1593,10 @@ COUNTRY = {
     "gleif_lei_records": "GLOBAL",
     "gleif_lei_records_search": "GLOBAL",
     "gleif_ultimate_parent": "GLOBAL",
+    # 0.3.70 E12 HKEX deep (slot: gleif_* < hk_hkex_securities < hk_hkexnews_* < in_sebi_*)
+    "hk_hkex_securities": "HK",
+    "hk_hkexnews_document": "HK",
+    "hk_hkexnews_search": "HK",
     "in_sebi_default_brokers": "IN",
     "in_sebi_intermediaries": "IN",
     "it_borsa_quote": "IT",
@@ -1489,6 +1635,8 @@ COUNTRY = {
     # renamed pre-release 2026-11-17 — the two shipped faces keep deprecated sec_* aliases, removal 0.4.x)
     "us_sec_companyconcept": "US",
     "us_sec_companyfacts": "US",
+    # 0.3.69 E11 filing-document body fetch (www.sec.gov/Archives — same US SEC family)
+    "us_sec_filing_document": "US",
     "us_sec_frames": "US",
     "us_sec_fulltext_search": "US",
     "us_sec_submissions": "US",

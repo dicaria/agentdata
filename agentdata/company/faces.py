@@ -710,6 +710,81 @@ class CompanyFaces:
             query={"source": "raw", "upstream": {"cik10": cik10}},
         )
 
+    # —— 0.3.69 E11 filing-document body fetch (dictionary order: us_sec_filing_document sorts
+    # between us_sec_companyfacts and us_sec_frames — 'fi' between 'co' and 'fr'): the body-fetch
+    # face the filings line lacked; every prior us_sec face is index/structured (submissions =
+    # filing index, fts = full-text hit metadata, xbrl = facts), doc_url links were the only door
+    # to the bytes themselves.
+    def us_sec_filing_document(self, *, cik=None, accession=None, filename=None, url=None,
+                               text=None, list_mode=None, execution=None, no_cache=None):
+        """company us_sec_filing_document: fetch a filed document's bytes from EDGAR Archives
+        (verbatim; --text strips HTML) — 8-K bodies, EX-99 exhibits, 10-K iXBRL, whatever the
+        accession directory carries. Forms: --url (the doc_url us_sec_fulltext_search returns)
+        XOR --cik + --accession (filename optional: submissions primaryDocument > single index
+        candidate > usage_error naming candidates). --list: the accession directory table."""
+        self._co_only("us_sec_filing_document")
+        want_text = bool(text)
+        want_list = bool(list_mode)
+        if want_list and want_text:
+            raise SdkError("usage_error", provider="edgar_arch",
+                           detail="--list and --text are two different modes of one face — call twice")
+        has_url = bool(str(url or "").strip())
+        has_pair = bool(str(cik or "").strip()) and bool(str(accession or "").strip())
+        if not has_url and not has_pair:
+            raise SdkError("usage_error", provider="edgar_arch",
+                           detail="us_sec_filing_document needs --url (a www.sec.gov/Archives/... "
+                                  "document URL, the doc_url us_sec_fulltext_search returns) or "
+                                  "--cik + --accession")
+        cache, nc = self._c._cache, self._c.no_cache if no_cache is None else bool(no_cache)
+        if want_list:
+            out = company.edgar_arch.fetch_index(cik=cik, accession=accession, url=url,
+                                                 cache=cache, no_cache=nc)
+            docs = [r for r in out["rows"] if r["is_document"]]
+            return self._flat_env(
+                tool="us_sec_filing_document",
+                input={"cik": out["cik"], "accession": out["accession"], "list": True},
+                reason=(f"SEC Archives directory {out['accession']}: {out['total']} rows, "
+                        f"{out['documents']} filed documents (scaffold rows — the auto-generated "
+                        "index/headers/.txt entries — are flagged, never counted as documents; "
+                        "a scaffold-only dir is upstream_not_found: the bogus-accession shape, "
+                        "the upstream answers 200 with a ghost listing)"),
+                result={**{k: out[k] for k in ("cik", "accession", "total", "documents", "rows",
+                                               "dir_url")}},
+                evidence=[{"quote": f"{r['name']} — {r['size']} bytes" + (" (scaffold)" if r["scaffold"] else ""),
+                           "url": out["dir_url"]} for r in out["rows"][:5]],
+                provider_id="edgar_arch", metas=[out["_meta"]],
+                query={"source": "live", "upstream": {"archive_dir": out["dir_url"]}},
+            )
+        out = company.edgar_arch.fetch_document(cik=cik, accession=accession, filename=filename,
+                                                url=url, want_text=want_text, cache=cache, no_cache=nc)
+        env = out.get("envelope")
+        metas = [out["_meta"]]
+        for extra in (out.get("_index_meta"), out.get("_submissions_meta")):
+            if extra:
+                metas.append(extra)
+        quote = (out["text"] if want_text else out["content"]) or ""
+        head = " ".join(quote[:220].split())
+        via_note = {"given": "explicit --filename",
+                    "submissions_primary": "primaryDocument from the submissions recent window",
+                    "index_single": "the accession directory carries exactly one document"}.get(
+                        out.get("filename_via"), out.get("filename_via"))
+        return self._flat_env(
+            tool="us_sec_filing_document",
+            input=out["params"],
+            reason=(f"SEC Archives {out['accession']} / {out['filename']} — {out['size_bytes']:,}B "
+                    f"sha256 {out['sha256'][:12]}… ({via_note}; "
+                    + (f"SGML envelope split: TYPE={env.get('type')}, SEQ={env.get('sequence')}"
+                       f", DESC={env.get('description')}" if env else
+                       "no SGML envelope — modern filings serve bare iXBRL/HTML")
+                    + ("; --text stripped the HTML" if want_text else "") + ")"),
+            result={k: out[k] for k in ("cik", "accession", "filename", "url", "envelope",
+                                        "envelope_split", "size_bytes", "sha256", "encoding_used",
+                                        "content", "text", "filename_via")},
+            evidence=[{"quote": head + ("…" if len(quote) > 220 else ""), "url": out["url"]}],
+            provider_id="edgar_arch", metas=metas,
+            query={"source": "live", "upstream": {"archive_doc": out["url"]}},
+        )
+
     def us_sec_frames(self, *, concept, frame, taxonomy="us-gaap", unit="USD",
                       execution=None, no_cache=None):
         """company us_sec_frames: one concept × unit × period cross-section — every filer that
@@ -3436,4 +3511,209 @@ class CompanyFaces:
                       for x in rows_out[:5]],
             provider_id="br_bndes", metas=[r["_meta"]],
             query={"source": "raw", "upstream": p},
+        )
+
+    # ===================== 0.3.70 batch E12 — listed universes AT/AU + HKEX deep (5 faces) =====================
+
+    def at_wiener_borse_listed(self, *, segment="all", code=None, isin=None, name=None,
+                               execution=None, no_cache=None):
+        """company at_wiener_borse_listed: the Wiener Börse listed-equity universe (AT — prime
+        47 / standard ~26 issuers probe day, the server-rendered wienerborse.at segment tables).
+        segment all|prime|standard; --isin exact (the company-page slug carries the only
+        per-row structured id), --name substring, --code a courtesy alias (ISIN tail or name
+        head — the table quotes carry no ticker column). SPAN-STACK LAW: stacked cells (diff
+        %+abs, date+time, bid/ask price+volume) split on element boundaries; GERMAN NUMBER LAW:
+        verbatim strings ride every row, parsed floats ride *_num (Mio.×1e6 / Mrd.×1e9)."""
+        self._co_only("at_wiener_borse_listed")
+        r = company.at_wiener.listed(segment=segment, code=code, isin=isin, name=name,
+                                     cache=self._c._cache,
+                                     no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        m = r["_meta"]
+        metas = m if isinstance(m, list) else [m]
+        rows = r["rows"]
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if rows:
+            top = rows[0]
+            reason = (f"Wiener Börse {'+'.join(r['segments'])} segments: {r['total']} issuers — "
+                      f"sample {top['name']} ({top['isin']}) · {top['price'] or '—'} EUR"
+                      + (f" · mkt cap {top['market_cap']}" if top.get("market_cap") else "")
+                      + " — German number shapes verbatim, *_num the parsed companions")
+        else:
+            reason = (f"Wiener Börse {'+'.join(r['segments'])} segments: zero issuers match "
+                      f"(isin={isin or '—'}, name={name or '—'}, code={code or '—'} — an empty "
+                      "answer is a legitimate miss, not an error)")
+        return self._flat_env(
+            tool="at_wiener_borse_listed",
+            input={"segment": segment, "code": code, "isin": isin, "name": name},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x['name']} ({x['isin']}) · {x['price'] or '—'}"
+                                + (f" · {x['diff_pct'] or '—'}" if x.get("diff_pct") else "")
+                                + (f" · mkt cap {x['market_cap']}" if x.get("market_cap") else ""),
+                       "url": f"https://www.wienerborse.at/aktien-{x['segment']}-market/"}
+                      for x in rows[:5]],
+            provider_id="at_wiener", metas=metas,
+            query={"source": "raw",
+                   "upstream": {"segments": r["segments"],
+                                "pages": [mm.get("url") for mm in metas if mm.get("url")]}},
+        )
+
+    def au_asx_listed(self, *, code=None, name=None, gics=None, limit=None,
+                      execution=None, no_cache=None):
+        """company au_asx_listed: the ASX listed-companies directory (AU — 2,060 rows probe day,
+        the exchange's own ASXListedCompanies.csv). THREE-PART shape: banner as-at anchor / blank
+        / header row. GICS rides the 27-group closed set ("Not Applic" and "Class Pend" are legal
+        values, not dirty data). --code exact (BHP), --name substring, --gics substring
+        ("Materials"); --limit slices the display."""
+        self._co_only("au_asx_listed")
+        r = company.au_asx.listed(code=code, name=name, gics=gics, limit=limit,
+                                  cache=self._c._cache,
+                                  no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if rows:
+            top = rows[0]
+            reason = (f"ASX listed companies as at {r['as_at'] or '—'}: {r['total']} rows match — "
+                      f"sample {top['company_name']} [{top['asx_code']}] · "
+                      f"{top['gics_industry_group'] or '—'} (GICS industry-group level)")
+        else:
+            reason = (f"ASX listed companies as at {r['as_at'] or '—'}: zero rows match "
+                      f"(code={code or '—'}, name={name or '—'}, gics={gics or '—'} — an empty "
+                      "answer is a legitimate miss, not an error)")
+        return self._flat_env(
+            tool="au_asx_listed",
+            input={"code": code, "name": name, "gics": gics, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x['company_name']} [{x['asx_code']}] · "
+                                f"{x['gics_industry_group'] or '—'}",
+                       "url": "https://www.asx.com.au/asx/research/ASXListedCompanies.csv"}
+                      for x in rows[:5]],
+            provider_id="au_asx", metas=[r["_meta"]],
+            query={"source": "raw",
+                   "upstream": {"file": "https://www.asx.com.au/asx/research/ASXListedCompanies.csv",
+                                "as_at": r["as_at"]}},
+        )
+
+    def hk_hkex_securities(self, *, code=None, name=None, category=None, sub_category=None,
+                           limit=None, execution=None, no_cache=None):
+        """company hk_hkex_securities: the HKEX listed-securities universe (HK — the
+        ListOfSecurities.xlsx: 17,336 rows probe day — 2,812 equities but ALSO 6,908 derivative
+        warrants and 5,830 CBBC, so --category Equity is the working shape). 18 columns verbatim
+        (column P is the multiline Spread Table legend, rows carry part codes 1/3/5/4/6; column R
+        carries the paired RMB counter). --code exact (leading zeros optional both ways),
+        --name substring, --category/--sub-category exact, --limit slices the display."""
+        self._co_only("hk_hkex_securities")
+        r = company.hk_hkex.securities(code=code, name=name, category=category,
+                                       sub_category=sub_category, limit=limit,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if rows:
+            top = rows[0]
+            reason = (f"HKEX List of Securities as at {r['as_at'] or '—'}: {r['total']} rows match "
+                      f"— sample {top['stock_code']} {top['name'] or '—'} · "
+                      f"{top['category'] or '—'}/{top['sub_category'] or '—'}"
+                      + (f" · ISIN {top['isin']}" if top.get("isin") else "")
+                      + (" — the universe dwarfs the equities; --category Equity is the working "
+                         "shape" if not category else ""))
+        else:
+            reason = (f"HKEX List of Securities as at {r['as_at'] or '—'}: zero rows match "
+                      f"(code={code or '—'}, name={name or '—'}, category={category or '—'}, "
+                      f"sub_category={sub_category or '—'} — an empty answer is a legitimate miss)")
+        return self._flat_env(
+            tool="hk_hkex_securities",
+            input={"code": code, "name": name, "category": category,
+                   "sub_category": sub_category, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x['stock_code'] or '—'} {x['name'] or '—'} · "
+                                f"{x['category'] or '—'}/{x['sub_category'] or '—'}"
+                                + (f" · ISIN {x['isin']}" if x.get("isin") else "")
+                                + (f" · RMB counter {x['rmb_counter']}" if x.get("rmb_counter") else ""),
+                       "url": "https://www.hkex.com.hk/eng/services/trading/securities/"
+                              "securitieslists/ListOfSecurities.xlsx"}
+                      for x in rows[:5]],
+            provider_id="hk_hkex", metas=[r["_meta"]],
+            query={"source": "raw",
+                   "upstream": {"file": "https://www.hkex.com.hk/eng/services/trading/securities/"
+                                        "securitieslists/ListOfSecurities.xlsx",
+                                "as_at": r["as_at"]}},
+        )
+
+    def hk_hkexnews_search(self, *, stock=None, title=None, market="SEHK", from_date=None,
+                           to_date=None, t1=None, t2=None, t2g=None, document_type=None,
+                           row_range=100, first=0, codebook=None, execution=None, no_cache=None):
+        """company hk_hkexnews_search: HKEXnews announcements (HK — the disclosure-of-interests
+        grade filings corpus: 11,189 items on probe day alone, searchable back to 1999-04-01).
+        THREE mutually-exclusive modes: --stock (code or name — resolved to stockId via the
+        prefix.do JSONP, searchType=1) XOR --title (keyword, searchType=0) XOR --codebook (one of
+        the six eds codebooks verbatim). market SEHK|GEM. t1/t2/t2g post-2007-06-25 headline
+        codes; document_type the pre-2007 era (doc_e). DATE_TIME keeps the HK DD/MM/YYYY HH:MM
+        shape verbatim; each row's full_url feeds hk_hkexnews_document."""
+        self._co_only("hk_hkexnews_search")
+        r = company.hk_hkex.search(stock=stock, title=title, market=market, from_date=from_date,
+                                   to_date=to_date, t1=t1, t2=t2, t2g=t2g,
+                                   document_type=document_type, row_range=row_range, first=first,
+                                   codebook=codebook, cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        metas = [r["_meta"]]
+        if r.get("_resolve_meta"):
+            metas.append(r["_resolve_meta"])
+        result = {k: x for k, x in r.items() if k not in ("_meta", "_resolve_meta")}
+        if r["mode"] == "codebook":
+            reason = (f"HKEXnews codebook {r['codebook']}: "
+                      f"{r['total'] if r['total'] is not None else len(r['rows'])} entries verbatim "
+                      "(one of the six eds dictionaries — t1/t2/t2G categories, doc-era types, "
+                      "active/inactive stock resolve maps)")
+        elif r["mode"] == "stock":
+            s = r["stock"] or {}
+            reason = (f"HKEXnews {r['market']} announcements for {s.get('code') or '—'} "
+                      f"{s.get('name') or ''} (stockId {s.get('stock_id') or '—'} via prefix.do): "
+                      f"{r['total']:,} items, {len(r['rows'])} rows returned"
+                      + (f" from {from_date}" if from_date else "")
+                      + (f" to {to_date}" if to_date else "")
+                      + " — DATE_TIME is HK-shaped DD/MM/YYYY HH:MM verbatim")
+        else:
+            reason = (f"HKEXnews {r['market']} title search \"{title}\": {r['total']:,} items, "
+                      f"{len(r['rows'])} rows returned"
+                      + (f" from {from_date}" if from_date else "")
+                      + (f" to {to_date}" if to_date else ""))
+        rows = r["rows"] if isinstance(r.get("rows"), list) else []
+        return self._flat_env(
+            tool="hk_hkexnews_search",
+            input=({"codebook": r["codebook"]} if r["mode"] == "codebook" else
+                   {"stock": stock, "title": title, "market": r["market"],
+                    "from_date": from_date, "to_date": to_date, "t1": t1, "t2": t2, "t2g": t2g,
+                    "document_type": document_type, "row_range": row_range, "first": first}),
+            reason=reason, result=result,
+            evidence=[{"quote": (f"{x.get('DATE_TIME') or '—'} · {x.get('STOCK_CODE') or '—'} · "
+                                 f"{(x.get('TITLE') or '—')[:90]}"
+                                 + (f" · {x.get('DOCUMENT_TYPE') or ''}"
+                                    if r["mode"] != "codebook" and x.get("DOCUMENT_TYPE") else "")),
+                       "url": x.get("full_url") or "https://www1.hkexnews.hk/search/titlesearch.xhtml"}
+                      for x in rows[:5]],
+            provider_id="hk_hkex", metas=metas,
+            query={"source": "raw", "upstream": r.get("params") or {"codebook": r["codebook"]}},
+        )
+
+    def hk_hkexnews_document(self, *, url=None, link=None, execution=None, no_cache=None):
+        """company hk_hkexnews_document: fetch an HKEXnews announcement's PDF bytes verbatim (the
+        E11 body-fetch pattern — hk_hkexnews_search's full_url / FILE_LINK in, sha256 +
+        content_latin1 out; no --text, PDF is not HTML and text extraction stays on the harvest
+        line). Wall: www1.hkexnews.hk/listedco/… only — anything else never leaves the process."""
+        self._co_only("hk_hkexnews_document")
+        out = company.hk_hkex.document(url=url, link=link, cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        head = out["content_latin1"][:60].replace("\r", " ").replace("\n", " ")
+        return self._flat_env(
+            tool="hk_hkexnews_document",
+            input=out["params"],
+            reason=(f"HKEXnews document {out['file_name']} — {out['size_bytes']:,}B "
+                    f"sha256 {out['sha256'][:12]}… ({out['file_type']} — frozen once published, "
+                    "TTL 7d; content_latin1 round-trips: .encode('latin-1') == the original bytes)"),
+            result={k: out[k] for k in ("file_name", "url", "size_bytes", "sha256",
+                                        "file_type", "content_latin1")},
+            evidence=[{"quote": head + ("…" if len(out["content_latin1"]) > 60 else ""),
+                       "url": out["url"]}],
+            provider_id="hk_hkex", metas=[out["_meta"]],
+            query={"source": "live", "upstream": {"document": out["url"]}},
         )

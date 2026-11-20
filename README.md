@@ -3,16 +3,16 @@
 [![PyPI](https://img.shields.io/pypi/v/agentdata)](https://pypi.org/project/agentdata/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/dicaria/agentdata/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![Commands](https://img.shields.io/badge/256_commands-9_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
+[![Commands](https://img.shields.io/badge/262_commands-9_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
 
-**One Python client and CLI over 256 public datasets — company registries,
+**One Python client and CLI over 262 public datasets — company registries,
 sanctions lists, procurement awards, drug approvals — with no API keys and no
 accounts.**
 
 Government data holds the decisive facts about companies, but it is scattered
-across 173 public APIs, each with its own pagination, rate
-limits, and undocumented quirks. **agentdata puts 256 of those datasets behind
-one interface**: a pure-standard-library client and CLI across 35 jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
+across 177 public APIs, each with its own pagination, rate
+limits, and undocumented quirks. **agentdata puts 262 of those datasets behind
+one interface**: a pure-standard-library client and CLI across 36 jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
 and caching are built in.
 
 ## Install
@@ -21,18 +21,18 @@ and caching are built in.
 python -m pip install agentdata
 ```
 
-For a reproducible install, pin the release: `python -m pip install agentdata==0.3.68`.
+For a reproducible install, pin the release: `python -m pip install agentdata==0.3.70`.
 
 Prefer not to touch PyPI? Install straight from a release tarball:
 
 ```bash
-python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.68.tar.gz
+python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.70.tar.gz
 ```
 
 Or via git (pin a tag for reproducible installs):
 
 ```bash
-python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.68
+python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.70
 ```
 
 Or track the latest release (convenience for agents and scripts — a fresh
@@ -165,7 +165,7 @@ You can — and then you get to rediscover what is already pinned here:
 - **Quirks are pre-solved, not rediscovered.** Every command encodes traps we
   hit against the live API: anti-forgery token dances, Socrata parameters that
   are silently ignored, registries that clamp your page size without an error.
-- **One envelope across all 256 commands.** Query echo, `reason`, `evidence`,
+- **One envelope across all 262 commands.** Query echo, `reason`, `evidence`,
   source metadata, `jurisdiction` — your code parses one shape.
 - **Upstream parameter names, verbatim.** What the official API docs call a
   parameter is what the SDK takes — no invented vocabulary to unlearn.
@@ -176,11 +176,11 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Coverage
 
-**256 datasets · 173 upstream providers · 35 jurisdictions:** US 64 · global 40 · EU 18 · UK 15 · Canada 12 · Brazil 10 · France 10 · JP 9 · ES 6 · India 6 · Türkiye 6 · Switzerland 5 · IT 5 · Korea 5 · Australia 4 · DE 4 · Colombia 3 · MX 3 · NL 3 · AT 2 · Czechia 2 · EE 2 · Guernsey 2 · Ireland 2 · LV 2 · Norway 2 · New Zealand 2 · PL 2 · RU 2 · SG 2 · UA 2 · DK 1 · Finland 1 · Jersey 1 · Kazakhstan 1.
+**262 datasets · 177 upstream providers · 36 jurisdictions:** US 65 · global 40 · EU 18 · UK 15 · Canada 12 · Brazil 10 · France 10 · JP 9 · ES 6 · India 6 · Türkiye 6 · Australia 5 · Switzerland 5 · IT 5 · Korea 5 · DE 4 · AT 3 · Colombia 3 · HK 3 · MX 3 · NL 3 · Czechia 2 · EE 2 · Guernsey 2 · Ireland 2 · LV 2 · Norway 2 · New Zealand 2 · PL 2 · RU 2 · SG 2 · UA 2 · DK 1 · Finland 1 · Jersey 1 · Kazakhstan 1.
 
 | Domain | Commands | Sources |
 |---|---|---|
-| `company` | 79 | GLEIF, SEC EDGAR (registry, full-text search & the XBRL structured-facts family), FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses, ACPR Regafi financial-sector register (FR), J-PlatPat IP trio & KIPRIS patents (JP/KR), Unternehmensregister register search (DE), KAP members & disclosures (TR), OEPM BOPI gazette index (ES), INPI accounting ratios (FR), EIOPA IORP pension register (EU), BNDES financing operations (BR) |
+| `company` | 85 | GLEIF, SEC EDGAR (registry, full-text search, the XBRL structured-facts family & the filing-document body fetch), FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses, ACPR Regafi financial-sector register (FR), J-PlatPat IP trio & KIPRIS patents (JP/KR), Unternehmensregister register search (DE), KAP members & disclosures (TR), OEPM BOPI gazette index (ES), INPI accounting ratios (FR), EIOPA IORP pension register (EU), BNDES financing operations (BR) |
 | `economy` | 18 | World Bank WDI, Eurostat, ECB reference rates, FRED, WHO xMart, UN Comtrade, ILOSTAT, BLS, BIS, IMF, OECD, Comext |
 | `esg` | 8 | Climate TRACE, EITI, EU ETS (EUTL), EPA FRS, UK FSA food-hygiene ratings (FHRS), SGM mining concessions (MX) |
 | `healthcare` | 34 | US FDA approvals & recalls, ClinicalTrials.gov, RxNav, DailyMed, AccessGUDID, UK MHRA alerts, Health Canada DPD & MDALL, EUDAMED, RASFF & Safety Gate (EU), TGA (AU), Europe PMC, MeSH, US NPPES provider organizations, NAVII facility search (JP), CNES facility register (BR) |
@@ -192,7 +192,7 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Full command index
 
-Ten entry points — `agentdata` plus one command per domain — and 256 dataset
+Ten entry points — `agentdata` plus one command per domain — and 262 dataset
 commands under them: one command per upstream dataset, parameters kept under
 their upstream names. The block below is the complete index, grouped by domain
 in `DOMAIN_ORDER` — the order the CLI registers the domains in (the 0.3.10
@@ -208,7 +208,7 @@ see above).
 ```bash
 agentdata capabilities --format md
 
-# company (79)
+# company (85)
 agentdata company gleif_lei_records --lei 5493001KJTIIGC8Y1R12
 agentdata company gleif_lei_records_search --filter-entity-legal-name Nestle --filter-entity-jurisdiction CH --page-size 5
 agentdata company gleif_direct_parent --lei 5493001KJTIIGC8Y1R12
@@ -222,6 +222,7 @@ agentdata company fdic_locations --filters STALP:TX --limit 5
 agentdata company us_sec_submissions --cik 320193
 agentdata company us_sec_companyconcept --cik 320193 --concept RevenueFromContractWithCustomerExcludingAssessedTax
 agentdata company us_sec_companyfacts --cik 320193
+agentdata company us_sec_filing_document --cik 790526 --accession 0001683168-20-000837 --filename radnet_8k-ex9901.htm --text
 agentdata company us_sec_frames --concept NetIncomeLoss --frame CY2024
 agentdata company us_sec_tickers --ticker AAPL
 agentdata company ror_organizations --query EMBL
@@ -304,6 +305,11 @@ agentdata company eu_euronext_instrument_search --q "air liquide"
 agentdata company it_borsa_quote --isin IT0003132476
 agentdata company jp_jpx_stock_detail --qcode 7203
 agentdata company jp_jpx_stock_list --section 1 --maxdisp 50
+agentdata company at_wiener_borse_listed --segment prime --isin AT000AGRANA3
+agentdata company au_asx_listed --code BHP
+agentdata company hk_hkex_securities --category Equity --code 700
+agentdata company hk_hkexnews_search --stock 00700 --row-range 20
+agentdata company hk_hkexnews_document --url https://www1.hkexnews.hk/listedco/listconews/sehk/2026/1118/2026111800448.pdf
 
 # economy (18)
 agentdata economy bis_sdmx_series --flow WS_CBPOL --key M.US --start 2026-01-01
@@ -533,6 +539,53 @@ runs on the same machine — that is by design.
 
 The complete batch log — every release back to 0.1.0 — is kept in the Chinese
 [README.md](README.md#版本). The most recent batches:
+
+**0.3.70 — Batch E12, the developed-economy exchange universes + the HKEX deep-dive (+3 providers
+`at_wiener` / `au_asx` / `hk_hkex`, +5 faces, 257→262; 174→177 providers; 35→36 jurisdictions —
+Hong Kong joins as the 36th; company 80→85 — Australia's first company face).** `at_wiener_borse_listed`
+— the Wiener Börse market-segment universe, reviving the E10 TLS deferral (the morning's mislinked
+`*.factsetdigitalsolutions.com` certificate was upstream's own; the afternoon DigiCert chain answers
+green — same-day flips get re-probed before being written off); multi-value cells split on span
+element boundaries, ISIN rides the company-page slug with a tolerated trailing slash, German numbers
+(decimal comma, thousands dot, Mio./Mrd. multipliers) carry a parsed `*_num` beside the raw string.
+`au_asx_listed` — the ASX three-band CSV (banner with the as-at anchor, header band, 2,060 live rows
+anchored on BHP); the GICS 27-group closed set keeps "Not Applic"/"Class Pending" verbatim as
+legitimate values. `hk_hkex_securities` — the HKEX ListOfSecurities.xlsx, 17,336 rows (stocks 2,812,
+warrants 6,908, CBBC 5,830, debt 1,322, ETP 453, REIT 11 — not equities-only, hence "securities"),
+parsed with pure stdlib zip+xml; the eighteen-column header is a verbatim wall (the sheet's
+`<x:dimension>` under-reports — the rows are the truth), and the R column pairs RMB-counter codes
+(00700↔80700). `hk_hkexnews_search` — the titleSearchServlet JSON double-encoded inside a string
+(two `json.loads` passes), three mutually exclusive modes (`--stock` via the prefix.do JSONP unwrap,
+`--title`, or one of six local `--codebook` dictionaries), HK-style DD/MM/YYYY HH:MM timestamps
+verbatim, every row carrying the `full_url` for the document face. `hk_hkexnews_document` — the
+`/listedco/{link}` PDF bytes reusing E11's body-fetch mode (sha256 + size_bytes + lossless latin-1
+round-trip; the live anchor matched curl byte-for-byte) behind SSRF double walls (`--url` pinned to
+the www1.hkexnews.hk/listedco/ host, `--link` requiring a non-empty /listedco/ prefix); the batch's
+headline transport law: `{link}` carries slashes, so the op declares `path_safe="/"` — without it
+build_url's quoting glues the path into the host name (www1.hkexnews.hk%2Flistedco…, fingerprinted
+by a proxy CONNECT 400 "Tunnel connection failed" while curl on the same URL answers green).
+One provider, two hosts (www.hkex.com.hk universe + www1.hkexnews.hk announcements, separate polite
+buckets); offline nails in tests/test_flat_0370.py (38).
+
+**0.3.69 — Batch E11, the SEC Archives body fetch: `us_sec_filing_document` (+1 face,
+256→257; company 79→80; +1 provider `edgar_arch` — the fair-access family's fourth
+member at 5/5 sharing the www.sec.gov host bucket; 35 jurisdictions held; live-probed
+2026-11-18 tmp/probe-e11/)** — the body layer under the filings line (submissions =
+index, fts = hit metadata, xbrl = facts; 8-K bodies, EX-99 exhibits, 10-K iXBRL — the
+bytes were only reachable as doc_url links). Forms: --url (a doc_url from
+us_sec_fulltext_search, prefix-walled to sec.gov/Archives before a byte leaves the
+process) XOR --cik + --accession; without --filename the submissions primaryDocument
+is the auto-primary (older-than-recent-window accessions fall to the index
+single-candidate rule or a usage_error naming the candidates); --list is the directory
+mode of the same face. Laws: the SGML envelope two shapes (older filings wrapped —
+fields run to end of line, inner = first <TEXT> to the LAST </TEXT> greedy; modern
+filings bare iXBRL passthrough); index.json a pure directory listing on every era (the
+type column is an icon name, no isPrimaryDocument — scaffold rows flagged, never
+counted; a scaffold-only dir = bogus accession → upstream_not_found, the ghost
+filename1.htm listing never laundered as an empty dir); the CIK path segment mandatory
+(accession-only 403s); bytes via the latin-1 round-trip + sha256 over raw, decode
+chain charset→utf-8→cp1252→replace; --text a zero-dependency stdlib HTMLParser; TTL 7d
+(filed documents freeze). Offline pins tests/test_flat_0369.py (40 pins).
 
 **0.3.68 — Batch E10, the developed-economy exchange faces: five listed-universe/quote faces
 (+5 faces, 251→256; 169→173 providers; 35 jurisdictions held; company 74→79 — first Italian
