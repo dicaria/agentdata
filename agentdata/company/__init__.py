@@ -1,10 +1,11 @@
 """company domain package — provider adapters flat layout (one source per file) + faces/cli (0.2.6 per-domain reorg)."""
-from . import (at_wiener, au_asx, br_bacen, br_bndes, ca_osb, cf, ch_six_fqs, ch_zefix, chi_bacp,  # noqa: F401
-               co_rues, cz_ares, de_inso, de_register, edgar_arch, edgar_cik, edgar_fts, edgar_xbrl,
+from . import (at_wiener, au_asx, br_bacen, br_bndes, ca_cse, ca_osb, cf, ch_six_fqs, ch_six_onot,  # noqa: F401
+               ch_zefix, chi_bacp,
+               co_rues, cz_ares, de_inso, de_register, de_xetra, edgar_arch, edgar_cik, edgar_fts, edgar_xbrl,
                es_borme, es_cnmv, es_oepm, eu_eiopa, eu_euronext, fdic_bankfind, fi_ytj, fr_inpi,
-               fr_recherche, fr_regafi, fts, gg_gfsc, gleif, hk_hkex, in_sebi_intm, it_borsa,
-               je_jfsc, jp_fsa, jp_jplatpat, jp_jpx, kr_hometax, kr_kipris, kz_gbd_ul, lacity,
-               no_brreg, nzco, nyc_dcwp, ror, ru_cbr_credit, sg_datagovsg, ted, tr_bddk,
+               fr_recherche, fr_regafi, fts, gg_gfsc, gleif, hk_hkex, hk_hkexdi, in_sebi_intm, it_borsa,
+               je_jfsc, jp_fsa, jp_jplatpat, jp_jpx, kr_hometax, kr_kipris, kr_krx, kz_gbd_ul, lacity,
+               no_brreg, nyc_dcwp, nz_nzx, nzco, ror, ru_cbr_credit, sg_datagovsg, ted, tr_bddk,
                tr_kap, tr_spk_borsa, tx_tdlr, usaspending, vies, wa_doh)
 # 0.3.43 rider: jp_fsa was missing from this eager-import list (0.3.42) — the attribute only
 # resolved in processes where a test had imported the submodule directly; a fresh interpreter
@@ -43,9 +44,30 @@ from . import (at_wiener, au_asx, br_bacen, br_bndes, ca_osb, cf, ch_six_fqs, ch
 # E10 TLS-reversal revival (the factsetdigital cert misconfig was upstream's, fixed same-day);
 # hk_hkex rides ONE provider id over TWO hosts (www.hkex.com.hk universe + www1.hkexnews.hk
 # announcements/documents — absolute-path ops, each host keeps its own polite bucket).
+# 0.3.71: ca_cse/hk_hkexdi added in alphabetical slots (br_bndes < ca_cse < ca_osb;
+# hk_hkex < hk_hkexdi < in_sebi_intm) — the E13 faces: CSE universe/issuer card (thecse.com
+# /api/webapi/* JSON — /en prefix + trailing slash pinned) + HKEX DI disclosure-of-interests
+# (di.hkex.com.hk — ASP.NET VIEWSTATE quartet + session cookie cached TOGETHER, the jp_jftc
+# law; DION floor 2017-07-03 refused, not clamped; the date-axis captcha wall stays closed;
+# SDW/CCASS out of scope by upstream terms §2.3). ca_tmx re-probed 2026-11-19 — still the
+# AWS WAF challenge, stays deferred.
+# 0.3.72: ch_six_onot/nz_nzx added in alphabetical slots (ch_six_fqs < ch_six_onot < ch_zefix
+# — 'f'<'o'<'z'; nyc_dcwp < nz_nzx < nzco — 'y'<'z', '_'<'c') — the E14 faces: SIX official
+# notices v2 (www.six-group.com/sheldon — the SAME host as ch_six_fqs but a different service
+# family, its own provider id per the edgar precedent; the show* type switches are DEAD server-
+# side, noticeType filters locally; issuerWords alive; pageSize pinned 100) + NZX SSR dehydrated
+# state (www.nzx.com __NEXT_DATA__ — robots allows the SSR pages only, /api/ and /search never
+# touched; the announcements ?page param is ignored upstream = newest-200 boundary, final).
+# Rider: the no_* segment's physical order had drifted (nzco before nyc_dcwp, contradicting the
+# 0.3.49 comment's own stated order) — restored to the stated order while inserting nz_nzx.
 # 0.3.66: edgar_xbrl added in alphabetical slot (edgar_fts < edgar_xbrl < es_borme) — the SEC XBRL
 # structured-facts family (companyfacts/companyconcept/frames/tickers), one provider id whose
 # tickers op rides an ABSOLUTE path to www.sec.gov (build_url passes it through; each host keeps
 # its own polite bucket). E8 batch: the 2026-10-19 deferral reopened — the local XBRL bulk lost
 # with the E: drive, the MCP/OmniHub surface carries no financial-data paths.
 
+# 0.3.73: de_xetra/kr_krx added in alphabetical slots (de_register < de_xetra < edgar_arch;
+# kr_kipris < kr_krx < kz_gbd_ul — 'i'<'r', 'krx'<'kz') — E15: the Deutsche Börse T7 universe
+# (Xetra/Frankfurt CSV master + Newsboard event stream; cashmarket.deutsche-boerse.com, the
+# former xetra.com host) and the KRX Global listed universe + main-index snapshot (the OPEN
+# portal of the three-sister gate family; the OTP grid's code never enters the cache key).

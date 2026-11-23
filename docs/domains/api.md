@@ -93,6 +93,7 @@ agentdata <domain> read --id <id> [--level tier1|tier2|tier3]
 ## 6. Evolution and constraint recap
 
 - P1 = CLI (search/read; ask not enabled) → P2 = HTTP + MCP (one server exposing all domains + semantic aliases + ask + subscription delivery).
+- **通道口径（2026-11-19 用户裁定）**：免费 API 即封装的 OSS SDK（`agentdata`，keyless）——MCP 是托管付费通道，key 随开通发放，绝非免费面；本契约文档的 P2 即指该付费托管通道。
 - Subscription (L-04 class): built on search cursors (`since`/`observed_since`), with P2 adding webhook/jobs — **no new query verb**.
 - One `domain-spec.json` per domain (controlled filter/facet tables + T-layer content + use-case commands), generated from or reverse-checked against the domain master document §4/§5 — **the domain master document is the source of truth**.
 
@@ -1003,6 +1004,88 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   (www1.hkexnews.hk%2Flistedco…) and the proxy answers 400 Tunnel connection
   failed — a host-shaped URL bug, not a proxy bug; /listedco/ SSRF prefix walls on
   both entry forms; rate-limits v1.57; see changelog entry 107)
+
+→ **0.3.71, 267 faces** (company +the E13 five: `ca_cse_listed` / `ca_cse_company` /
+  `hk_hkexdi_corp_list` / `hk_hkexdi_form` / `hk_hkexdi_ir_summaries` — the CSE exchange
+  pair + the HKEX Disclosure-of-Interests deep, +2 providers `ca_cse`/`hk_hkexdi`,
+  36 jurisdictions (CA/HK held — zero new), company 85→90; live-probed end-to-end
+  2026-11-19 tmp/probe-e13/): ca_cse is a NEXT.JS HEAD OVER WORDPRESS whose data rides
+  the site's own /api/* JSON (discovered via the build manifest — no screen-scraping);
+  /en prefix + trailing slash MANDATORY (the bare path 308s and the slashless target
+  404s — pin both, never ride); a bad symbol answers 200 with a ZERO-BYTE body (the
+  silent-empty law — found=false, never fabricated); `metatdata` [sic] is the upstream
+  dead key (removal_date 2022-07-01 — read `metadata` only); the universe is 739 rows
+  one array with every selector client-side (Active 628 / Suspended 85 / Halted Pending
+  Fundamental Change 23 / Delisted 3 — the status filter IS the negative list);
+  trading_date is PER-ROW last trade, not an as-at anchor; hk_hkexdi carries the
+  SESSION QUARTET law ({__VIEWSTATE/__EVENTVALIDATION/__VIEWSTATEGENERATOR/cookie}
+  cached TOGETHER 30min — the jp_jftc session-bound law generalized), corpn rides the
+  six list links' params (the resolution page echoes only the stock code —
+  lblSCCriteria), the per-corp list CAPTION RIDES THE HEADER ROW'S FIRST CELL ("Complete
+  list of…" glued ahead of the real columns — anchor the first KNOWN header cell, never
+  cells[0]), leading zeros are DIGITS (digits+lstrip("0") both sides — "00700"≠"700"
+  plain), the C5 date-banner rides its own row (the serial-shape guard drops it), the
+  positions block's header signature "Total number of shares" runs BEFORE the generic
+  split (its first DATA row reads Long/Short/Lending — the generic rule refuses), and
+  the DION floor 2017-07-03 is refused locally (upstream silently clamps earlier asks);
+  the date-axis captcha wall (NSSrchDate — market-level anti-abuse) and SDW/CCASS
+  (terms §2.3 forbid programmatic access) stay out on principle; TMX re-probed
+  2026-11-19 — still the AWS WAF challenge, stays deferred; rate-limits v1.58; see
+  changelog entry 108)
+
+→ **0.3.72, 272 faces** (company +the E14 five: `nz_nzx_listed` / `nz_nzx_company` /
+  `nz_nzx_announcements` / `ch_six_official_notices` / `ch_six_notice_detail` — the NZX
+  dehydrated-state trio + the SIX official-notices pair, +2 providers
+  `nz_nzx`/`ch_six_onot`, 36 jurisdictions (NZ/CH held — zero new), company 90→95;
+  live-probed end-to-end 2026-11-19 tmp/probe-e14/): nz_nzx rides the Next.js SSR
+  DEHYDRATED STATE (robots disallows /api/ and /search — the SDK touches SSR pages
+  only, the compliant surface IS the whole surface); the whole-exchange master q0
+  ["activeInstruments"] is IDENTICAL on the NZSX/NZDX pages (427 rows ×16 keys; the
+  board picks only the quote panel — 178 equities / 135 bonds), lastListedDate
+  3000-01-01 is the CURRENT sentinel (the master is the ACTIVE set — delisted
+  instruments vanish, snapshot-diffing is harvest-side), the four company panels are
+  labelled by their queryKey tails ("instruments" for the instruments panel — the
+  label-collision fix), a bad code is an HONEST 404 with EMPTY queries (found=false —
+  the meta is the observation, never a body), and ?page=2 on announcements is IGNORED
+  upstream so NEWEST-200 is the whole SSR surface (the boundary is documented, not
+  worked around); the SIX pair rides sheldon v2: the show* switches are DEAD
+  (noticeType filters the fetched page locally, show* never sent), issuerWords is a
+  PAGE-1 SNAPSHOT (a partial page 43/143 + deeper issuer pages garble persistently),
+  pageSize pinned 100 (200 breaks paging; 1000 answers an empty itemList while
+  totalCount still echoes — the silent-over-cap shape; reachable ceiling ~5
+  pages/window), transient failures BOTH ways (garbled 200s retried after 4s and 502s
+  after 8s — one patient no-cache retry each, a garbled body never cached as good),
+  and DD-MM-YYYY dates are REFUSED (dash-stripping would swap day/year into a
+  legal-looking 8-digit string — found by the module's own test); FL titles are bare
+  date strings, the semantics live in the detail text; rate-limits v1.59; see changelog
+  entry 109)
+
+→ **0.3.73, 277 faces** (company +the E15 five: `de_xetra_instruments` /
+  `de_xetra_newsboard` / `de_xetra_newsboard_search` / `kr_krx_listed` / `kr_krx_indices`
+  — the Deutsche Börse T7 universe trio + the KRX Global pair, +2 providers
+  `de_xetra`/`kr_krx`, 36 jurisdictions (DE/KR held — zero new), company 95→100, and the
+  G7 exchange-universe axis CLOSES with Germany; live-probed end-to-end 2026-11-20
+  tmp/probe-e15/): de_xetra rides cashmarket.deutsche-boerse.com (the site
+  self-describes "formerly xetra.com"; robots zero Disallow) — the T7
+  allTradableInstruments CSV lives at a BLOB-HASH path that VERSIONS on every upload, so
+  the link is re-parsed from its landing page on EVERY fetch (the Frankfurt variant hangs
+  UNDER the Xetra section while /Tradable-Instruments-Frankfurt/Downloads is a 404 decoy);
+  rows 1-2 carry Market + Date Last Update (the snapshot anchor), 153 columns verbatim,
+  counts drift DAILY (never pinned); api.live.deutsche-boerse.com is a catch-all {}
+  shell — negative, never touched; the Newsboard is a 100-item RSS ROLLING window (~15h —
+  hourly polling is the no-loss cadence) with venue-prefixed titles, and the search face
+  is FULL HISTORY with pageNum riding statelessly (each hit an anchor-wrapped
+  href/date/tagline/text quad); kr_krx rides global.krx.co.kr — the OPEN portal of the
+  three-sister gate family (data.krx member wall + Akamai, kind.krx WAF, global robots
+  `Allow: /` verbatim) — the listed universe runs the OTP DOUBLE-STEP (a one-shot base64
+  code, posted back 2s later with market_gubun 0/1/2/6) to fetch the whole universe
+  ONE-SHOT (~2,769 rows; All reconciles with the kospi/kosdaq/konex splits); the bld is
+  the FULL path form GLB/03/0308/0308010000/glb0308010000 (the endpoint name is the form
+  action — a wrong pair answers 200 with ZERO bytes, the silent-empty law); the one-shot
+  code NEVER enters the cache key (hand-rolled code-less key — repeat calls are cache
+  hits with zero OTP mints); indices is the free-OTP family with cmpr_rt kept as
+  upstream's raw scientific-notation string verbatim; rate-limits v1.60; see changelog
+  entry 110)
 
 ## 10. The ask verb (P2 design boundary, not implemented)
 

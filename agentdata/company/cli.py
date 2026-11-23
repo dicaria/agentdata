@@ -132,6 +132,45 @@ def register(v, g):
     f_caosb.add_argument("--osb", default=None,
                          help="OSB File Number exact match, e.g. 0000875-2026-AB (the estate key)")
     f_caosb.add_argument("--limit", type=int, default=20, help="Rows back (local payload wall; 1-100)")
+    # —— 0.3.71 E13 CSE universe + issuer card (dictionary slot: ca_ccaa_records <
+    # ca_cse_company < ca_cse_listed < ch_six_fqs_search; thecse.com Next.js head's own
+    # /api/webapi/* JSON routes — locale prefix /en + trailing slash MANDATORY: bare
+    # path 308s to a 404 target; bad symbol = 200 with a ZERO-byte body) ——
+    f_cseco = v.add_parser("ca_cse_company", parents=[g()],
+                           help="CSE issuer market card (thecse.com /api/webapi/company/ — quote/trades/depth/CSE2 twin)",
+                           description="One CSE symbol's full market card: metadata (listing "
+                                       "date, sector, outstanding/reserved shares, market "
+                                       "maker, index, SEDAR filings link, website), quote "
+                                       "(bid/ask), ticker (OHLC/volume/value), per-trade "
+                                       "rows with buy/sell DEALER names, depth by order "
+                                       "and by price, the CSE2 twin block, consolidated, "
+                                       "and the `legal` disclaimer text. Bad symbol = 200 "
+                                       "with a ZERO-BYTE body → found=false (silent-empty "
+                                       "law, never fabricated). The deprecated `metatdata` "
+                                       "key (upstream removal_date 2022-07-01) is dropped — "
+                                       "`metadata` is the live one")
+    f_cseco.add_argument("--symbol", required=True, help="CSE ticker exact (e.g. PAU; case-insensitive)")
+    f_cselist = v.add_parser("ca_cse_listed", parents=[g()],
+                             help="CSE listed universe (thecse.com /api/webapi/listed-companies/ — 739 rows, snake_case verbatim)",
+                             description="The Canadian Securities Exchange listed universe, "
+                                         "one JSON array: 739 rows probe day, fields verbatim "
+                                         "snake_case. Status distribution is the negative-list "
+                                         "material: Active 628 / Suspended 85 / Halted Pending "
+                                         "Fundamental Change 23 / Delisted 3 — --status filters "
+                                         "them. tier 2×731/1×8; security_type Equity 735 / "
+                                         "Debenture 2 / ETF 2; currency CAD 733 / USD 6. "
+                                         "trading_date is PER-ROW (last trade date, not an "
+                                         "as-at anchor). All selectors are LOCAL — the "
+                                         "endpoint takes no parameters")
+    f_cselist.add_argument("--symbol", default=None, help="Ticker exact, case-insensitive (e.g. PAU)")
+    f_cselist.add_argument("--name", default=None, help="Security name substring (case-insensitive)")
+    f_cselist.add_argument("--sector", default=None, help="Sector exact, case-insensitive (e.g. Mining)")
+    f_cselist.add_argument("--status", default=None,
+                           help="Status exact, case-insensitive (Active / Suspended / Halted Pending Fundamental Change / Delisted)")
+    f_cselist.add_argument("--security-type", dest="security_type", default=None,
+                           help="Security type exact, case-insensitive (Equity / Debenture / ETF)")
+    f_cselist.add_argument("--tier", type=int, default=None, help="Tier exact (2 or 1)")
+    f_cselist.add_argument("--limit", type=int, default=None, help="Display slice (the FULL filtered total always rides result.total)")
     # —— 0.3.68 E10 developed-economy exchange faces (dictionary slots: ch_six_fqs < ch_zefix;
     # ca_tmx deferred 2026-11-18 pm — tsx.com flipped to an AWS WAF JS challenge, probe-e10 p2c-p2e) ——
     f_six = v.add_parser("ch_six_fqs_search", parents=[g()],
@@ -155,6 +194,47 @@ def register(v, g):
                        help="Sort column (upstream param: orderby; default ISIN)")
     f_six.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream param: page)")
     f_six.add_argument("--pagesize", type=int, default=100, help="Rows per page (upstream param: pagesize; 1-500 politeness cap)")
+    # —— 0.3.72 E14 SIX official notices v2 (dictionary slot: ch_six_fqs_search <
+    # ch_six_notice_detail < ch_six_official_notices < ch_zefix_firm; own provider id
+    # ch_six_onot on the same host — the sheldon notice pipeline vs the FQS reference
+    # query, the edgar per-service precedent) ——
+    f_onotd = v.add_parser("ch_six_notice_detail", parents=[g()],
+                           help="One SIX official notice in full (six-group.com sheldon v2 details/{id}.json — 11-key body)",
+                           description="One official notice by noticeId: number/isin/text "
+                                       "(the FULL body)/contact/contactPerson/contactPhone/"
+                                       "valorNumber + the list-row echoes — person/phone/valor "
+                                       "are null on many rows, verbatim. FL first-listing "
+                                       "titles are BARE DATE STRINGS — the semantics live in "
+                                       "`text`. Published notices freeze (TTL 24h). Unknown id "
+                                       "= empty itemList → found=false")
+    f_onotd.add_argument("--notice-id", dest="notice_id", required=True, type=int,
+                         help="Sequential noticeId (e.g. 371130; from ch_six_official_notices rows)")
+    f_onot = v.add_parser("ch_six_official_notices", parents=[g()],
+                          help="SIX official notices window (six-group.com sheldon v2 find.json — ~515/week, A dominates)",
+                          description="The exchange official-notices stream: A automatic "
+                                      "(structured-product barrier events — dominates), M manual, "
+                                      "EX ex-dividend, PZ provisional, FL first-listing, DE "
+                                      "delisting. The upstream show* type switches are DEAD — "
+                                      "--notice-type filters the FETCHED PAGE locally (walk "
+                                      "--page for the window's older pages); --issuer rides "
+                                      "issuerWords (server-side, alive — but a PAGE-1 "
+                                      "SNAPSHOT: partial page + deeper issuer pages garble "
+                                      "persistently). pageSize pinned 100 "
+                                      "(200 breaks paging, 1000 answers empty). Reachable "
+                                      "ceiling ~5 pages/window: keep windows ~1 week; totalCount "
+                                      "can exceed the reachable rows (515 vs 415 on the probe "
+                                      "window) — documented boundary")
+    f_onot.add_argument("--from-date", dest="from_date", default=None,
+                        help="Window start YYYYMMDD or ISO yyyy-mm-dd (upstream param: firstDate; default today-7d)")
+    f_onot.add_argument("--to-date", dest="to_date", default=None,
+                        help="Window end YYYYMMDD or ISO yyyy-mm-dd (upstream param: lastDate; default today)")
+    f_onot.add_argument("--type", dest="notice_type", default=None,
+                        choices=["A", "M", "EX", "PZ", "FL", "DE"],
+                        help="Notice type LOCAL filter over the fetched page (the upstream show* switches are dead)")
+    f_onot.add_argument("--issuer", default=None,
+                        help="Issuer contains-match (upstream param: issuerWords; server-side, alive — e.g. Vontobel)")
+    f_onot.add_argument("--page", type=int, default=1, help="Page, 1-based (upstream param: pageNumber)")
+    f_onot.add_argument("--limit", type=int, default=None, help="Display slice (the page's full filtered set always rides result.rows)")
     f1 = v.add_parser("ch_zefix_firm", parents=[g()],
                        help="Swiss firm full profile by ehraid (Zefix /firm/{ehraid}.json)",
                        description="Zefix single record: purpose full text, oldNames history, hasTakenOver/takenOverBy M&A edges with ehraid/uid/chid cross-references (precedessor/successor)")
@@ -306,6 +386,66 @@ def register(v, g):
                          help="Search term, FUZZY channel (upstream param: companySearchTerm; use when --name over-narrows)")
     f_dereg.add_argument("--offset", type=int, default=0,
                          help="Row offset (upstream param: from; 60 rows/page)")
+    # —— 0.3.73 E15 DE Deutsche Börse T7 universe + Newsboard (dictionary slot: de_xetra after
+    # de_register, before es_borme_day) ——
+    f_dxinst = v.add_parser("de_xetra_instruments", parents=[g()],
+                            help="Deutsche Börse T7 tradable-instruments master (cashmarket.deutsche-boerse.com; 153 cols verbatim)",
+                            description="THE DE exchange universe: the T7 allTradableInstruments "
+                                        "CSV — venue=xetra ≈5.5k rows (ETF/CS/ETN/ETC…), "
+                                        "venue=frankfurt the bond-heavy ~56k variant (the CSV "
+                                        "hangs under the Xetra section at boersefrankfurt; "
+                                        "/Tradable-Instruments-Frankfurt/Downloads is a 404 "
+                                        "decoy). The blob-hash CSV link re-resolves from the "
+                                        "landing page on EVERY fetch (it versions on upload); "
+                                        "rows 1-2 of the file carry Market + Date Last Update "
+                                        "(the snapshot anchor). ISIN+WKN on every row — the German "
+                                        "domestic key WKN joins BaFin disclosures; PAG "
+                                        "(Product Assignment Group, AST0-style) is the issuer "
+                                        "country pre-grouping. Row counts drift DAILY — every "
+                                        "count is a snapshot, never a pinned constant.")
+    f_dxinst.add_argument("--venue", default="xetra", choices=["xetra", "frankfurt"],
+                          help="Trading venue: xetra (T7 master, default) or frankfurt (the bond-heavy variant, ~56k rows / ~50MB fetch)")
+    f_dxinst.add_argument("--instrument-type", dest="instrument_type", default=None,
+                          help="Local filter on 'Instrument Type' (ETF/CS/ETN/ETC/FUND/BOND…, exact match, case-insensitive)")
+    f_dxinst.add_argument("--pag", default=None,
+                          help="Local filter on 'Product Assignment Group' (AST0-style issuer country pre-grouping, exact match, case-insensitive)")
+    f_dxinst.add_argument("--isin", default=None,
+                          help="Local exact ISIN filter (e.g. AT000000STR1)")
+    f_dxinst.add_argument("--limit", type=int, default=None,
+                          help="Cap the returned rows (default: all matching rows)")
+    f_dxnews = v.add_parser("de_xetra_newsboard", parents=[g()],
+                            help="Xetra/Frankfurt Newsboard event stream, rolling window (RSS, latest 100 notices)",
+                            description="THE DE exchange event wire: suspension/resumption "
+                                        "(Aussetzung/Wiederaufnahme), dividend/interest and "
+                                        "delisting notices as a 100-item RSS rolling window "
+                                        "(~15h at probe cadence — hourly polling is the "
+                                        "no-loss cadence; full history via "
+                                        "de_xetra_newsboard_search). Titles carry the venue "
+                                        "prefix (XETR:/XFRA:), the event class and the ISIN "
+                                        "or mnemonic; all filters run locally on the fetched "
+                                        "window.")
+    f_dxnews.add_argument("--venue", default=None, choices=["XETR", "XFRA"],
+                          help="Local filter on the title venue prefix")
+    f_dxnews.add_argument("--event-type", dest="event_type", default=None,
+                          help="Local substring filter on the event class (SUSPENSION, DIVIDEND, Aussetzung, Wiederaufnahme…)")
+    f_dxnews.add_argument("--isin", default=None,
+                          help="Local filter: ISIN (or mnemonic) appearing anywhere in the title")
+    f_dxnews.add_argument("--limit", type=int, default=None,
+                          help="Cap the returned rows (default: all matching rows of the window)")
+    f_dxsrch = v.add_parser("de_xetra_newsboard_search", parents=[g()],
+                            help="Newsboard FULL-HISTORY search (delisting notices back to the 2020 number block ride ISINs in the path)",
+                            description="The DE exchange event archive: every notice ever "
+                                        "posted, 100 hits/page, pageNum stateless. Query by "
+                                        "ISIN, mnemonic or event word — the German word "
+                                        "(Aussetzung/Wiederaufnahme) hits the native titles; "
+                                        "DIVIDEND/INTEREST and INSTRUMENT_SUSPENSION batch "
+                                        "notices are the high-volume classes.")
+    f_dxsrch.add_argument("--query", required=True,
+                          help="Search term (an ISIN, a mnemonic, or an event word — Aussetzung, Wiederaufnahme, delisting, DIVIDEND…)")
+    f_dxsrch.add_argument("--page", type=int, default=1,
+                          help="Result page, 1-based (100 hits/page)")
+    f_dxsrch.add_argument("--limit", type=int, default=None,
+                          help="Cap the returned rows")
     # —— 0.3.45 ES BORME daily gazette 正册双面（lexicographic slot: es_borme between edgar_fts and es_cnmv）——
     f_borme_day = v.add_parser("es_borme_day", parents=[g()],
                                help="BORME daily gazette inventory (one publication day's notices; no-publication day = published:false)",
@@ -661,6 +801,65 @@ def register(v, g):
     f_hksec.add_argument("--limit", type=int, default=None,
                          help="Display slice (the FULL filtered total always rides result.total)")
 
+    # —— 0.3.71 E13 HKEX DI disclosure-of-interests (dictionary slot: hk_hkex_securities <
+    # hk_hkexdi_{corp_list,form,ir_summaries} < hk_hkexnews_document — '_'(0x5F)<'d'<'n';
+    # di.hkex.com.hk — the SFO Part XV register. The date-axis captcha wall stays closed;
+    # the corp/form axes are the keyless route; SDW/CCASS is out of scope by terms §2.3) ——
+    f_hkdicorp = v.add_parser("hk_hkexdi_corp_list", parents=[g()],
+                              help="HK listed corporation's DI notices (SFO Part XV; ASP.NET session bootstrap + POST)",
+                              description="One corporation's substantial-shareholder/director "
+                                          "notices on di.hkex.com.hk. The face bootstraps "
+                                          "the search form (VIEWSTATE quartet + session "
+                                          "cookie cached together 30min), POSTs the stock "
+                                          "code once, parses the seven list links off the "
+                                          "resolution page (sid/cid/sd/ed verbatim — never "
+                                          "invented), then GETs the chosen list WITH the "
+                                          "session. --list codes: ns notices · as complete "
+                                          "SS · cs consolidated SS · ad complete director · "
+                                          "nd director notices · an all notices (default "
+                                          "ns). Dates ISO accepted, default window 90d→"
+                                          "today; from_date < 2017-07-03 refused (the DION "
+                                          "floor — upstream silently clamps earlier asks). "
+                                          "Dead session re-bootstraps once. Row form_fn "
+                                          "feeds hk_hkexdi_form")
+    f_hkdicorp.add_argument("--stock-code", dest="stock_code", required=True,
+                            help="HKEX stock code (e.g. 00700; digits-normalized)")
+    f_hkdicorp.add_argument("--list", default="ns", choices=["as", "cs", "ns", "ad", "nd", "an"],
+                            help="Which of the seven per-corp lists (sa2 code: as/cs/ns/ad/nd/an; default ns notices)")
+    f_hkdicorp.add_argument("--from-date", dest="from_date", default=None,
+                            help="Window start, YYYY-MM-DD (default today-90d; floor 2017-07-03)")
+    f_hkdicorp.add_argument("--to-date", dest="to_date", default=None,
+                            help="Window end, YYYY-MM-DD (default today)")
+    f_hkdicorp.add_argument("--pg", type=int, default=1, help="Page, 1-based (upstream pg=)")
+    f_hkdiform = v.add_parser("hk_hkexdi_form", parents=[g()],
+                              help="One DI form's full detail (fn= hard key; NSForm2/NSForm4 routed by serial prefix)",
+                              description="A DI notice's complete detail page — fn= {CS|DA|IR}"
+                                          "{yyyymmdd}E{seq} (IR serials ride NSForm4, CS/DA "
+                                          "ride NSForm2; pure GET, no session). tables "
+                                          "carries EVERY table verbatim (CS table count is "
+                                          "per-form: 12/13/17 across three live CS "
+                                          "probes; the Long/Short/LendingPool "
+                                          "three-state block, capacity/derivative code "
+                                          "legends 2201/16021…, joint/trust/other/relationship "
+                                          "schedules); positions picks the three-state "
+                                          "block; controlled_corporations picks the "
+                                          "controlled-company chain (the official equity-"
+                                          "penetration graph: name/address/%control/direct "
+                                          "Y/N/shares)")
+    f_hkdiform.add_argument("--fn", required=True,
+                            help="Form serial (NSForm4 fn= key, e.g. IR20251107E00012 — from corp_list rows or ir_summaries)")
+    f_hkdiir = v.add_parser("hk_hkexdi_ir_summaries", parents=[g()],
+                            help="DI C5 'Results of investigations' stream (NSC5Sum.aspx — pure GET, no session)",
+                            description="The market-wide daily release stream of SFO Part XV "
+                                        "investigation results (C5): 53 rows/page probe day, "
+                                        "Total records 281 — serial, release/specified dates, "
+                                        "stock code, report name; each row's serial is a hard "
+                                        "NSForm4 fn= key feeding hk_hkexdi_form. --pg pages; "
+                                        "--stock-code filters client-side")
+    f_hkdiir.add_argument("--pg", type=int, default=1, help="Page, 1-based (upstream pg=; 53 rows/page)")
+    f_hkdiir.add_argument("--stock-code", dest="stock_code", default=None,
+                          help="Stock-code client-side filter (digits-normalized, e.g. 700)")
+
     f_hkdoc = v.add_parser("hk_hkexnews_document", parents=[g()],
                            help="HKEXnews announcement PDF bytes verbatim (sha256 + content_latin1)",
                            description="www1.hkexnews.hk/listedco/… — the E11 body-fetch pattern: "
@@ -890,6 +1089,38 @@ def register(v, g):
                        help="Page, 1-based (upstream param: currentPage; wall 255)")
     f_kip.add_argument("--page-size", dest="page_size", type=int, default=20,
                        help="Rows per page (upstream param: numPerPage; 1-2000 — the family's highest throughput)")
+    # —— 0.3.73 E15 KR KRX Global universe + indices (dictionary slot: kr_krx between kr_kipris and kz_gbd;
+    # registration lexicographic: kr_krx_indices before kr_krx_listed) ——
+    f_krxi = v.add_parser("kr_krx_indices", parents=[g()],
+                          help="KRX main-index snapshot (free-OTP GET; KOSPI/KOSDAQ/KOSPI 200/KRX 300/Korea Value-up)",
+                          description="The KR index snapshot off the free-OTP family "
+                                      "(main.jspx?bld=index_list — plain GET, no OTP dance): "
+                                      "idx_nm / clsprc_idx close / cmpr_idx change / cmpr_rt "
+                                      "rate / updown. cmpr_rt keeps upstream's raw "
+                                      "scientific-notation string verbatim; the index set "
+                                      "drifts (5 on the probe day).")
+    f_krxl = v.add_parser("kr_krx_listed", parents=[g()],
+                          help="KRX Global listed-company universe, one-shot grid (global.krx.co.kr OTP double-step; ~2,769 rows × 10 cols)",
+                          description="THE KR exchange universe — and the OPEN portal of the "
+                                      "three-sister gate family (data.krx=member wall + Akamai "
+                                      "bm_s, kind.krx=WAF sensors, global.krx=robots Allow:/ "
+                                      "verbatim). The OTP double-step: GenerateOTP.jspx mints a "
+                                      "one-shot base64 code (name=form × the FULL-path bld), "
+                                      "posted back 2s later with market_gubun → block1 = the "
+                                      "whole universe ONE-SHOT, no paging. Rows: isu_cd (the "
+                                      "6-digit listing code) / eng_cor_nm / std_ind_cd + ind_nm "
+                                      "(the 2+2+2 six-digit industry hierarchy) / lst_stk_vl / "
+                                      "cpt / par_pr (comma strings, *_num int companions) / "
+                                      "iso_cd. All=2,769 reconciles with the per-board splits "
+                                      "(kospi/kosdaq/konex). The OTP code NEVER enters the "
+                                      "cache key (it is one-shot — the grid caches under a "
+                                      "code-less hand-rolled key).")
+    f_krxl.add_argument("--board", default="all", choices=["all", "kospi", "kosdaq", "konex"],
+                        help="Market board (upstream market_gubun: all=0/kospi=1/kosdaq=2/konex=6)")
+    f_krxl.add_argument("--industry", default=None,
+                        help="Local PREFIX filter on std_ind_cd (2/4/6 digits: 07 wholesale / 0746 / 074604)")
+    f_krxl.add_argument("--limit", type=int, default=None,
+                        help="Cap the returned rows (default: all matching rows)")
     # —— 0.3.34 KZ GBD_UL master register (data.egov.kz portal-session face) ——
     f_kz = v.add_parser("kz_gbd_ul_companies", parents=[g()],
                         help="Kazakhstan legal-entities master register (GBD_UL; --text server-side name filter)",
@@ -956,6 +1187,66 @@ def register(v, g):
                        help="Row offset (upstream param: $offset; >=0 — Socrata deep-offset friendly)")
     f_nyc.add_argument("--order", default=None,
                        help="Sort column [ASC|DESC] (upstream param: $order; rejects NULLS — e.g. lic_expir_dd DESC)")
+    # —— 0.3.72 E14 NZX SSR dehydrated-state faces (dictionary slot: nyc_dcwp_licenses <
+    # nz_nzx_announcements < nz_nzx_company < nz_nzx_listed < nzco_companies — 'y'<'z',
+    # '_'<'c'; www.nzx.com is Next.js SSR — robots allows the SSR pages only, /api/ and
+    # /search are never touched; every page carries its data in the __NEXT_DATA__
+    # TanStack dehydrated state) ——
+    f_nzxann = v.add_parser("nz_nzx_announcements", parents=[g()],
+                            help="NZX board announcements, newest 200 (www.nzx.com SSR dehydrated state — id-anchored)",
+                            description="The announcements snapshot for one board: 200 rows "
+                                        "id-desc (the id is the sequential anchor for "
+                                        "incremental pulls — max 484034 probe day), rows "
+                                        "carry summary/details/attachments verbatim (SHINTR "
+                                        "substantial-holder family, price-sensitive flags). "
+                                        "THE ?page PARAM IS IGNORED UPSTREAM (page 2 "
+                                        "dehydrates page 1) — 200 rows is the whole SSR "
+                                        "surface, the deeper API is robots-blocked; "
+                                        "documented boundary, final. --code/--type/"
+                                        "--price-sensitive are LOCAL filters")
+    f_nzxann.add_argument("--board", default="NZSX", choices=["NZSX", "NZDX"],
+                          help="Trading board (NZSX equities / NZDX debt)")
+    f_nzxann.add_argument("--code", default=None, help="Issuer code exact on summary.companyCode (e.g. MFT)")
+    f_nzxann.add_argument("--type", default=None, help="Announcement type exact (e.g. SHINTR — the substantial-holder family)")
+    f_nzxann.add_argument("--price-sensitive", dest="price_sensitive", default=None, choices=["true", "false"],
+                          help="Local filter on details.isPriceSensitive (e.g. true)")
+    f_nzxann.add_argument("--limit", type=int, default=None, help="Display slice (the FULL filtered total always rides result.total)")
+    f_nzxco = v.add_parser("nz_nzx_company", parents=[g()],
+                           help="NZX issuer governance card (www.nzx.com/companies/{code} SSR — auditor/directors/registry)",
+                           description="One issuer's card from FOUR dehydrated panels: "
+                                       "summary (financialYearEnd{month,day} + auditor + "
+                                       "solicitor + primaryRegistry + primaryListingVenue — "
+                                       "the four governance registers), contact (address/"
+                                       "website/secretary), directors (the official register "
+                                       "verbatim — role/type I|N/isCurrent/start/end + "
+                                       "names), instruments (the live quote rows). Bad code "
+                                       "= an honest 404 whose dehydrated queries list is "
+                                       "EMPTY → found=false (unlike the CSE zero-byte "
+                                       "silent-empty shape)")
+    f_nzxco.add_argument("--code", required=True, help="NZX issuer code (e.g. TRA; from nz_nzx_listed rows)")
+    f_nzxlist = v.add_parser("nz_nzx_listed", parents=[g()],
+                             help="NZX whole-exchange master (www.nzx.com/markets/{board} SSR — 427 rows activeInstruments)",
+                             description="The active-instruments master: 427 rows probe day "
+                                         "× 16 keys (isin/code/name/securityClass/marketType/"
+                                         "category/subCategory/companyId/currencyCode/"
+                                         "sharesIssued/firstListedDate/lastListedDate/…). The "
+                                         "ACTIVE set — delisted instruments drop out (NZX "
+                                         "exposes no delisted archive; snapshot diffs are the "
+                                         "delisting ledger); lastListedDate 3000-01-01 is the "
+                                         "listed sentinel. NZSX and NZDX pages carry the SAME "
+                                         "master; the board picks the live quote panel (NZSX "
+                                         "178 equities / NZDX 135 bonds, type F securityClass "
+                                         "W). --quotes merges the panel quote onto rows")
+    f_nzxlist.add_argument("--board", default="NZSX", choices=["NZSX", "NZDX"],
+                           help="Trading board (picks the quote panel; the master is identical on both pages)")
+    f_nzxlist.add_argument("--code", default=None, help="Instrument code exact (e.g. TRA)")
+    f_nzxlist.add_argument("--name", default=None, help="Name substring (case-insensitive)")
+    f_nzxlist.add_argument("--security-class", dest="security_class", default=None,
+                           help="securityClass exact (E equities / F debt)")
+    f_nzxlist.add_argument("--category", default=None, help="category exact (e.g. SHRS)")
+    f_nzxlist.add_argument("--quotes", action="store_true",
+                           help="Merge the board's live quote panel onto each matching row (row.quote)")
+    f_nzxlist.add_argument("--limit", type=int, default=None, help="Display slice (the FULL filtered total always rides result.total)")
     # —— 0.3.30 NZ Companies Office register faces (nzco_companies search + nzco_directors) ——
     f20 = v.add_parser("nzco_companies", parents=[g()],
                        help="NZ Companies Register search (Companies Office; dual keys: company number + NZBN)",
@@ -1351,9 +1642,19 @@ FLAT = {
     # 0.3.43 CA OSB CCAA restructuring roster (dictionary slot: ca_osb between br_bacen and ch_zefix)
     "ca_ccaa_records": lambda a: {"name": a.name, "province": a.province, "monitor": a.monitor,
                                   "osb": a.osb, "limit": a.limit},
+    # 0.3.71 E13 CSE universe + issuer card (slot: ca_ccaa_records < ca_cse_company < ca_cse_listed < ch_six_fqs_search)
+    "ca_cse_company": lambda a: {"symbol": a.symbol},
+    "ca_cse_listed": lambda a: {"symbol": a.symbol, "name": a.name, "sector": a.sector,
+                                "status": a.status, "security_type": a.security_type,
+                                "tier": a.tier, "limit": a.limit},
     # 0.3.68 E10 developed-economy exchange faces (six)
     "ch_six_fqs_search": lambda a: {"segment": a.segment, "columns": a.columns,
                                     "order_by": a.order_by, "page": a.page, "pagesize": a.pagesize},
+    # 0.3.72 E14 SIX official notices v2 (ch_six_notice_detail < ch_six_official_notices < ch_zefix_firm)
+    "ch_six_notice_detail": lambda a: {"notice_id": a.notice_id},
+    "ch_six_official_notices": lambda a: {"from_date": a.from_date, "to_date": a.to_date,
+                                          "notice_type": a.notice_type, "issuer": a.issuer,
+                                          "page": a.page, "limit": a.limit},
     "ch_zefix_firm": lambda a: {"ehraid": a.ehraid},
     # 0.3.3 European country registry realtime faces (five)
     "ch_zefix_firm_search": lambda a: {"name": a.name, "max_entries": a.max_entries, "offset": a.offset},
@@ -1379,6 +1680,13 @@ FLAT = {
                                  "seat": a.seat, "az": a.az, "limit": a.limit},
     # 0.3.56 DE Unternehmensregister live search (slot: de_inso_search < de_register_search < es_borme_day)
     "de_register_search": lambda a: {"name": a.name, "q": a.q, "offset": a.offset},
+    # 0.3.73 E15 Deutsche Börse T7 universe + Newsboard (slot: de_register_search < de_xetra_instruments
+    # < de_xetra_newsboard < de_xetra_newsboard_search < es_borme_day)
+    "de_xetra_instruments": lambda a: {"venue": a.venue, "instrument_type": a.instrument_type,
+                                       "pag": a.pag, "isin": a.isin, "limit": a.limit},
+    "de_xetra_newsboard": lambda a: {"venue": a.venue, "event_type": a.event_type,
+                                     "isin": a.isin, "limit": a.limit},
+    "de_xetra_newsboard_search": lambda a: {"query": a.query, "page": a.page, "limit": a.limit},
     "es_borme_day": lambda a: {"date": a.date, "kind": a.kind, "limit": a.limit},
     "es_borme_notice": lambda a: {"notice_id": a.id, "name": a.name, "order": a.order,
                                   "limit": a.limit},
@@ -1441,6 +1749,11 @@ FLAT = {
     # < in_sebi_* — "_" (0x5F) sorts before "n" (0x6E): hk_hkex_securities < hk_hkexn…)
     "hk_hkex_securities": lambda a: {"code": a.code, "name": a.name, "category": a.category,
                                       "sub_category": a.sub_category, "limit": a.limit},
+    # 0.3.71 E13 HKEX DI (slot: hk_hkex_securities < hk_hkexdi_{corp_list,form,ir_summaries} < hk_hkexnews_document)
+    "hk_hkexdi_corp_list": lambda a: {"stock_code": a.stock_code, "list_code": a.list,
+                                      "from_date": a.from_date, "to_date": a.to_date, "pg": a.pg},
+    "hk_hkexdi_form": lambda a: {"fn": a.fn},
+    "hk_hkexdi_ir_summaries": lambda a: {"pg": a.pg, "stock_code": a.stock_code},
     "hk_hkexnews_document": lambda a: {"url": a.url, "link": a.link},
     "hk_hkexnews_search": lambda a: {"stock": a.stock, "title": a.title, "codebook": a.codebook,
                                       "market": a.market, "from_date": a.from_date,
@@ -1467,6 +1780,10 @@ FLAT = {
     "kr_hometax_biz_status": lambda a: {"biz_no": a.biz_no},
     # 0.3.56 KIPRIS domestic patent search (slot: kr_hometax_biz_status < kr_kipris_patents < kz_gbd_ul_companies)
     "kr_kipris_patents": lambda a: {"q": a.q, "page": a.page, "page_size": a.page_size},
+    # 0.3.73 E15 KRX Global universe + indices (slot: kr_kipris_patents < kr_krx_indices < kr_krx_listed
+    # < kz_gbd_ul_companies — 'i'<'l')
+    "kr_krx_indices": lambda a: {},
+    "kr_krx_listed": lambda a: {"board": a.board, "industry": a.industry, "limit": a.limit},
     # 0.3.34 KZ GBD_UL master register batch
     "kz_gbd_ul_companies": lambda a: {"text": a.text, "page": a.page, "count": a.count},
     # 0.3.49 US city-license trio (dictionary slot: lacity between kz_gbd_ul and no_brreg — 'k'<'l'<'n')
@@ -1478,6 +1795,15 @@ FLAT = {
     # 0.3.49 US city-license trio (dictionary slot: nyc_dcwp between no_brreg_roller and nzco — 'o'<'y'<'z')
     "nyc_dcwp_licenses": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset,
                                     "order": a.order},
+    # 0.3.72 E14 NZX SSR faces (nyc_dcwp_licenses < nz_nzx_announcements < nz_nzx_company
+    # < nz_nzx_listed < nzco_companies — 'y'<'z', '_'<'c')
+    "nz_nzx_announcements": lambda a: {"board": a.board, "code": a.code, "type": a.type,
+                                       "price_sensitive": None if a.price_sensitive is None
+                                       else a.price_sensitive == "true", "limit": a.limit},
+    "nz_nzx_company": lambda a: {"code": a.code},
+    "nz_nzx_listed": lambda a: {"board": a.board, "code": a.code, "name": a.name,
+                                "security_class": a.security_class, "category": a.category,
+                                "quotes": a.quotes, "limit": a.limit},
     "nzco_companies": lambda a: {"q": a.q, "entity_types": a.entity_types,
                                  "start": a.start, "limit": a.limit},
     "nzco_directors": lambda a: {"company_number": a.company_number},
@@ -1550,8 +1876,13 @@ COUNTRY = {
     # 0.3.60 BR BNDES financing operations (slot: br_bacen_institutions < br_bndes_financiamento < ca_ccaa_records)
     "br_bndes_financiamento": "BR",
     "ca_ccaa_records": "CA",
+    # 0.3.71 E13 CSE (slot: ca_ccaa_records < ca_cse_company < ca_cse_listed < ch_six_fqs_search)
+    "ca_cse_company": "CA",
+    "ca_cse_listed": "CA",
     # 0.3.68 E10 developed-economy exchange faces (six)
     "ch_six_fqs_search": "CH",
+    "ch_six_notice_detail": "CH",
+    "ch_six_official_notices": "CH",
     "ch_zefix_firm": "CH",
     "ch_zefix_firm_search": "CH",
     # 0.3.49 US city-license trio (US city sources keep the US jurisdiction stamp — tx_tdlr/wa_doh 0.3.48 ruling;
@@ -1564,6 +1895,10 @@ COUNTRY = {
     "de_inso_search": "DE",
     # 0.3.56 DE Unternehmensregister live search (slot: de_inso_search < de_register_search < es_borme_day)
     "de_register_search": "DE",
+    # 0.3.73 E15 Deutsche Börse T7 universe + Newsboard (DE in-register deepening)
+    "de_xetra_instruments": "DE",
+    "de_xetra_newsboard": "DE",
+    "de_xetra_newsboard_search": "DE",
     "es_borme_day": "ES",
     "es_borme_notice": "ES",
     "es_cnmv_entities": "ES",
@@ -1595,6 +1930,10 @@ COUNTRY = {
     "gleif_ultimate_parent": "GLOBAL",
     # 0.3.70 E12 HKEX deep (slot: gleif_* < hk_hkex_securities < hk_hkexnews_* < in_sebi_*)
     "hk_hkex_securities": "HK",
+    # 0.3.71 E13 HKEX DI (slot: hk_hkex_securities < hk_hkexdi_{corp_list,form,ir_summaries} < hk_hkexnews_document)
+    "hk_hkexdi_corp_list": "HK",
+    "hk_hkexdi_form": "HK",
+    "hk_hkexdi_ir_summaries": "HK",
     "hk_hkexnews_document": "HK",
     "hk_hkexnews_search": "HK",
     "in_sebi_default_brokers": "IN",
@@ -1612,11 +1951,17 @@ COUNTRY = {
     "kr_hometax_biz_status": "KR",
     # 0.3.56 KIPRIS domestic patent search (slot: kr_hometax_biz_status < kr_kipris_patents < kz_gbd_ul_companies)
     "kr_kipris_patents": "KR",
+    # 0.3.73 E15 KRX Global universe + indices (KR in-register deepening)
+    "kr_krx_indices": "KR",
+    "kr_krx_listed": "KR",
     "kz_gbd_ul_companies": "KZ",
     "lacity_registrations": "US",
     "no_brreg_enheter": "NO",
     "no_brreg_roller": "NO",
     "nyc_dcwp_licenses": "US",
+    "nz_nzx_announcements": "NZ",
+    "nz_nzx_company": "NZ",
+    "nz_nzx_listed": "NZ",
     "nzco_companies": "NZ",
     "nzco_directors": "NZ",
     "ror_organizations": "GLOBAL",

@@ -1000,6 +1000,97 @@ class CompanyFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
+    # —— 0.3.72 CH SIX official notices v2 (E14; ch_six_onot = its own provider on the
+    # six-group.com host — the sheldon notice pipeline vs ch_six_fqs's reference query,
+    # the edgar per-service precedent) ——
+
+    def ch_six_official_notices(self, *, from_date=None, to_date=None, notice_type=None,
+                                issuer=None, page=1, limit=None, execution=None, no_cache=None):
+        """company ch_six_official_notices: SIX Swiss Exchange official notices window
+        (CH — sheldon v2 find.json; ~515/week all-types, A dominates: structured-product
+        barrier events; M manual / EX ex-dividend / PZ provisional / FL first-listing /
+        DE delisting). The upstream show* type switches are DEAD — --notice-type filters
+        the FETCHED PAGE locally (walk --page for the window's older pages); --issuer
+        rides issuerWords (server-side, alive — but a PAGE-1 SNAPSHOT: partial page +
+        deeper issuer pages garble persistently). pageSize pinned 100 (200 breaks paging,
+        1000 answers empty — the silent-over-cap shape). Reachable ceiling ~5
+        pages/window: keep windows ~1 week; totalCount can exceed the reachable rows
+        (515 vs 415 on the probe window) — documented boundary, not worked around."""
+        self._co_only("ch_six_official_notices")
+        r = company.ch_six_onot.find(from_date=from_date, to_date=to_date,
+                                     notice_type=notice_type, issuer=issuer, page=page,
+                                     limit=limit, cache=self._c._cache,
+                                     no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        p = r["params"]
+        base = (f"SIX official notices {p['firstDate']}–{p['lastDate']}"
+                + (f", issuer \"{p['issuerWords']}\"" if p.get("issuerWords") else "")
+                + (f", local noticeType={str(notice_type).upper()} filter" if notice_type else ""))
+        if rows:
+            top = rows[0]
+            reason = (base + f", page {r['page']}: {len(rows)} rows (stream totalCount "
+                      f"{r['total_count']}) — newest {top.get('noticeId')} · "
+                      f"{top.get('noticeType')} · {top.get('date')} · "
+                      f"{str(top.get('title') or '—')[:60]} · {top.get('contact') or '—'}")
+        else:
+            reason = (base + f", page {r['page']}: zero rows — "
+                      + ("the type filter applies to the fetched page only; walk --page for "
+                         "the window's older pages" if notice_type else
+                         "an empty window/page is a legitimate answer"))
+        return self._flat_env(
+            tool="ch_six_official_notices",
+            input={"from_date": p["firstDate"], "to_date": p["lastDate"],
+                   "notice_type": str(notice_type).upper() if notice_type else None,
+                   "issuer": p.get("issuerWords"), "page": r["page"], "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('noticeId')} · {x.get('noticeType')} · {x.get('date')} · "
+                                f"{str(x.get('title') or '—')[:70]} · {x.get('contact') or '—'}",
+                       "url": ("https://www.six-group.com/sheldon/official_notices/v2/find.json?"
+                               f"firstDate={p['firstDate']}&lastDate={p['lastDate']}"
+                               f"&pageNumber={r['page']}&pageSize={r['pagesize']}"
+                               "&sortAttribute=date&sortDirection=desc"
+                               + (f"&issuerWords={p['issuerWords']}" if p.get("issuerWords") else ""))}
+                      for x in rows[:5]],
+            provider_id="ch_six_onot", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": dict(p)},
+        )
+
+    def ch_six_notice_detail(self, *, notice_id, execution=None, no_cache=None):
+        """company ch_six_notice_detail: one SIX official notice in full (CH — sheldon
+        v2 details/{noticeId}.json; 11 keys: number/isin/text full body/contact/
+        contactPerson/contactPhone/valorNumber + the list-row echoes — person/phone/
+        valor are null on many rows, verbatim). FL first-listing titles are BARE DATE
+        STRINGS — the semantics live in `text`. Published notices freeze (TTL 24h).
+        Unknown id = empty itemList → found=false, never fabricated."""
+        self._co_only("ch_six_notice_detail")
+        r = company.ch_six_onot.detail(notice_id=notice_id, cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        n = r.get("notice") or {}
+        if r["found"]:
+            reason = (f"SIX notice {r['notice_id']}: {n.get('noticeType')} · {n.get('date')} · "
+                      f"{str(n.get('title') or '—')[:60]} · contact {n.get('contact') or '—'}"
+                      + (f" · ISIN {n['isin']}" if n.get("isin") else "")
+                      + f" · body {len(str(n.get('text') or ''))} chars")
+        else:
+            reason = (f"SIX notice {r['notice_id']}: not found (empty itemList — pick ids "
+                      "from ch_six_official_notices rows)")
+        return self._flat_env(
+            tool="ch_six_notice_detail",
+            input={"notice_id": r["notice_id"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{n.get('noticeId')} · {n.get('noticeType')} · "
+                                f"{str(n.get('title') or '—')[:70]} · "
+                                f"body {len(str(n.get('text') or ''))} chars",
+                       "url": ("https://www.six-group.com/sheldon/official_notices/v2/details/"
+                               f"{r['notice_id']}.json")}]
+                      if r["found"] else [],
+            provider_id="ch_six_onot", metas=[r["_meta"]],
+            query={"source": "raw",
+                   "upstream": {"notice_id": r["notice_id"]}},
+        )
+
     def eu_euronext_instrument_search(self, *, q, execution=None, no_cache=None):
         """company eu_euronext_instrument_search: Euronext instrument resolver across all seven
         markets ({isin,mic,name,symbol,link}; join on ISIN+MIC — one ISIN lists on many venues)."""
@@ -1553,6 +1644,144 @@ class CompanyFaces:
             provider_id="kr_hometax", metas=[r["_meta"]],
             query={"source": "raw", "upstream": {"actionId": "ATTABZAA001R08", "txprDscmNo": s["biz_no"],
                                                  "dongCode": s["biz_no"][3:5]}},
+        )
+
+    # —— 0.3.72 NZ NZX SSR dehydrated state (E14; robots allows the SSR pages only —
+    # /api/ and /search are never touched; every page carries its data in the
+    # __NEXT_DATA__ TanStack dehydrated state) ——
+
+    def nz_nzx_listed(self, *, board="NZSX", code=None, name=None, security_class=None,
+                      category=None, quotes=False, limit=None, execution=None, no_cache=None):
+        """company nz_nzx_listed: the NZX whole-exchange master (NZ — activeInstruments
+        in the SSR dehydrated state; 427 rows probe day × 16 keys incl.
+        isin/sharesIssued/firstListedDate; the ACTIVE set — delisted instruments drop
+        out, lastListedDate 3000-01-01 is the listed sentinel). NZSX and NZDX pages
+        carry the SAME master; the board picks the live quote panel (NZSX 178 equities
+        / NZDX 135 bonds — type F securityClass W). --quotes merges the panel quote
+        onto matching rows. --code exact, --name substring, --security-class exact
+        (E/F), --category exact (SHRS/…), --limit slices."""
+        self._co_only("nz_nzx_listed")
+        r = company.nz_nzx.listed(board=board, code=code, name=name,
+                                  security_class=security_class, category=category,
+                                  quotes=quotes, limit=limit, cache=self._c._cache,
+                                  no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if rows:
+            top = rows[0]
+            reason = (f"NZX {r['board']} master: {r['total']} rows match"
+                      f" (board quote panel {r['quote_rows']}) — sample {top.get('code')} "
+                      f"{str(top.get('name') or '—')[:40]} · {top.get('securityClass') or '—'} · "
+                      f"{top.get('category') or '—'} · listed {str(top.get('firstListedDate') or '—')[:10]}"
+                      + (" · quote merged (--quotes)" if quotes else ""))
+        else:
+            reason = (f"NZX {r['board']} master: zero rows match (code={code or '—'}, "
+                      f"name={name or '—'}, security_class={security_class or '—'}, "
+                      f"category={category or '—'} — an empty answer is a legitimate miss)")
+        return self._flat_env(
+            tool="nz_nzx_listed",
+            input={"board": r["board"], "code": code, "name": name,
+                   "security_class": security_class, "category": category,
+                   "quotes": bool(quotes), "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('code')} {str(x.get('name') or '—')[:40]} · "
+                                f"{x.get('isin') or '—'} · {x.get('securityClass') or '—'}/"
+                                f"{x.get('category') or '—'} · shares "
+                                f"{x.get('sharesIssued') if x.get('sharesIssued') is not None else '—'}",
+                       "url": f"https://www.nzx.com/markets/{r['board']}"}
+                      for x in rows[:5]],
+            provider_id="nz_nzx", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://www.nzx.com/markets/{r['board']}",
+                                "panel": "activeInstruments"}},
+        )
+
+    def nz_nzx_company(self, *, code, execution=None, no_cache=None):
+        """company nz_nzx_company: the NZX issuer governance card (NZ — summary carries
+        financialYearEnd{month,day} + auditor + solicitor + primaryRegistry +
+        primaryListingVenue; contact the address/website/secretary; directors the
+        official register verbatim — role/type I|N/isCurrent/start/end; instruments
+        the issuer's live quote rows). Bad code = an honest 404 whose dehydrated
+        queries list is EMPTY → found=false, never fabricated (unlike the CSE
+        zero-byte silent-empty shape, NZX answers a real 404)."""
+        self._co_only("nz_nzx_company")
+        r = company.nz_nzx.company(code=code, cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        card = r.get("card") or {}
+        s = card.get("summary") or {}
+        fye = s.get("financialYearEnd") or {}
+        dirs = card.get("directors") or []
+        current = [d for d in dirs if d.get("isCurrent")]
+        if r["found"]:
+            reason = (f"NZX issuer card {r['code']}: FYE {fye.get('month')}/{fye.get('day')}"
+                      f" · auditor {s.get('auditor') or '—'} · solicitor {s.get('solicitor') or '—'}"
+                      f" · registry {s.get('primaryRegistry') or '—'}"
+                      f" · directors {len(current)} current of {len(dirs)}"
+                      f" · instruments {len(card.get('instruments') or [])}")
+        else:
+            reason = (f"NZX issuer card {r['code']}: not found (honest 404, empty dehydrated "
+                      "queries — check the code on nz_nzx_listed)")
+        return self._flat_env(
+            tool="nz_nzx_company",
+            input={"code": r["code"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{r['code']} · FYE {fye.get('month')}/{fye.get('day')} · "
+                                f"auditor {s.get('auditor') or '—'} · "
+                                f"{len(current)} current of {len(dirs)} directors · "
+                                f"venue {s.get('primaryListingVenue') or '—'}",
+                       "url": f"https://www.nzx.com/companies/{r['code']}"}]
+                      if r["found"] else [],
+            provider_id="nz_nzx", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://www.nzx.com/companies/{r['code']}",
+                                "panels": ["contact", "summary", "directors", "instruments"]}},
+        )
+
+    def nz_nzx_announcements(self, *, board="NZSX", code=None, type=None,
+                             price_sensitive=None, limit=None, execution=None, no_cache=None):
+        """company nz_nzx_announcements: the NZX board announcements snapshot (NZ —
+        newest 200, id-desc; the id is the sequential anchor for incremental pulls,
+        max 484034 probe day; rows carry summary/details/attachments verbatim — SHINTR
+        substantial-holder family, price-sensitive flags). THE ?page PARAM IS IGNORED
+        UPSTREAM (page 2 dehydrates page 1) — 200 rows is the whole SSR surface, the
+        deeper API is robots-blocked; documented boundary, final. --code exact on
+        companyCode, --type exact, --price-sensitive bool, --limit slices."""
+        self._co_only("nz_nzx_announcements")
+        r = company.nz_nzx.announcements(board=board, code=code, type=type,
+                                         price_sensitive=price_sensitive, limit=limit,
+                                         cache=self._c._cache,
+                                         no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        base = (f"NZX {r['board']} announcements: {r['total']} of 200 rows"
+                + (f" (local code={code} filter)" if code else "")
+                + (f" (local type={type} filter)" if type else "")
+                + (f" (price_sensitive={price_sensitive})" if price_sensitive is not None else ""))
+        if rows:
+            top = rows[0]
+            s = top.get("summary") or {}
+            d = top.get("details") or {}
+            reason = (base + f" — newest id {top.get('id')} · {s.get('publicationDate')} · "
+                      f"{str(s.get('title') or '—')[:60]}"
+                      + (" · PRICE SENSITIVE" if d.get("isPriceSensitive") else ""))
+        else:
+            reason = base + " — zero rows: an empty filter is a legitimate miss"
+        return self._flat_env(
+            tool="nz_nzx_announcements",
+            input={"board": r["board"], "code": code, "type": type,
+                   "price_sensitive": price_sensitive, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{(x.get('summary') or {}).get('companyCode')} · id {x.get('id')} · "
+                                f"{(x.get('summary') or {}).get('type')} · "
+                                f"{str((x.get('summary') or {}).get('title') or '—')[:60]}"
+                                + (" · PS" if (x.get("details") or {}).get("isPriceSensitive") else ""),
+                       "url": f"https://www.nzx.com/markets/{r['board']}/announcements"}
+                      for x in rows[:5]],
+            provider_id="nz_nzx", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://www.nzx.com/markets/{r['board']}/announcements",
+                                "panel": "announcements/recent", "boundary": "newest-200 (page param ignored upstream)"}},
         )
 
     def nzco_companies(self, *, q, entity_types=None, start=None, limit=None,
@@ -2965,6 +3194,91 @@ class CompanyFaces:
             provider_id="ca_osb", metas=metas,
             query={"source": "raw", "upstream": p},
         )
+    # —— 0.3.71 E13 CSE universe + issuer card (dictionary slot: ca_ccaa_records <
+    # ca_cse_company < ca_cse_listed < ch_six_fqs_search; thecse.com Next.js head's own
+    # /api/webapi/* JSON — no screen-scraping) ——
+
+    def ca_cse_listed(self, *, symbol=None, name=None, sector=None, status=None,
+                      security_type=None, tier=None, limit=None, execution=None, no_cache=None):
+        """company ca_cse_listed: the Canadian Securities Exchange listed universe
+        (CA — thecse.com's own /api/webapi/listed-companies/ JSON: 739 rows probe day,
+        fields verbatim snake_case). Status is the negative-list material: Active 628 /
+        Suspended 85 / Halted Pending Fundamental Change 23 / Delisted 3 — --status
+        filters them. --symbol exact, --name substring, --sector/--security-type exact
+        case-insensitive, --tier int, --limit slices. trading_date is PER-ROW (last
+        trade date, not an as-at anchor)."""
+        self._co_only("ca_cse_listed")
+        r = company.ca_cse.listed(symbol=symbol, name=name, sector=sector, status=status,
+                                  security_type=security_type, tier=tier, limit=limit,
+                                  cache=self._c._cache,
+                                  no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if rows:
+            top = rows[0]
+            reason = (f"CSE listed universe: {r['total']} rows match"
+                      f" — sample {top.get('symbol') or '—'} {top.get('security_name') or '—'} · "
+                      f"{top.get('status') or '—'} · {top.get('sector') or '—'}"
+                      + (f" · traded {top.get('trading_date')}" if top.get("trading_date") else "")
+                      + " — rows carry live quote fields (trading_date is per-row last trade, "
+                        "not an as-at anchor)")
+        else:
+            reason = (f"CSE listed universe: zero rows match (symbol={symbol or '—'}, "
+                      f"name={name or '—'}, sector={sector or '—'}, status={status or '—'}, "
+                      f"security_type={security_type or '—'}, tier={tier if tier is not None else '—'} "
+                      "— an empty answer is a legitimate miss; --status suspended/halted "
+                      "negative lists are legal queries)")
+        return self._flat_env(
+            tool="ca_cse_listed",
+            input={"symbol": symbol, "name": name, "sector": sector, "status": status,
+                   "security_type": security_type, "tier": tier, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('symbol') or '—'} {x.get('security_name') or '—'} · "
+                                f"{x.get('status') or '—'} · tier {x.get('tier') if x.get('tier') is not None else '—'} · "
+                                f"{x.get('security_type') or '—'} · {x.get('currency') or '—'}",
+                       "url": "https://thecse.com/en/api/webapi/listed-companies/"}
+                      for x in rows[:5]],
+            provider_id="ca_cse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": "https://thecse.com/en/api/webapi/listed-companies/"}},
+        )
+
+    def ca_cse_company(self, *, symbol, execution=None, no_cache=None):
+        """company ca_cse_company: the CSE issuer market card for one symbol —
+        metadata + quote (bid/ask) + ticker (OHLC) + trades with market-maker dealer
+        names + depth by order and by price + the CSE2 twin + consolidated. Bad symbol
+        = 200 with a ZERO-BYTE body upstream → found=false (the silent-empty law;
+        never fabricated). The deprecated `metatdata` key (upstream removal_date
+        2022-07-01) is dropped — `metadata` is the live one."""
+        self._co_only("ca_cse_company")
+        r = company.ca_cse.company(symbol=symbol, cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        md = (r.get("card") or {}).get("metadata") or {}
+        if r["found"]:
+            reason = (f"CSE issuer card {r['symbol']}: {md.get('security_name') or '—'}"
+                      f" · {md.get('status') or '—'} · {md.get('sector') or '—'} · {md.get('currency') or '—'}"
+                      + (f" · listed {md.get('listing_date')}" if md.get("listing_date") else "")
+                      + " — card carries quote/ticker/trades (dealer names)/depth/CSE2 twin/"
+                        "consolidated and the `legal` disclaimer text")
+        else:
+            reason = (f"CSE issuer card {r['symbol']}: not found (upstream answered 200 with "
+                      "an empty body — the silent-empty law; check the ticker on ca_cse_listed)")
+        return self._flat_env(
+            tool="ca_cse_company",
+            input={"symbol": r["symbol"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{md.get('symbol') or r['symbol']} {md.get('security_name') or '—'} · "
+                                f"{md.get('status') or '—'} · {md.get('sector') or '—'} · "
+                                f"{md.get('currency') or '—'} · tier {md.get('tier') if md.get('tier') is not None else '—'}",
+                       "url": "https://thecse.com/en/api/webapi/company/?symbol="
+                              + r["symbol"] + "&type=listed"}
+                      ] if r["found"] else [],
+            provider_id="ca_cse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": "https://thecse.com/en/api/webapi/company/",
+                                "symbol": r["symbol"]}},
+        )
     # —— 0.3.46 SG data.gov.sg open-data platform (dictionary slot: sg_datagovsg after ru_cbr;
     # the ACRA register of record rides the national platform as bulk CSV — no per-company
     # query surface exists, BizFile is a paid wall) ——
@@ -3324,6 +3638,120 @@ class CompanyFaces:
             query={"source": "raw", "upstream": result["params"]},
         )
 
+    # —— 0.3.73 DE Deutsche Börse Xetra/Frankfurt (E15; de_xetra — the T7
+    # tradable-instruments universe + the Newsboard event stream on
+    # cashmarket.deutsche-boerse.com, the former xetra.com host) ——
+
+    def de_xetra_instruments(self, *, venue="xetra", instrument_type=None, pag=None,
+                             isin=None, limit=None, execution=None, no_cache=None):
+        """company de_xetra_instruments: Deutsche Börse T7 tradable-instruments
+        master (DE — 153 columns verbatim, ISIN+WKN on every row). venue=xetra ≈5.5k
+        rows (ETF/CS/ETN/ETC…); venue=frankfurt = the bond-heavy ~56k variant
+        (the CSV hangs under the Xetra section at boersefrankfurt — the
+        /Tradable-Instruments-Frankfurt/Downloads URL is a 404 decoy). The CSV
+        link re-resolves from the landing page every fetch (blob hashes
+        version on upload); Date Last Update rides every response. Row counts
+        drift daily — snapshot counts, never pinned."""
+        self._co_only("de_xetra_instruments")
+        r = company.de_xetra.instruments(venue=venue, instrument_type=instrument_type,
+                                         pag=pag, isin=isin, limit=limit,
+                                         cache=self._c._cache,
+                                         no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        base = (f"Deutsche Börse T7 {result['venue']} master"
+                + (f", Date Last Update {result['date_last_update']}" if result.get("date_last_update") else "")
+                + (f", local Instrument Type={str(instrument_type).upper()} filter" if instrument_type else "")
+                + (f", PAG {pag}" if pag else ""))
+        if rows:
+            top = rows[0]
+            reason = (base + f": {result['row_count']:,} rows — {top.get('Instrument')} · "
+                      f"{top.get('ISIN')} · WKN {top.get('WKN')} · {top.get('Instrument Type')}")
+        else:
+            reason = base + ": zero rows — a filter with no matches is a legitimate answer (types: ETF/CS/ETN/ETC…; PAG codes are AST0-style)"
+        landing = ("https://www.cashmarket.deutsche-boerse.com/cash-en/trading/Tradable-Instruments-Xetra/Downloads"
+                   if result["venue"] == "xetra" else
+                   "https://www.cashmarket.deutsche-boerse.com/cash-en/trading/Tradable-Instruments-Xetra/boersefrankfurt")
+        return self._flat_env(
+            tool="de_xetra_instruments",
+            input={"venue": result["venue"], "instrument_type": instrument_type,
+                   "pag": pag, "isin": isin, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('Instrument')} · {x.get('ISIN')} · WKN {x.get('WKN')} · "
+                                f"{x.get('Instrument Type')} · Mnemonic {x.get('Mnemonic')}",
+                       "url": landing}
+                      for x in rows[:5]],
+            provider_id="de_xetra", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": dict(r["params"])},
+        )
+
+    def de_xetra_newsboard(self, *, venue=None, event_type=None, isin=None,
+                           limit=None, execution=None, no_cache=None):
+        """company de_xetra_newsboard: Xetra/Frankfurt Newsboard event stream
+        (DE — RSS rolling window of the latest 100 notices, ~15h; suspension/
+        resumption (Aussetzung/Wiederaufnahme), dividend/interest, delisting).
+        Titles carry the venue prefix (XETR:/XFRA:), the event class and the
+        ISIN or mnemonic; venue/event-type/isin filter locally. Hourly polling
+        is the no-loss cadence — full history via de_xetra_newsboard_search."""
+        self._co_only("de_xetra_newsboard")
+        r = company.de_xetra.newsboard(venue=venue, event_type=event_type, isin=isin,
+                                       limit=limit, cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        base = ("Xetra/Frankfurt Newsboard rolling window (latest 100 notices)"
+                + (f", local venue={str(venue).upper()} filter" if venue else "")
+                + (f", local event~{str(event_type).upper()} filter" if event_type else "")
+                + (f", ISIN {isin}" if isin else ""))
+        if rows:
+            reason = base + f": {result['item_count']} matching rows — newest {rows[0]['pub_date']} · {rows[0]['event'][:70]}"
+        else:
+            reason = base + ": zero matching rows — the 100-item window ages out in ~15h (suspension bursts age out fastest); query de_xetra_newsboard_search for history"
+        return self._flat_env(
+            tool="de_xetra_newsboard",
+            input={"venue": str(venue).upper() if venue else None,
+                   "event_type": str(event_type).upper() if event_type else None,
+                   "isin": isin, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('pub_date')} · {x.get('venue')}: {x.get('event', '')[:80]}",
+                       "url": "https://www.cashmarket.deutsche-boerse.com/cash-en/Stay-Informed/newsroom/Xetra-Frankfurt-Newsboard/4091644!rss"}
+                      for x in rows[:5]],
+            provider_id="de_xetra", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": dict(r["params"])},
+        )
+
+    def de_xetra_newsboard_search(self, *, query, page=1, limit=None,
+                                  execution=None, no_cache=None):
+        """company de_xetra_newsboard_search: Newsboard full-history search
+        (DE — every notice ever posted; delisting notices back to the 2020
+        number block ride ISINs in the path). Query by ISIN, mnemonic, or an
+        event word (Aussetzung/Suspension, Wiederaufnahme/Resumption,
+        delisting, DIVIDEND…); 100 hits/page, pageNum rides statelessly."""
+        self._co_only("de_xetra_newsboard_search")
+        r = company.de_xetra.newsboard_search(query=query, page=page, limit=limit,
+                                              cache=self._c._cache,
+                                              no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        if rows:
+            reason = (f"Newsboard history \"{result['query']}\" page {result['page']}: "
+                      f"{result['row_count']} rows — newest {rows[0]['date']} · {(rows[0]['text'] or '')[:70]}")
+        else:
+            reason = (f"Newsboard history \"{result['query']}\" page {result['page']}: zero rows — "
+                      "try the German event word (Aussetzung) or a bare ISIN")
+        return self._flat_env(
+            tool="de_xetra_newsboard_search",
+            input={"query": result["query"], "page": result["page"], "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('date')} · {(x.get('text') or '')[:90]}",
+                       "url": ("https://www.cashmarket.deutsche-boerse.com/cash-en/Stay-Informed/"
+                               f"newsroom/Xetra-Frankfurt-Newsboard/4091644!search?query={result['query']}"
+                               f"&pageNum={result['page']}&hitsPerPage=100")}
+                      for x in rows[:5]],
+            provider_id="de_xetra", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": dict(r["params"])},
+        )
+
     def _jp_jplatpat_face(self, tool, face, q, year, year_sign, no_cache=None):
         r = getattr(company.jp_jplatpat, face + "_search_raw")(
             q, year=year, year_sign=year_sign,
@@ -3444,6 +3872,76 @@ class CompanyFaces:
                       for x in rows[:5]],
             provider_id="kr_kipris", metas=[r["_meta"]],
             query={"source": "raw", "upstream": r["params"]},
+        )
+
+    # —— 0.3.73 KR KRX Global (E15; kr_krx — the OPEN portal of the
+    # three-sister gate family: data.krx=member wall, kind.krx=WAF,
+    # global.krx=robots Allow:/) ——
+
+    def kr_krx_listed(self, *, board="all", industry=None, limit=None,
+                      execution=None, no_cache=None):
+        """company kr_krx_listed: KRX Global listed-company universe (KR — the
+        OTP double-step grid, one-shot ~2,769 rows × 10 cols: isu_cd /
+        eng_cor_nm / std_ind_cd + ind_nm industry / lst_stk_vl listed shares /
+        cpt capital / par_pr par value). board picks market_gubun
+        (all/kospi/kosdaq/konex — All reconciles with the board splits);
+        industry filters std_ind_cd by PREFIX (the 2+2+2 six-digit hierarchy:
+        '07' wholesale / '0746' / '074604' all legal). Numbers keep verbatim
+        comma strings + *_num int companions."""
+        self._co_only("kr_krx_listed")
+        r = company.kr_krx.listed(board=board, industry=industry, limit=limit,
+                                  cache=self._c._cache,
+                                  no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        base = (f"KRX Global listed universe, board={result['board']}"
+                + (f", local std_ind_cd~{industry} prefix filter" if industry else ""))
+        if rows:
+            top = rows[0]
+            reason = (base + f": {result['total_count']:,} total · {result['row_count']:,} rows — "
+                      f"{top.get('isu_cd')} {top.get('eng_cor_nm')} · {top.get('ind_nm')} · "
+                      f"capital {top.get('cpt_num'):,} {top.get('iso_cd')}")
+        else:
+            reason = base + ": zero rows — the board/industry combination has no listings (std_ind_cd prefixes: 2/4/6 digits)"
+        return self._flat_env(
+            tool="kr_krx_listed",
+            input={"board": result["board"], "industry": industry, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('isu_cd')} {x.get('eng_cor_nm')} · {x.get('ind_nm')} · "
+                                f"std_ind_cd {x.get('std_ind_cd')} · capital {x.get('cpt')} {x.get('iso_cd')}",
+                       "url": "https://global.krx.co.kr/contents/GLB/03/0308/0308010000/GLB0308010000.jsp"}
+                      for x in rows[:5]],
+            provider_id="kr_krx", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": dict(r["params"])},
+        )
+
+    def kr_krx_indices(self, *, execution=None, no_cache=None):
+        """company kr_krx_indices: KRX main-index snapshot (KR — the free-OTP
+        family: GET main.jspx?bld=index_list, no OTP dance; KOSPI / KOSDAQ /
+        KOSPI 200 / KRX 300 / Korea Value-up — the set drifts). clsprc_idx
+        close / cmpr_idx change / cmpr_rt rate keeps upstream's raw
+        scientific-notation string verbatim; updown carries the direction."""
+        self._co_only("kr_krx_indices")
+        r = company.kr_krx.indices(cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        if rows:
+            names = " / ".join(str(x.get("idx_nm")) for x in rows[:4])
+            top = rows[0]
+            reason = (f"KRX main indices: {result['row_count']} indices — {names}"
+                      + (f" — {top.get('idx_nm')} {top.get('clsprc_idx')} ({top.get('updown')})" if top else ""))
+        else:
+            reason = "KRX main indices: zero rows — the free-OTP family may have moved; re-probe"
+        return self._flat_env(
+            tool="kr_krx_indices",
+            input={},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('idx_nm')} · close {x.get('clsprc_idx')} · change {x.get('cmpr_idx')} · {x.get('updown')}",
+                       "url": "https://global.krx.co.kr/main/main.jsp"}
+                      for x in rows[:5]],
+            provider_id="kr_krx", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": dict(r["params"])},
         )
 
     # ===================== 0.3.60 batch E2 — BNDES financing operations (BR) =====================
@@ -3637,6 +4135,135 @@ class CompanyFaces:
                    "upstream": {"file": "https://www.hkex.com.hk/eng/services/trading/securities/"
                                         "securitieslists/ListOfSecurities.xlsx",
                                 "as_at": r["as_at"]}},
+        )
+    # —— 0.3.71 E13 HKEX DI disclosure-of-interests (dictionary slot: hk_hkex_securities <
+    # hk_hkexdi_{corp_list,form,ir_summaries} < hk_hkexnews_document — '_'(0x5F)<'d'<'n';
+    # di.hkex.com.hk, the SFO Part XV register — second host under the hkex 做深 ruling) ——
+
+    def hk_hkexdi_corp_list(self, *, stock_code, list_code="ns", from_date=None,
+                            to_date=None, pg=1, execution=None, no_cache=None):
+        """company hk_hkexdi_corp_list: one HK listed corporation's DI notices (SFO
+        Part XV — the substantial-shareholder/director register). ASP.NET flow: the
+        face bootstraps the search form session (VIEWSTATE quartet + cookie cached
+        together 30min), POSTs once, parses the seven list links off the resolution
+        page (sid/cid/sd/ed verbatim — never invented), then GETs the chosen list
+        with the session. --list codes: ns notices · as complete SS · cs consolidated
+        SS · ad complete director · nd director notices · an all notices (default ns).
+        Dates ISO accepted, default window 90d→today; from_date < 2017-07-03 refused
+        (the DION floor — upstream silently clamps earlier asks). A dead session
+        re-bootstraps once. Row's form_fn feeds hk_hkexdi_form."""
+        self._co_only("hk_hkexdi_corp_list")
+        r = company.hk_hkexdi.corp_list(stock_code=stock_code, list_code=list_code,
+                                        from_date=from_date, to_date=to_date, pg=pg,
+                                        cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if rows:
+            top = rows[0]
+            first = next(iter(top.values()), None)
+            reason = (f"HKEX DI {r['list_code']}/{r['list_label'] or '—'} for {r['stock_code']} "
+                      f"{r['corp_name'] or '—'}: {r['total'] if r['total'] is not None else len(rows)} records "
+                      f"— sample {top.get('Date of notice') or top.get('Date of change') or first or '—'}"
+                      + (" — session re-bootstrapped once (stale cached quartet)"
+                         if r.get("_session_refreshed") else ""))
+        else:
+            reason = (f"HKEX DI {r['list_code']}/{r['list_label'] or '—'} for {r['stock_code']} "
+                      f"{r['corp_name'] or '—'}: zero rows in {result['params']['from_date']}→"
+                      f"{result['params']['to_date']} (a legitimate miss — widen --from-date, "
+                      "note the 2017-07-03 DION floor, or try --list as)")
+        return self._flat_env(
+            tool="hk_hkexdi_corp_list",
+            input={"stock_code": result["params"]["stock_code"], "list": list_code,
+                   "from_date": from_date, "to_date": to_date, "pg": pg},
+            reason=reason, result=result,
+            evidence=[{"quote": " · ".join(str(v) for v in list(x.values())[:4] if v is not None)
+                                + (f" · fn {x['form_fn']}" if x.get("form_fn") else ""),
+                       "url": x.get("form_url")
+                              or "https://di.hkex.com.hk/di/NSSrchCorp.aspx?src=MAIN&lang=EN"}
+                      for x in rows[:5]],
+            provider_id="hk_hkexdi", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"host": "di.hkex.com.hk", "list": list_code,
+                                "stock_code": result["params"]["stock_code"]}},
+        )
+
+    def hk_hkexdi_form(self, *, fn, execution=None, no_cache=None):
+        """company hk_hkexdi_form: one DI notice's full detail (fn= hard key —
+        {CS|DA|IR}{yyyymmdd}E{seq}; IR serials ride NSForm4, CS/DA ride NSForm2, pure
+        GET no session). tables carries EVERY table verbatim (header split when the
+        first row reads as one); positions picks the Long/Short/LendingPool three-state
+        block; controlled_corporations picks the controlled-company chain (the official
+        equity-penetration graph: name/%control/direct Y/N/shares). Capacity/derivative
+        code legends (2201/16021…) ride the tables verbatim."""
+        self._co_only("hk_hkexdi_form")
+        r = company.hk_hkexdi.form(fn=fn, cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        n_tab = len(r["tables"])
+        pos_bits = []
+        for k in ("Long position", "Short position", "Lending Pool"):
+            v = (r.get("positions") or {}).get(k)
+            if v and v.get("total_number_of_shares"):
+                pos_bits.append(f"{k} {v['total_number_of_shares']}")
+        reason = (f"DI form {r['fn']} ({r['form_kind']} — {r['form_title'] or 'form'}): "
+                  f"{n_tab} tables verbatim"
+                  + (f"; positions " + ", ".join(pos_bits) if pos_bits else "")
+                  + (f"; {len(r['controlled_corporations'])} controlled-corporation rows"
+                     if r["controlled_corporations"] else "")
+                  + " — capacity/derivative code legends ride the tables verbatim")
+        return self._flat_env(
+            tool="hk_hkexdi_form",
+            input={"fn": r["fn"]},
+            reason=reason, result=result,
+            evidence=[{"quote": (f"table {t['index']}"
+                                 + (f" [{t['header'][0][:40]}…]" if t.get("header") else "")
+                                 + f" {len(t['rows'])} rows — "
+                                 + " | ".join(c for c in (t["rows"][0] or [])[:4] if c))[:180],
+                       "url": ("https://di.hkex.com.hk/di/NSForm4.aspx?fn=" if r["form_kind"] == "IR"
+                               else "https://di.hkex.com.hk/di/NSForm2.aspx?fn=") + r["fn"]
+                              + "&src=MAIN&lang=EN&g_lang=en"}
+                      for t in r["tables"][:5] if t.get("rows")],
+            provider_id="hk_hkexdi", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"host": "di.hkex.com.hk", "fn": r["fn"], "op": r["params"]["op"]}},
+        )
+
+    def hk_hkexdi_ir_summaries(self, *, pg=1, stock_code=None, execution=None, no_cache=None):
+        """company hk_hkexdi_ir_summaries: the C5 market-wide "Results of
+        investigations" daily release stream (NSC5Sum.aspx — pure GET, no session;
+        53 rows/page probe day, Total records 281). Each row's serial is a hard
+        NSForm4 fn= key feeding hk_hkexdi_form. --pg pages (1-based); --stock-code
+        filters client-side (digits-normalized)."""
+        self._co_only("hk_hkexdi_ir_summaries")
+        r = company.hk_hkexdi.ir_summaries(pg=pg, stock_code=stock_code,
+                                           cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        rows = r["rows"]
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if rows:
+            top = rows[0]
+            reason = (f"DI C5 investigation results page {r['page']}: {len(rows)} rows"
+                      + (f" of {r['total']} total" if r["total"] is not None else "")
+                      + f" — sample {top.get('serial') or '—'} {top.get('stock_code') or '—'} "
+                      f"{(top.get('report_name') or '—')[:60]}"
+                      + (" (client-side stock filter)" if stock_code else ""))
+        else:
+            reason = (f"DI C5 investigation results page {r['page']}: zero rows"
+                      + (f" on stock {stock_code}" if stock_code else "")
+                      + (f" (page beyond the {r['total']}-record stream)" if r["total"] else ""))
+        return self._flat_env(
+            tool="hk_hkexdi_ir_summaries",
+            input={"pg": pg, "stock_code": stock_code},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x.get('serial') or '—'} · {x.get('release_date') or '—'} · "
+                                f"{x.get('stock_code') or '—'} · {(x.get('report_name') or '—')[:60]}",
+                       "url": x.get("form_url")
+                              or "https://di.hkex.com.hk/di/NSC5Sum.aspx?pg=" + str(r["page"])}
+                      for x in rows[:5]],
+            provider_id="hk_hkexdi", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"host": "di.hkex.com.hk", "op": "c5", "pg": r["page"]}},
         )
 
     def hk_hkexnews_search(self, *, stock=None, title=None, market="SEHK", from_date=None,
