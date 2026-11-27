@@ -1,7 +1,7 @@
 """es_cnmv_sanctions — Spanish CNMV securities-market sanction register
 (www.cnmv.es Portal/Consultas/RegistroSanciones, keyless ASP.NET WebForms).
 
-ES legal face (0.3.62; admitted from the research booklet 册 134, 7 P0;
+ES legal face (0.3.62; admitted from the research booklet 134, 7 P0;
 re-probed live 2026-11-16 tmp/probe-e4/ with the SDK's own polite UA + a
 Referer — the host serves it, no UA-fingerprint gate at this section):
 the provider id is the SECOND CNMV id (the company-domain es_cnmv entidades

@@ -325,7 +325,7 @@ class EsgFaces:
         date). titular/estado/municipio are case-insensitive contains; at least one filter
         required (a bare cadastre scan is a batch concern). total comes from a returnCountOnly
         call on the same where; exceeded_transfer_limit says whether more rows follow. The
-        property-chain card (产权链 tarjetarpm CSV per titulo) is a batch-pipeline concern."""
+        property-chain card (property-chain tarjetarpm CSV per titulo) is a batch-pipeline concern."""
         self._esg_only("mx_sgm_concesiones")
         r = esg.mx_sgm.concesiones_raw(titular, estado, municipio, titulo,
                                        limit=limit, offset=offset, geometry=geometry,

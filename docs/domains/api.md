@@ -93,7 +93,7 @@ agentdata <domain> read --id <id> [--level tier1|tier2|tier3]
 ## 6. Evolution and constraint recap
 
 - P1 = CLI (search/read; ask not enabled) → P2 = HTTP + MCP (one server exposing all domains + semantic aliases + ask + subscription delivery).
-- **通道口径（2026-11-19 用户裁定）**：免费 API 即封装的 OSS SDK（`agentdata`，keyless）——MCP 是托管付费通道，key 随开通发放，绝非免费面；本契约文档的 P2 即指该付费托管通道。
+- **Channel scope (user ruling 2026-11-19)**: the free API is the wrapped OSS SDK (`agentdata`, keyless) — the MCP is the managed paid channel, its key issued on provisioning and never a free face; this contract's P2 refers to that paid managed channel.
 - Subscription (L-04 class): built on search cursors (`since`/`observed_since`), with P2 adding webhook/jobs — **no new query verb**.
 - One `domain-spec.json` per domain (controlled filter/facet tables + T-layer content + use-case commands), generated from or reverse-checked against the domain master document §4/§5 — **the domain master document is the source of truth**.
 
@@ -123,7 +123,7 @@ Every multi-regime domain's §1 / §2 must carry `compliance_envelope`: `{source
 
 | side | Data export basis | Strong keys | Exit restrictions |
 |---|---|---|---|
-| `cn` | NMPA / CDE / SMPAA / 卫健委 (National Health Commission) / 药监 (drug regulator) | uscc (Chinese hospitals **truthfully marked as having no USCC**; L3 candidates not auto-merged)| PIPL + Data Export Security Assessment Measures + labeling filing obligations (not ingested)|
+| `cn` | NMPA / CDE / SMPAA / National Health Commission (NHC) / drug regulator (NMPA) | uscc (Chinese hospitals **truthfully marked as having no USCC**; L3 candidates not auto-merged)| PIPL + Data Export Security Assessment Measures + labeling filing obligations (not ingested)|
 | `us` | FDA / CMS / OIG / DOJ | cik / lei / npi / ccn (**no uscc**)| HIPAA + Open Payments Sunshine Act + FDA off-label restrictions |
 | `cross` | Cross-side aggregation inference | — | Alignment ceiling declared truthfully; does not bypass §7.2 "cross-side alignment does not bypass the ceiling" |
 
@@ -540,13 +540,13 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   nailed: Java "MMM d, yyyy, h:mm:ss AM" dates ISO-normalized locally with a fixed month table (strptime %b is
   locale-bound — the GBK console broke on it), unknown id = HTTP 404 with {"error":"EUVD not found"} carried
   as upstream_not_found, references/aliases arrive as newline-joined single strings and are split locally; the
-  same batch corrects 册 91’s stale "registry 未立项不开面" ruling — security was already standing since 0.2.2, EUVD
+  same batch corrects booklet 91's stale "registry not initiated — no face" ruling — security was already standing since 0.2.2, EUVD
   is an existing-domain expansion) → **0.3.26, 121 faces** (economy +the two-overturn expansion batch —
   `comext_flows` (the Eurostat Comext annual HS2-4-6 trade mirror on the **dedicated comext dissemination
   root**: the URL must insert the `comext/` segment, a plain-root call for ds-/DS- datasets is a 404 "not
   available for dissemination"; JSON-stat 2.0 with the same grid contract as eurostat so the decoder is
-  imported from the sibling; **this overturns 册 84's "doc-only, no API face" ruling**, which predated the
-  economy domain — the same overturn pattern as 册 91; the filterless mirror is a 413 "Full extraction
+  imported from the sibling; **this overturns booklet 84's "doc-only, no API face" ruling**, which predated the
+  economy domain — the same overturn pattern as booklet 91; the filterless mirror is a 413 "Full extraction
   forbidden" — 31.3 billion cells with a 5M single-query cap — walled locally behind at-least-one-filter; flow
   1 imports / 2 exports; the EU27_2020 aggregate sits alongside country reporters; live anchor DE×CN×HS85×2024
   imports = 29,698,131,086 EUR) and `oecd_sdmx_series` (the OECD SDMX public REST — **this overturns the
@@ -664,8 +664,8 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   company names carry commas); v1.19; per-face offline pins test_flat_legal_cfpb.py, 23 tests; live acceptance
   one shot per face 2026-11-03: search_term=Discover+field=company = 44,503 matches / 3 rows (DISCOVER BANK —
   Mortgage/CA-Debt-collection/VA-Credit-card), the typeahead = 3 spellings (DISCOVER BANK / Account Discovery
-  Systems, LLC / Discovery Auto Sales LLC); **this overturns the design book §5 'CFPB 投诉 API — 排除 wrap (API 域
-  egress 封锁族)' ruling** — the search API is keyless and ungated from this egress, the ban was about the API
+  Systems, LLC / Discovery Auto Sales LLC); **this overturns the design book §5 'CFPB complaints API — excluded wrap (API-domain
+  egress-block family)' ruling** — the search API is keyless and ungated from this egress, the ban was about the API
   *domain* house, not the CCDB host) → **0.3.32, 131 faces** (company +the CZ ARES economic-entities register
   pair — `cz_ares_ekonomicke_subjekty`/`cz_ares_ekonomicke_subjekty_vyhledat`: the Czech ARES official JSON
   REST (ares.gov.cz/ekonomicke-subjekty-v-be/rest, keyless, no registration), **the company master register's
@@ -722,7 +722,7 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   licence gates: the GFSC /copyright page sets no reuse restriction, the JFSC privacy policy acknowledges
   third-party access to the public register) → **0.3.34, 135 faces** (company +the KZ GBD_UL master-register
   face `kz_gbd_ul_companies`: the Kazakhstan data.egov.kz GBD_UL legal-entities register (research volume
-  kz-egov-gbd-ul, 册 209), **the company master register's 19th jurisdiction and the first Central-Asian one**;
+  kz-egov-gbd-ul, booklet 209), **the company master register's 19th jurisdiction and the first Central-Asian one**;
   the getdata endpoint is a real-time server-side search (not a feed dump) at GET
   /datasets/getdata?index=gbd_ul&version=v1&page=&count=&text= answering {elements, totalPages, totalCount,
   currentPage} with 13 columns in bilingual pairs (nameru/namekz, okedru/okedkz, statusru/statuskz,
@@ -957,7 +957,7 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   wraps the same client.py implementation (§9.5 single authoritative implementation), it renders
   the same reflection with each caller's entitlement depth resolved. Three clauses govern that
   step:
-  - **Discovery is never paywalled (the 形态 B front gate)**: the face / jurisdiction / execution
+  - **Discovery is never paywalled (the form-B front gate)**: the face / jurisdiction / execution
     listing is open to any caller; only execution depth (rate-limit budget, corpus T-layers) is
     entitled. The compliance trigger (compliance register §1.3) is *re-provisioning*, not
     charging — a free discovery listing keeps that boundary honest, and premium is what the
@@ -1064,7 +1064,9 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   `de_xetra_newsboard` / `de_xetra_newsboard_search` / `kr_krx_listed` / `kr_krx_indices`
   — the Deutsche Börse T7 universe trio + the KRX Global pair, +2 providers
   `de_xetra`/`kr_krx`, 36 jurisdictions (DE/KR held — zero new), company 95→100, and the
-  G7 exchange-universe axis CLOSES with Germany; live-probed end-to-end 2026-11-20
+  G7 exchange-universe axis reaches five of seven with Germany (US/JP/FR/IT/DE — GB has
+  no exchange feed, CA is CSE-only with TMX WAF-gated; "CLOSES" was an overclaim,
+  corrected in 0.3.74); live-probed end-to-end 2026-11-20
   tmp/probe-e15/): de_xetra rides cashmarket.deutsche-boerse.com (the site
   self-describes "formerly xetra.com"; robots zero Disallow) — the T7
   allTradableInstruments CSV lives at a BLOB-HASH path that VERSIONS on every upload, so
@@ -1086,6 +1088,129 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   hits with zero OTP mints); indices is the free-OTP family with cmpr_rt kept as
   upstream's raw scientific-notation string verbatim; rate-limits v1.60; see changelog
   entry 110)
+
+→ **0.3.74, 283 faces** (company +the E16 six: `eu_esef_facts` / `eu_esef_filings` /
+  `gb_fca_firds_search` / `gb_fca_nsm_search` / `gb_fca_official_list` /
+  `gb_fca_official_list_activity` — the UK FCA data-API family + the EU ESEF register,
+  +2 providers `gb_fca`/`eu_esef`, 36 jurisdictions (GB/EU held — zero new), company
+  100→106, and the G7 exchange-universe axis stands at six of seven (GB rides the FCA
+  regulator's Official List/NSM/FIRDS — not an LSE exchange feed; CA is CSE-only, TMX
+  WAF-gated); live-probed end-to-end 2026-11-23 tmp/probe-e16/): gb_fca rides
+  api.data.fca.org.uk — POST /search?index=<idx> over four indexes (nsm-search
+  5,570,535 regulatory notices / official-list-main 15,160 /
+  official-list-daily-activity 119,810 / firds-view 169.6M reference-data records)
+  behind a shared ERROR-SHAPE law (a malformed body = 404 "Unable to search the data"
+  re-raised upstream_unavailable; a wrong facet value = silent 200 total 0 — filters
+  validated locally against the measured vocabularies); per-index date laws (NSM and
+  activity take full ISO `YYYY-MM-DDTHH:mm:ssZ` while OL/FIRDS take dd/MM/yyyy, and
+  FIRDS REQUIRES a to-bound — the SDK fills 31/12/2099 FAR_FUTURE); the 10,000 window
+  law (from+size ≤ 10,000 checked locally; SDK page cap 5,000); rows carry populated
+  fields only (nulls omitted per row); NSM is TWO-PATH (text needs latestFlag:"Y" +
+  primarySearch document_content×headline while criteriaObj members are LIST-typed);
+  activity takes its date criteria as the OBJECT securityActivityDateCriteria;
+  FIRDS is keyword XOR criteria, always carries techattrbts_nvrpblshd=false
+  (never-published records stay unexposed) and active_flag=Y by default; MIC/LEI/ISIN/
+  CFI uppercased with shape validation; artefact links absolutized under
+  data.fca.org.uk/artefacts/; the SPA's collectAnalytics endpoint and its honeypot
+  URL are NEVER called, and a Range header is NEVER sent to data.fca.org.uk (10054
+  connection reset — measured); eu_esef rides filings.xbrl.org (27,817 filings /
+  7,505 issuers / 28 countries; GB 2,982/806, DE/IE absent) as a JSON:API with
+  filter=[{name,op,val}] + a mandatory sort, page[size] ≤ 1000, beyond-last-page =
+  200 with an empty data[] (honest empty); fxo_id shape
+  {LEI}-{YYYY-MM-DD}-ESEF-{CC}-{seq} (-0 original, -1+ amended); the facts face rides
+  the filing's ABSOLUTE json_url (host-guarded) with the XBRL-JSON period law
+  (durations end-exclusive; a midnight instant = the day after → inclusive end =
+  raw −1 day) and a wildcard concept filter matching the taxonomy-agnostic local
+  name (Revenue* catches ifrs-full:Revenue); `published` is null on every GB row
+  (not exposed); rate-limits v1.61; see changelog entry 111)
+
+→ **0.3.75, 286 faces** (company +the E17 three: `us_sec_13dg_stakes` /
+  `us_sec_13f_holdings` / `us_sec_form4_transactions` — the EDGAR holdings-disclosure
+  family (13F institutional holdings / Form 4 insider transactions / Schedule 13D·G
+  large-stake cards), +0 providers (the family REUSES `edgar_cik` submissions +
+  `edgar_arch` Archives index/doc — zero new buckets; `edgar_ownership` is the
+  module id, not a quota), 36 jurisdictions (US held — zero new), company 106→109;
+  live-probed end-to-end 2026-11-23 tmp/probe-e17/): the enumeration filters the
+  submissions recent window by exact form strings (13F-HR(/A); 4/4-A/5/5-A; the 13DG
+  EIGHT-STRING UNION — submissions carries both families, structured
+  "SCHEDULE 13D/G(/A)" AND legacy "SC 13D/G(/A)"); the XSL-SHELL LAW (submissions
+  primaryDocument for 13F-HR AND Schedule 13D/G points at the HUMAN-RENDERED cover
+  "xslForm13F_X02/primary_doc.xml" — a rendering shell ElementTree dies on; the raw
+  XMLs sit at the accession ROOT, resolved via the edgar_arch index op, never via
+  primaryDocument; Form 4's primaryDocument IS root-level); the ROOT-XML PICK LAW
+  (13F table = root-level *.xml minus primary_doc.xml — 'info'-named preferred,
+  ambiguous → usage_error naming candidates); the NAMESPACE LAW (three schemas,
+  three regimes — 13F informationTable default-ns thirteenf/informationtable, 13D/G
+  default-ns schedule13d OR schedule13g — TWIN namespaces and TWIN filer layouts:
+  13D reportingPersons blocks carry a filer CIK, 13G coverPageHeaderReportingPerson
+  Details blocks don't, and the issuer element spells issuerCik vs issuerCIK → card
+  lookups case-insensitive — Form 4 ownershipDocument namespace-free; localname
+  matching throughout); the VALUE-UNITS LAW (13F value switched thousands→whole USD
+  at 2023-Q1, judged on reportDate, value_units rides every card); the
+  GRANDCHILD-VALUE LAW (Form 4 wraps transaction fields <X><value>…</value></X> and
+  postTransactionAmounts TWICE — sharesOwnedFollowingTransaction → <value> — a
+  middle-element probe answers its empty text and the field silently vanishes;
+  natureOfOwnership likewise value-wrapped, never direct text); STOCK Act PTR
+  resolved NOT in EDGAR (forms PD/PTXA/PTR answer zero — the House/Senate disclosure
+  systems, out of this batch); two fix-forwards rode the batch: the shared
+  edgar_arch.index_rows is_document regex widened to count .xml (13F accessions are
+  XML-ONLY directories — the htm/txt-only regex had misclassified a REAL filing as
+  the bogus-accession scaffold shape; the scaffold gate is unaffected, ghost rows
+  are .htm/.txt), and the Form 4 parser's post_shares read one level short of the
+  grandchild value (the live smoke row0 had silently carried neither post_shares
+  nor nature_of_ownership — caught by the test_flat_0375 fixture run, re-verified
+  live post-fix: post_shares 38,963 on the Upstart row); volume pins 2026-10-01..11-23: 13F-HR 9,606 / SCHEDULE 13D 496 +
+  13D/A 366 + 13G 2,545 + 13G/A 1,826 / Form 4 ~270 per trading day; rate-limits
+  v1.62 (no new bucket — the edition bump carries the face counts only); offline nails
+  `tests/test_flat_0375.py`; see changelog entry 112)
+
+→ **0.3.76, 296 faces** (company +the E18 ten: `gb_lse_universe` /
+  `gb_lse_security_master` / `gb_lse_ric_lookup` / `gb_lse_index_membership` /
+  `gb_lse_fundamentals` / `gb_lse_issuer_address` / `gb_lse_bond_details` /
+  `gb_lse_rns_archive` / `gb_lse_rns_article` / `gb_lse_issuer_profile` — the LSE
+  exchange-universe family, +1 provider `gb_lse` (ONE id over THREE hosts —
+  apidata.londonstockexchange.com REST baseUrl + www.londonstockexchange.com
+  absolute-path ops + cache-api.lsegissuerservices.com absolute-path op, the
+  ext-10 multi-host precedent; all keyless), 36 jurisdictions (GB held — zero new),
+  company 109→119, and the G7 exchange-universe axis COMPLETES SEVEN OF SEVEN (LSE
+  was the last holdout — the 0.3.74 "GB rides the regulator's Official List, not an
+  LSE exchange feed" wording is superseded; the quote surfaces — instrument-summaries,
+  trade-summaries, rdp/v1/pricing, cmdf/v1/tmv, tradingstatus, validate, AIM
+  advisers, the fdc→saml→tns tick chain, OHLCV bars — are MARKET-DATA, licensed
+  goods, deliberately OUT, the red line); live-probed end-to-end 2026-11-24
+  tmp/probe-e18/): the ENVELOPE LAW (every apidata answer is
+  {"statusCode":200,"message":…,"data":…} — the SDK unwraps data, non-200 surfaced
+  honest), the 200-EMPTY TRANSIENT law (an empty apidata payload re-asks once
+  no-cache before an honest upstream_unavailable — never read as a coverage
+  boundary) and the WWW DEGRADE-TRANSIENT law (www pages occasionally answer a
+  degraded 200 with articleBody absent — the same URL answered the full 165KB page
+  minutes later under EVERY header combo incl. the SDK's own UA, so the www faces
+  re-ask once no-cache and the fresh answer overwrites a poisoned cache entry; a
+  page that stays body-less is a genuinely removed article); the header-fingerprint
+  gate is INTERMITTENT (bare UA answered 200 where the 2026-11-23 probe demanded
+  Accept+Referer — headers ride anyway, zero downside); TWO LIVE REVERSALS:
+  securitybonddetails is the GENERIC security card (BARC answers a full card with
+  maturityDate null — the research doc's "equities answer 404" was wrong; unknown
+  tidm = honest 404 → found=false), and the issuer-profile code is the nrdp
+  displayissuercode NOT the ticker (VOVOD = Vodafone — 33 instruments,
+  admissiondate 1988-10-26; VOD/BASDE honest misses, never fabricated); universe =
+  five sitemap books ~62,713 quote pages (probe-day split: equity 5,761 / bonds
+  45,455 / etps 5,471 / others 2,032 / turquoise 3,993) — the quote-page URL IS the
+  tidm enumeration (UK ticker BARC + international SEDOL 0A00 forms); index
+  membership = indexCode/Name/Weight parallel comma lists strict-zipped (BARC 9/11
+  slots, UKX 2.23% — weights drift daily); RNS archive floor 2024-11 (older months
+  = S3 AccessDenied 403, refused LOCALLY, never sent; form-8-3 ≈5,077/month live
+  2026-10); the article slug is the category-company melt (rpartition) behind the
+  PATH_SAFE law (the {url} template carries category/hash slashes — default quoting
+  mangles the path into %2F → a 200 shell without articleBody; op-level
+  path_safe:"/", the TNA document_uri law) with articleBody as a JS-string regex
+  (\x22/\uXXXX/\/ decode) and RichTextGrid metadata (Company information / RNS
+  Number / Released On / Source); META-THREADING law (every face return carries a
+  truthy `_meta` — _flat_env filters None but an EMPTY metas list crashes
+  enrich_source, so honest-404 returns carry _observed_meta, the nz_nzx law); a
+  docs fix-forward rode the batch: the 0.3.75 §9.6 roll had shipped as a DUPLICATE
+  (a compressed draft between 0.3.73 and 0.3.74 + the full block — the draft
+  removed here); rate-limits v1.63; see changelog entry 113)
 
 ## 10. The ask verb (P2 design boundary, not implemented)
 

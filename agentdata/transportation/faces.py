@@ -15,7 +15,7 @@ class TransportationFaces:
         if self.name != "transportation":
             raise SdkError("usage_error", detail=f"{tool} is a transportation-domain capability (unavailable on the {self.name} domain)")
 
-    # ---------- 0.3.54 CA TC CCAR live search + per-aircraft record (册 292; the aviation axis opens) ----------
+    # ---------- 0.3.54 CA TC CCAR live search + per-aircraft record (booklet 292; the aviation axis opens) ----------
 
     def ca_ccar_aircraft(self, adet_id, *, execution=None, no_cache=None):
         """transportation ca_ccar_aircraft: CCAR per-aircraft record by ADet id — the four blocks

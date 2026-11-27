@@ -1,5 +1,5 @@
 """in_sebi — Securities and Exchange Board of India enforcement orders (www.sebi.gov.in/sebiweb;
-the legal domain's first IN face; research volume in-sebi-orders, 册 231; face admitted in 0.3.35,
+the legal domain's first IN face; research volume in-sebi-orders, booklet 231; face admitted in 0.3.35,
 probed first-hand 2026-11-04 tmp/probe-legal-0335/ with the SDK's own polite UA, direct).
 
 One face — orders. The public listing (GET HomeAction.do?doListing=yes) renders 25 rows/page but

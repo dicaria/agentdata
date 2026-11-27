@@ -264,7 +264,7 @@ def register(v, g):
     f_cfpb_s.add_argument("--text", default=None, help="Company name to resolve (upstream param: text; required)")
     f_cfpb_s.add_argument("--size", type=int, default=10, help="Max suggestions (upstream param: size; 1-100, default 10)")
 
-    # —— 0.3.59 执法党产簇 first slice: CH pair (dictionary slot: cfpb < ch_efk < ch_finma < co_sic) ——
+    # —— 0.3.59 enforcement/party-finance cluster first slice: CH pair (dictionary slot: cfpb < ch_efk < ch_finma < co_sic) ——
     f_efk = v.add_parser("ch_efk_party_financings", parents=[g()],
                          help="Swiss EFK party financing disclosure tree (politikfinanzierung.efk.admin.ch)",
                          description="Swiss political party financing disclosure (keyless, Federal Finance "
@@ -990,7 +990,7 @@ def register(v, g):
                                       "columns letter-keyed, never order-keyed). 1,245 rows carry no "
                                       "inline content — recent rows' content is a PDF attachment on the "
                                       "view.do detail page (keyless /fss.hpdownload direct download, the "
-                                      "2026-11-03 翻案) — kept with null content and counted in the "
+                                      "2026-11-03 reversal) — kept with null content and counted in the "
                                       "census; the PDF walk is a batch concern, not this face. The "
                                       "transport's FIRST POST × bytes combination (extension 7 × 9)"
                           )
@@ -1563,7 +1563,7 @@ FLAT = {
                                    "frm": a.frm, "size": a.size, "sort": a.sort,
                                    "search_after": a.search_after, "aggregations": a.aggregations},
     "cfpb_suggest_company": lambda a: {"text": a.text, "size": a.size},
-    # 0.3.59 执法党产簇 first slice (registration order == FLAT order; slots noted at the parsers)
+    # 0.3.59 enforcement/party-finance cluster first slice (registration order == FLAT order; slots noted at the parsers)
     "ch_efk_party_financings": lambda a: {"lang": a.lang, "year": a.year, "actor": a.actor},
     "ch_finma_enforcement_news": lambda a: {"q": a.q, "lang": a.lang, "limit": a.limit, "offset": a.offset},
     "co_sic_sanctions": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset, "order": a.order},

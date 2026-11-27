@@ -1,6 +1,6 @@
 """it_arera — Italian ARERA regulated-sector decision register (www.arera.it atti e provvedimenti; keyless).
 
-legal regulatory-decisions face (0.3.51; admitted from research 册 281 it-arera-provvedimenti,
+legal regulatory-decisions face (0.3.51; admitted from research booklet 281 it-arera-provvedimenti,
 probed live 2026-11-09, tmp/probe-sdk0350/l5/ p03). ARERA (Autorità di Regolazione per Energia
 Reti e Ambiente) regulates Italy's five networks — electricity, gas, water, waste, district
 heating — and its TYPO3 decision library spans 1996→today (1,560 pages × 15,599 documents live
@@ -23,7 +23,7 @@ tipologia, publication date DD/MM/YYYY verbatim, sigla "NNN/YYYY/SETTORE" (the r
 key), and the oggetto subject line. The PDF path is NOT assembled from the sigla — the
 fileadmin naming drifts by era (2026: 398-2026-A.pdf; 1996: 3-96.pdf) — the detail page carries
 the real paths (out of SDK scope; the face ships the detail anchor).
-No gate, no WAF (bare TYPO3 — cleaner than ARCEP/CRE, the 册 277 cousins). 0.5/2 polite, TTL 12h.
+No gate, no WAF (bare TYPO3 — cleaner than ARCEP/CRE, the booklet 277 cousins). 0.5/2 polite, TTL 12h.
 """
 import html
 import re

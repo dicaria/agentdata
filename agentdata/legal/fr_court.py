@@ -1,7 +1,7 @@
 """fr_court — French administrative courts judgment monthly archives
 (opendata.justice-administrative.fr, keyless).
 
-FR legal face (0.3.61; admitted from the research booklet judgments-corpus 册,
+FR legal face (0.3.61; admitted from the research booklet judgments-corpus,
 re-probed live 2026-11-16):
 
 CONTRACT:

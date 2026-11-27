@@ -1,9 +1,11 @@
 """company domain package — provider adapters flat layout (one source per file) + faces/cli (0.2.6 per-domain reorg)."""
 from . import (at_wiener, au_asx, br_bacen, br_bndes, ca_cse, ca_osb, cf, ch_six_fqs, ch_six_onot,  # noqa: F401
                ch_zefix, chi_bacp,
-               co_rues, cz_ares, de_inso, de_register, de_xetra, edgar_arch, edgar_cik, edgar_fts, edgar_xbrl,
-               es_borme, es_cnmv, es_oepm, eu_eiopa, eu_euronext, fdic_bankfind, fi_ytj, fr_inpi,
-               fr_recherche, fr_regafi, fts, gg_gfsc, gleif, hk_hkex, hk_hkexdi, in_sebi_intm, it_borsa,
+               co_rues, cz_ares, de_inso, de_register, de_xetra, edgar_arch, edgar_cik, edgar_fts, edgar_ownership,
+               edgar_xbrl,
+               es_borme, es_cnmv, es_oepm, eu_eiopa, eu_esef, eu_euronext, fdic_bankfind, fi_ytj,
+               fr_inpi,
+               fr_recherche, fr_regafi, fts, gb_fca, gb_lse, gg_gfsc, gleif, hk_hkex, hk_hkexdi, in_sebi_intm, it_borsa,
                je_jfsc, jp_fsa, jp_jplatpat, jp_jpx, kr_hometax, kr_kipris, kr_krx, kz_gbd_ul, lacity,
                no_brreg, nyc_dcwp, nz_nzx, nzco, ror, ru_cbr_credit, sg_datagovsg, ted, tr_bddk,
                tr_kap, tr_spk_borsa, tx_tdlr, usaspending, vies, wa_doh)
@@ -71,3 +73,21 @@ from . import (at_wiener, au_asx, br_bacen, br_bndes, ca_cse, ca_osb, cf, ch_six
 # (Xetra/Frankfurt CSV master + Newsboard event stream; cashmarket.deutsche-boerse.com, the
 # former xetra.com host) and the KRX Global listed universe + main-index snapshot (the OPEN
 # portal of the three-sister gate family; the OTP grid's code never enters the cache key).
+# 0.3.74: eu_esef/gb_fca added in alphabetical slots (eu_eiopa < eu_esef < eu_euronext;
+# fts < gb_fca < gg_gfsc) — E16: the UK FCA data-portal family (api.data.fca.org.uk — ONE
+# search endpoint, FOUR indexes: NSM disclosures / Official List / daily activity / FIRDS)
+# and the ESEF filings register + XBRL-JSON facts (filings.xbrl.org — the EU Transparency
+# Directive annual-report pillar; the facts op rides an ABSOLUTE json_url per filing, the
+# edgar_arch/www.sec.gov absolute-path precedent).
+# 0.3.75: edgar_ownership added in alphabetical slot (edgar_fts < edgar_ownership < edgar_xbrl)
+# — E17: the EDGAR holdings-disclosure family (13F/Form 4/Schedule 13D-G structured ownership
+# XML parsed). No new provider bucket: the module reuses edgar_cik submissions + edgar_arch
+# Archives index/doc ops and adds the enumeration filters, document-pick laws (the XSL-shell
+# primaryDocument trap) and the three parsers.
+# 0.3.76: gb_lse added in alphabetical slot (gb_fca < gb_lse < gg_gfsc) — E18: the LSE
+# exchange-universe family (apidata.londonstockexchange.com keyless REST + www sitemap/RNS
+# pages + cache-api.lsegissuerservices.com issuer profiles — ONE provider id over THREE hosts,
+# the hk_hkex/edgar_xbrl absolute-path precedent). The quote surfaces (pricing/instrument-
+# summaries/trade-summaries/tmv/tns ticks/OHLCV bars) are MARKET-DATA — licensed goods,
+# deliberately out (the red line); everything in the module is company-axis identity/index/
+# issuer/disclosure data.

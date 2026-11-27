@@ -5,7 +5,7 @@ face No. 2 after jp_jplatpat — trademarks/patents are company-hard-keyed surfa
 One face (0.3.57; probed 2026-11-12, tmp/probe-sdk-0357/ — oepm-capitulosTomo1/2.json +
 oepm-modalidadesTomo1/2.json + oepm-publicacionesBopiTomoYFecha_1_04-11-2026.json + two
 empty-body negatives 08-07-11-2026 (weekend) and 04-01-1995 (pre-digital era); research
-volume 领域数据源调研 册 258):
+volume booklet 258):
 
   * bopi — one BOPI issue's publication metadata: GET /apibopiweb/publicacionesBopiTomoY
     Fecha/{tomo}/{DD-MM-YYYY}. The payload is small and half-empty BY DESIGN: {id: null,

@@ -2,7 +2,7 @@
 political party financing disclosure, frontend API
 (politikfinanzierung.efk.admin.ch/api/frontend/v1, keyless).
 
-CH legal face (0.3.59; admitted from research booklet ch-party-financing 册, probed live
+CH legal face (0.3.59; admitted from research booklet ch-party-financing, probed live
 2026-11-13, tmp/probe-sdk-0359/r2_efk_party.json — 12.5KB body, 3 year-roots × 10 parties ×
 disclosure forms). The Swiss transparency register for federal political party financing:
 per year, per party, the disclosure forms (annual income disclosure; individual grants above

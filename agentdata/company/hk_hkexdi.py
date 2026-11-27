@@ -1,6 +1,6 @@
 """hk_hkexdi — HKEX Disclosure of Interests (DI, SFO Part XV) keyless faces
 (di.hkex.com.hk, 0.3.71 batch E13 — the HK jurisdiction deepening under the
-user's HKEX ruling; the harvest-side recipe 册 676 probed the same host
+user's HKEX ruling; the harvest-side recipe booklet 676 probed the same host
 2026-11-16, re-measured for the SDK 2026-11-19, tmp/probe-e13/).
 
 2026-11-19 probed laws:

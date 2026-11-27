@@ -1,5 +1,5 @@
 """br_bacen_regimes — Banco Central do Brasil Olinda special-regimes register (legal face;
-research volume br-bacen-olinda-recipe, 册 236; admitted in 0.3.38, probed first-hand
+research volume br-bacen-olinda-recipe, booklet 236; admitted in 0.3.38, probed first-hand
 2026-11-04 tmp/probe-br-bacen-0338/ with the SDK's own polite UA, direct).
 
 The regimes_especiais register is BACEN's public record of financial institutions under

@@ -3,15 +3,15 @@
 [![PyPI](https://img.shields.io/pypi/v/agentdata)](https://pypi.org/project/agentdata/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/dicaria/agentdata/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![Commands](https://img.shields.io/badge/277_commands-9_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
+[![Commands](https://img.shields.io/badge/296_commands-9_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
 
-**One Python client and CLI over 277 public datasets — company registries,
+**One Python client and CLI over 296 public datasets — company registries,
 sanctions lists, procurement awards, drug approvals — with no API keys and no
 accounts.**
 
 Government data holds the decisive facts about companies, but it is scattered
-across 183 public APIs, each with its own pagination, rate
-limits, and undocumented quirks. **agentdata puts 277 of those datasets behind
+across 186 public APIs, each with its own pagination, rate
+limits, and undocumented quirks. **agentdata puts 296 of those datasets behind
 one interface**: a pure-standard-library client and CLI across 36 jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
 and caching are built in.
 
@@ -21,18 +21,18 @@ and caching are built in.
 python -m pip install agentdata
 ```
 
-For a reproducible install, pin the release: `python -m pip install agentdata==0.3.73`.
+For a reproducible install, pin the release: `python -m pip install agentdata==0.3.76`.
 
 Prefer not to touch PyPI? Install straight from a release tarball:
 
 ```bash
-python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.73.tar.gz
+python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.76.tar.gz
 ```
 
 Or via git (pin a tag for reproducible installs):
 
 ```bash
-python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.73
+python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.76
 ```
 
 Or track the latest release (convenience for agents and scripts — a fresh
@@ -165,7 +165,7 @@ You can — and then you get to rediscover what is already pinned here:
 - **Quirks are pre-solved, not rediscovered.** Every command encodes traps we
   hit against the live API: anti-forgery token dances, Socrata parameters that
   are silently ignored, registries that clamp your page size without an error.
-- **One envelope across all 277 commands.** Query echo, `reason`, `evidence`,
+- **One envelope across all 296 commands.** Query echo, `reason`, `evidence`,
   source metadata, `jurisdiction` — your code parses one shape.
 - **Upstream parameter names, verbatim.** What the official API docs call a
   parameter is what the SDK takes — no invented vocabulary to unlearn.
@@ -176,11 +176,11 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Coverage
 
-**277 datasets · 183 upstream providers · 36 jurisdictions:** US 65 · global 40 · EU 18 · UK 15 · Canada 14 · Brazil 10 · France 10 · JP 9 · Switzerland 7 · DE 7 · Korea 7 · ES 6 · HK 6 · India 6 · Türkiye 6 · Australia 5 · IT 5 · New Zealand 5 · AT 3 · Colombia 3 · MX 3 · NL 3 · Czechia 2 · EE 2 · Guernsey 2 · Ireland 2 · LV 2 · Norway 2 · PL 2 · RU 2 · SG 2 · UA 2 · DK 1 · Finland 1 · Jersey 1 · Kazakhstan 1.
+**296 datasets · 186 upstream providers · 36 jurisdictions:** US 68 · global 40 · UK 29 · EU 20 · Canada 14 · Brazil 10 · France 10 · JP 9 · Switzerland 7 · DE 7 · Korea 7 · ES 6 · HK 6 · India 6 · Türkiye 6 · Australia 5 · IT 5 · New Zealand 5 · AT 3 · Colombia 3 · MX 3 · NL 3 · Czechia 2 · EE 2 · Guernsey 2 · Ireland 2 · LV 2 · Norway 2 · PL 2 · RU 2 · SG 2 · UA 2 · DK 1 · Finland 1 · Jersey 1 · Kazakhstan 1.
 
 | Domain | Commands | Sources |
 |---|---|---|
-| `company` | 100 | GLEIF, SEC EDGAR (registry, full-text search, the XBRL structured-facts family & the filing-document body fetch), FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses, ACPR Regafi financial-sector register (FR), J-PlatPat IP trio & KIPRIS patents (JP/KR), Unternehmensregister register search (DE), KAP members & disclosures (TR), OEPM BOPI gazette index (ES), INPI accounting ratios (FR), EIOPA IORP pension register (EU), BNDES financing operations (BR), NZX SSR listed/issuer/announcements trio (NZ), SIX official notices & detail (CH), Deutsche Börse T7 universe & Newsboard (DE), KRX Global universe & indices (KR) |
+| `company` | 119 | GLEIF, SEC EDGAR (registry, full-text search, the XBRL structured-facts family, the filing-document body fetch & the holdings-disclosure trio: 13F institutional holdings, Form 4 insider transactions, Schedule 13D/G activist stakes), FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses, ACPR Regafi financial-sector register (FR), J-PlatPat IP trio & KIPRIS patents (JP/KR), Unternehmensregister register search (DE), KAP members & disclosures (TR), OEPM BOPI gazette index (ES), INPI accounting ratios (FR), EIOPA IORP pension register (EU), BNDES financing operations (BR), NZX SSR listed/issuer/announcements trio (NZ), SIX official notices & detail (CH), Deutsche Börse T7 universe & Newsboard (DE), KRX Global universe & indices (KR), FCA data-API family: NSM search, Official List + daily activity, FIRDS instruments (GB), ESEF filings & facts (EU), the LSE exchange-universe family: sitemap universe, nrdp master, bond/security card, RIC bridge, FTSE index membership, fundamentals, issuer address & IR profile, RNS archive & full-text articles (GB) |
 | `economy` | 18 | World Bank WDI, Eurostat, ECB reference rates, FRED, WHO xMart, UN Comtrade, ILOSTAT, BLS, BIS, IMF, OECD, Comext |
 | `esg` | 8 | Climate TRACE, EITI, EU ETS (EUTL), EPA FRS, UK FSA food-hygiene ratings (FHRS), SGM mining concessions (MX) |
 | `healthcare` | 34 | US FDA approvals & recalls, ClinicalTrials.gov, RxNav, DailyMed, AccessGUDID, UK MHRA alerts, Health Canada DPD & MDALL, EUDAMED, RASFF & Safety Gate (EU), TGA (AU), Europe PMC, MeSH, US NPPES provider organizations, NAVII facility search (JP), CNES facility register (BR) |
@@ -192,7 +192,7 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Full command index
 
-Ten entry points — `agentdata` plus one command per domain — and 277 dataset
+Ten entry points — `agentdata` plus one command per domain — and 296 dataset
 commands under them: one command per upstream dataset, parameters kept under
 their upstream names. The block below is the complete index, grouped by domain
 in `DOMAIN_ORDER` — the order the CLI registers the domains in (the 0.3.10
@@ -208,7 +208,7 @@ see above).
 ```bash
 agentdata capabilities --format md
 
-# company (100)
+# company (119)
 agentdata company gleif_lei_records --lei 5493001KJTIIGC8Y1R12
 agentdata company gleif_lei_records_search --filter-entity-legal-name Nestle --filter-entity-jurisdiction CH --page-size 5
 agentdata company gleif_direct_parent --lei 5493001KJTIIGC8Y1R12
@@ -325,6 +325,25 @@ agentdata company de_xetra_newsboard --venue XFRA
 agentdata company de_xetra_newsboard_search --query Aussetzung --page 2
 agentdata company kr_krx_listed --board kosdaq --limit 5
 agentdata company kr_krx_indices
+agentdata company eu_esef_filings --country GB --limit 5
+agentdata company eu_esef_facts --lei 2138002P5RNKC5W2JZ46 --concept "Revenue*"
+agentdata company gb_fca_firds_search --isin-sngl-noindx GB0008847096
+agentdata company gb_fca_nsm_search --company "GRAINGER PLC" --limit 5
+agentdata company gb_fca_official_list --security-isin GB0031348658
+agentdata company gb_fca_official_list_activity --security-activity Admission --limit 5
+agentdata company us_sec_13dg_stakes --cik 1022652
+agentdata company us_sec_13f_holdings --cik 1067983
+agentdata company us_sec_form4_transactions --cik 1833851
+agentdata company gb_lse_universe --book equity --limit 5
+agentdata company gb_lse_security_master --tidm BARC
+agentdata company gb_lse_bond_details --tidm BARC
+agentdata company gb_lse_ric_lookup --tidm BARC
+agentdata company gb_lse_fundamentals --ric BARC.L
+agentdata company gb_lse_index_membership --tidm BARC
+agentdata company gb_lse_issuer_address --issuer-code BASDE
+agentdata company gb_lse_issuer_profile --code VOVOD
+agentdata company gb_lse_rns_archive --month 2026-10 --category form-8-3 --limit 5
+agentdata company gb_lse_rns_article --url https://www.londonstockexchange.com/en/news/article/form-8-3-easyjet-plc/aa77-b0-c2-4e-8b-441fb9
 
 # economy (18)
 agentdata economy bis_sdmx_series --flow WS_CBPOL --key M.US --start 2026-01-01
@@ -552,10 +571,112 @@ runs on the same machine — that is by design.
 
 ## Releases
 
-The complete batch log — every release back to 0.1.0 — is kept in the Chinese
-[README.md](README.md#版本). The most recent batches:
+The complete batch log — every release back to 0.1.0 — lives in the source
+repo's Chinese README; this public README carries the most recent batches:
 
-**0.3.73 — Batch E15, the Xetra/Frankfurt T7 universe trio + the KRX Global pair: five faces (+5 born flat, 272→277; company 95→100; +2 providers `de_xetra` + `kr_krx`, both keyless; DE/KR held — 36 jurisdictions; live-probed end-to-end 2026-11-20 tmp/probe-e15/).** `de_xetra` rides cashmarket.deutsche-boerse.com (the site self-describes as "formerly xetra.com"; robots: zero Disallow) and CLOSES the G7 exchange-universe axis. The T7 allTradableInstruments CSV lives at a BLOB-HASH path that versions on every upload — the link is re-parsed from its landing page on EVERY fetch (the Frankfurt variant hangs under the Xetra section at boersefrankfurt while /Tradable-Instruments-Frankfurt/Downloads is a 404 decoy); rows 1-2 carry Market + Date Last Update, row 3 is the header, 153 columns verbatim, counts drift DAILY (never pinned); api.live.deutsche-boerse.com is a catch-all {} shell — negative. The Newsboard is a 100-item RSS ROLLING window (~15h — hourly polling is the no-loss cadence) with venue-prefixed titles; the search face is FULL HISTORY (delisting notices back to the 2020 number block; pageNum rides statelessly, each hit an anchor-wrapped href/date/tagline/text quad). `kr_krx` rides global.krx.co.kr — the OPEN portal of the three-sister gate family (data.krx member wall + Akamai, kind.krx WAF, global robots Allow:/ verbatim). The listed universe runs the OTP double-step (GenerateOTP.jspx mints a one-shot base64 code, posted back 2s later with market_gubun 0/1/2/6) → block1 = the whole universe ONE-SHOT (~2,769 rows ×10 cols; All reconciles with the kospi/kosdaq/konex splits); the bld is the FULL path form GLB/03/0308/0308010000/glb0308010000 (the endpoint name is NOT the bld — a wrong pair answers 200 with zero bytes, the silent-empty law); the one-shot code NEVER enters the cache key (hand-rolled code-less key — repeat calls are cache hits with zero OTP mints); numbers keep comma strings + *_num int companions; indices is the free-OTP family (main.jspx?bld=index_list plain GET; cmpr_rt keeps upstream's raw scientific-notation string verbatim).** Rate limits de_xetra 1/1, kr_krx 1/1 concurrency 1; TTLs CSV 6h / landing 1h / RSS 30min / search 1h / grid 6h / indices 15min; rate-limits v1.60 (183 providers / 277 faces); offline pins tests/test_flat_0373.py (27).
+**0.3.76 — Batch E18, the LSE exchange-universe family: ten faces (+10 born
+flat, 286→296; company 109→119; +1 provider `gb-lse` over THREE hosts —
+apidata.londonstockexchange.com keyless REST + www.londonstockexchange.com
+sitemap/article pages + cache-api.lsegissuerservices.com issuer IR cards (the
+hk_hkex / edgar_xbrl absolute-path precedent); GB pure deepening — 36
+jurisdictions; the G7 exchange-universe axis COMPLETES SEVEN OF SEVEN (US/
+JP/DE/FR via eu_euronext/IT/CA via CSE + GB direct on LSE this batch — the
+0.3.74 "GB rides the FCA Official List" wording is superseded; old blocks
+stay, corrected in the new); the market-data red line holds —
+instrument/trade summaries, rdp pricing, tmv, tradingstatus, validate, AIM
+advisers, the fdc-token→samllogin→tns tick chain and OHLCV bars are licensed
+goods, deliberately OUT — the SDK wraps the universe/master/profile/RNS
+corpus layer only; live-probed end-to-end 2026-11-24 tmp/probe-e18/).**
+The family: `gb_lse_universe` (five security sitemap books
+equity/bonds/etps/others/turquoise, 62,713 pages — the quote-page URL IS the
+TIDM universe), `gb_lse_security_master` (the NRDP join-key card:
+instrumentId/isinCode/sedol/mic/issuerCode — BARC 4753/GB0031348658/3134865/
+XLON/BASDE), `gb_lse_bond_details` (LIVE REVERSAL 1: the GENERIC security
+card, not bonds-only — BARC equity answers a full card with maturityDate
+null), `gb_lse_ric_lookup` (the TIDM→RIC bridge, BARC→BARC.L — the
+fundamentals key), `gb_lse_index_membership` (FTSE constituents as parallel
+comma lists — strict zip, mismatch raises before guessing),
+`gb_lse_fundamentals` (the RIC-keyed card, snake_case keys verbatim — BARC
+PE 8.13 / mcap 52,831.47 m GBP), `gb_lse_issuer_address` (issuerCode-keyed
+address+website — BASDE: 1 Churchill Place, Canary Wharf E14 5HP +
+www.barclays.com), `gb_lse_issuer_profile` (LIVE REVERSAL 2: the code is the
+nrdp displayissuercode, NOT the ticker — VOVOD = Vodafone's 33-instrument
+card admitted 1988-10-26 while BASDE honest-404s though it is Barclays' OWN
+issuerCode: coverage is issuer-opted, double-proven), `gb_lse_rns_archive`
+(the RNS monthly sitemaps — slug melt "form-8-3-easyjet-plc" never a company
+name; archive floor 2024-11, the ~25-month window is the depth ceiling,
+refused locally below it; census: current month 35,272 URLs, full months
+~44k-49k, form-8-3 ≈2,938 / form-8-5 ≈1,870 / NAV ≈2,545 per month — ≈130k
+form-8-* filings across the window), `gb_lse_rns_article` (full RNS text
+from the server-embedded articleBody — the easyJet form-8-3 runs 54,674
+chars, filer Hudson Bay Capital; the PATH_SAFE law: the {url} tail carries
+category/hash slashes, path_safe="/" — quoting → %2F → a 200 shell page).
+The channel laws: the ENVELOPE law ({"statusCode":200,…,"data":…} unwrap),
+the 200-EMPTY TRANSIENT law (one no-cache re-ask before "EMPTY twice" —
+never a coverage boundary), the WWW DEGRADE-TRANSIENT law (a 200 page
+without articleBody re-asks no-cache, the fresh answer overwrites a poisoned
+cache entry, body-less forever = genuine miss), the intermittent
+HEADER-FINGERPRINT gate (2026-11-23 demanded Accept/Referer, 2026-11-24
+answered a bare UA — the headers ride anyway), the PARALLEL-LIST law, and
+the SLUG-MELT + ARCHIVE-FLOOR laws. Fix-forwards disclosed: the module's
+_call_rest retry wrapper double-bound no_cache (closure + kwarg → TypeError
+— the empty-200 re-ask had never actually run; the probes were all non-empty
+so it never fired live; the test_flat_0376 fixture run caught it, kw.pop
+fixed), the §9.6 duplicate roll (the 0.3.75 entry had shipped twice — a
+compressed draft between 0.3.73/0.3.74 plus the full block — removed this
+batch; changelog entry 113), and the dead form-8-3 ≈5,077/month census (the
+research doc's full-month census prevails).** Rate limit gb-lse 1/1 (one
+provider, three hosts, each its own polite bucket); TTLs bond/ric/address/
+article 1d, the rest 1h; rate-limits v1.63 (186 providers / 296 faces);
+offline pins tests/test_flat_0376.py (12).
+
+**0.3.75 — Batch E17, the EDGAR holdings-disclosure trio: three faces (+3 born
+flat, 283→286; company 106→109; +0 providers — the family's first ZERO-bucket
+batch: module `edgar_ownership` rides the existing `edgar_cik` submissions +
+`edgar_arch` Archives index/doc buckets, no new host, no new polite tier; US
+held — 36 jurisdictions; live-probed end-to-end 2026-11-23 tmp/probe-e17/).**
+The trio completes the SEC holdings-disclosure pillar:
+`us_sec_13f_holdings` (institutional quarterly holdings — the whole
+information table per filing; value switched thousands→whole USD with the
+2023-Q1 reporting periods, the card always carries value_units — Berkshire's
+Q3-2026 card sums 89 positions to $304,196,581,325 usd),
+`us_sec_form4_transactions` (insider transactions — non-derivative +
+derivative rows with post_shares; Upstart's 2026-11-20 filing: 562 shares
+sold @ $16.2925, 38,963 held after),
+`us_sec_13dg_stakes` (Schedule 13D/G activist stakes — issuer OR filer CIK;
+Inseego carries both shapes live: Royce's 13G/A at 30,000 shares 0.18% and
+the Nokia-group 13D at 2,721,196 shares 14.2%). The laws are channel walls:
+the XSL-SHELL law (13F AND 13D/G submissions primaryDocument points at the
+human rendering shell — the raw XML sits at the accession root, resolved via
+the index op, never via primaryDocument; Form 4 is the sole exception — its
+primaryDocument IS the root wk-form4 XML), the ROOT-XML PICK law (the 13F
+table = root-level *.xml minus primary_doc.xml, 'info'-named preferred,
+ambiguity → usage_error naming candidates), the NAMESPACE law (13F
+informationTable and 13G schedule13g carry default namespaces since
+2014/2022, Form 4 ownershipDocument is namespace-free — localname matching
+throughout, a bare findall("infoTable") answers ZERO rows), the FORM-STRING
+law (submissions carries BOTH the structured SCHEDULE 13D/G(/A) era and the
+legacy SC 13D/G(/A) HTML era — the enumeration filter is the eight-string
+union; legacy rides parsed=False + doc_url, never a fabricated stake), the
+TWIN-LAYOUT law (13D reportingPersons blocks with filer CIK vs 13G
+coverPageHeaderReportingPersonDetails blocks with the four powers inside the
+ownership wrapper and no CIK; issuerCik/issuerCIK case-insensitive card
+lookups), and the PTR negative (STOCK Act forms PD/PTXA/PTR answer zero in
+EDGAR — congressional PTRs live in the House/Senate systems, out of this
+batch). Fix-forwards disclosed: the shared edgar_arch.index_rows document
+gate widened to .xml (13F accessions are XML-only directories — the scaffold
+gate itself untouched), and the Form 4 post_shares probe re-aimed at the
+grandchild <value> under sharesOwnedFollowingTransaction (the middle
+element's own text is empty — the field had silently vanished on live rows;
+caught by the test_flat_0375 fixture, re-verified live post-fix).** No new
+rate-limit rows (the 5/5 www.sec.gov fair-access buckets ride on, inside the
+official 10 req/s declared-UA budget); TTLs 7d across the family (filed
+documents and the window index are frozen history); rate-limits v1.62 (185
+providers / 286 faces); offline pins tests/test_flat_0375.py (41).
+
+**0.3.74 — Batch E16, the UK FCA data-API family + the EU ESEF register: six faces (+6 born flat, 277→283; company 100→106; +2 providers `gb_fca` + `eu_esef`, both keyless; GB/EU held — 36 jurisdictions; live-probed end-to-end 2026-11-23 tmp/probe-e16/).** `gb_fca` rides api.data.fca.org.uk (POST /search?index=…, four indexes: nsm-search 5,570,535 / official-list-main 15,160 / daily-activity 119,810 / firds-view 169.6M) and fills the GB seat of the G7 exchange-universe axis — six of seven now held, but as a REGULATOR register (the Official List), not an exchange feed (CA remains CSE-only, TMX WAF-gated). ERROR-SHAPE law: a malformed body 404s "Unable to search the data" (→ upstream_unavailable) while a WRONG facet value silently 200s total 0 — every vocabulary is validated locally before sending. Per-index date laws (NSM/activity want full ISO seconds; OL/FIRDS want dd/MM/yyyy and FIRDS demands a to-bound — the SDK fills 31/12/2099); the 10,000 window law (from+size ≤ 10,000 checked locally, page cap 5,000); rows carry populated fields only. NSM is TWO-PATH (text needs latestFlag:"Y" + primarySearch over document_content×headline, TEXT_MODES=match_all_words/exact_match, criteriaObj members are LIST-typed) with artefact links absolutized under data.fca.org.uk/artefacts/; activity takes securityActivityDateCriteria as an OBJECT with the closed ACTIVITIES set Admission/Suspension/Restoration/Cancellation; FIRDS is keyword-XOR-criteria ({from,size,keyword} only), always filters techattrbts_nvrpblshd=false (never-published records stay invisible) with active_flag=Y default and the 11 long-form LISTING_CATEGORIES closed set. robots Content-Signals: search=yes / ai-train=no / use=reference — the SPA's collectAnalytics endpoint and its honeypot are NEVER called, and a Range header is NEVER sent (10054 reset). The NSM web UI's click-through notice is UI-only and does not gate the keyless API. `eu_esef` rides filings.xbrl.org (JSON:API): filings take filter=[{name,op,val}] compact + a mandatory sort, page[size]≤1000, and beyond-last-page is an honest 200 with empty data[] and unchanged meta.count; fxo_id is really {LEI}-{YYYY-MM-DD}-ESEF-{CC}-{seq} (trailing 0=original, 1+=amendment); the corpus is 27,817 filings / 7,505 issuers / 28 countries (GB 2,982/806 — published is null on every GB row; DE/IE absent). facts-by-LEI picks the latest-processed same-period filing WITH a json_url (≤5 pages, sort -period_end); XBRL-JSON periods are end-exclusive with midnight instants landing on the next day — inclusive end = raw −1 day; concept matching is wildcard local-name ("Revenue*" catches ifrs-full:Revenue).** Rate limits gb_fca 0.5/2, eu_esef 0.1/2 concurrency 1 (filings.xbrl.org clamps ~10/min with 429s — the SDK stays at 0.1 rps; upstream suggests a contact UA, the SDK default stays agentdata/<version>, end users may set AGENTDATA_CONTACT); TTLs nsm 15min / official_list 6h / activity 1h / firds 6h / filings 6h / filing 1h / facts 7d; rate-limits v1.61 (185 providers / 283 faces); offline pins tests/test_flat_0374.py (28).
+
+**0.3.73 — Batch E15, the Xetra/Frankfurt T7 universe trio + the KRX Global pair: five faces (+5 born flat, 272→277; company 95→100; +2 providers `de_xetra` + `kr_krx`, both keyless; DE/KR held — 36 jurisdictions; live-probed end-to-end 2026-11-20 tmp/probe-e15/).** `de_xetra` rides cashmarket.deutsche-boerse.com (the site self-describes as "formerly xetra.com"; robots: zero Disallow) and takes Germany through the G7 exchange-universe axis' door (not a closure — 0.3.74 adds GB via the FCA regulator's register, six of seven; CA still CSE-only, TMX WAF-gated). The T7 allTradableInstruments CSV lives at a BLOB-HASH path that versions on every upload — the link is re-parsed from its landing page on EVERY fetch (the Frankfurt variant hangs under the Xetra section at boersefrankfurt while /Tradable-Instruments-Frankfurt/Downloads is a 404 decoy); rows 1-2 carry Market + Date Last Update, row 3 is the header, 153 columns verbatim, counts drift DAILY (never pinned); api.live.deutsche-boerse.com is a catch-all {} shell — negative. The Newsboard is a 100-item RSS ROLLING window (~15h — hourly polling is the no-loss cadence) with venue-prefixed titles; the search face is FULL HISTORY (delisting notices back to the 2020 number block; pageNum rides statelessly, each hit an anchor-wrapped href/date/tagline/text quad). `kr_krx` rides global.krx.co.kr — the OPEN portal of the three-sister gate family (data.krx member wall + Akamai, kind.krx WAF, global robots Allow:/ verbatim). The listed universe runs the OTP double-step (GenerateOTP.jspx mints a one-shot base64 code, posted back 2s later with market_gubun 0/1/2/6) → block1 = the whole universe ONE-SHOT (~2,769 rows ×10 cols; All reconciles with the kospi/kosdaq/konex splits); the bld is the FULL path form GLB/03/0308/0308010000/glb0308010000 (the endpoint name is NOT the bld — a wrong pair answers 200 with zero bytes, the silent-empty law); the one-shot code NEVER enters the cache key (hand-rolled code-less key — repeat calls are cache hits with zero OTP mints); numbers keep comma strings + *_num int companions; indices is the free-OTP family (main.jspx?bld=index_list plain GET; cmpr_rt keeps upstream's raw scientific-notation string verbatim).** Rate limits de_xetra 1/1, kr_krx 1/1 concurrency 1; TTLs CSV 6h / landing 1h / RSS 30min / search 1h / grid 6h / indices 15min; rate-limits v1.60 (183 providers / 277 faces); offline pins tests/test_flat_0373.py (27).
 
 **0.3.72 — Batch E14, the NZX dehydrated-state trio + the SIX official-notices
 pair: five faces (+5 born flat, 267→272; company 90→95; +2 providers `nz_nzx` +

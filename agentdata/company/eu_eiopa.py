@@ -1,7 +1,7 @@
 """eu_eiopa — EIOPA register of occupational pension schemes (IORPs), the public data
 exchange API (registers.eiopa.europa.eu/publicdataexchange-api-prod/api/iorps, keyless).
 
-EU company face (0.3.59; admitted from research booklet eu-eiopa-iorps 册 465 — the IORP
+EU company face (0.3.59; admitted from research booklet eu-eiopa-iorps booklet 465 — the IORP
 register's 6,099 occupational pension schemes (and institutions) were already harvested as
 raw (eu-eiopa-iorps-pensions); this is the LIVE query channel, re-probed 2026-11-13,
 tmp/probe-sdk-0359/r2_eiopa*.json). One face: the IORP register — per scheme the official

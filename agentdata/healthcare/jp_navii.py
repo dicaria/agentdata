@@ -1,5 +1,5 @@
 """jp_navii — Japan 医療機能情報 (NAVII, 厚労省 statutory publication system,
-www.iryou.teikyouseido.mhlw.go.jp, keyless). Register 2026-11-03 (册 149), re-verified live
+www.iryou.teikyouseido.mhlw.go.jp, keyless). Register 2026-11-03 (booklet 149), re-verified live
 2026-11-12 (probes tmp/probe-sdk-0356/p4_*). The JP pillar of healthcare facility directories
 (~105k 医療機関 + ~61k 薬局; 内科 59,281 measured 2026-11-12, 薬局 60,634).
 

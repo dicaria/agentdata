@@ -1,7 +1,7 @@
 """fr_inpi — INPI accounting ratios open data (data.economie.gouv.fr Opendatasoft Explore API
 v2.1, keyless; the same ODS stack as fr_regafi).
 
-FR financial-depth face pair (0.3.58; admitted from research booklet — INPI 官方再分发 is the
+FR financial-depth face pair (0.3.58; admitted from research booklet — INPI official redistribution is the
 only keyless financial surface over RNE accounts: data.inpi.fr itself sits behind an account
 gate + Cloudflare WAF, while the Ministry's data.economie.gouv.fr mirror of the same datasets
 is fully open). Two datasets ship as two ops:

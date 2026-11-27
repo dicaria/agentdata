@@ -1,7 +1,7 @@
 """eu_cijeu — CJEU (Court of Justice of the European Union) jurisprudence search, the
 InfoCuria elastic connector (infocuriaws.curia.europa.eu/elastic-connector/search, keyless).
 
-EU legal face (0.3.59; admitted from research booklet judgments-corpus 册, the working DSL
+EU legal face (0.3.59; admitted from research booklet judgments-corpus, the working DSL
 replays the SPA's own XHR — captured live in tmp/probe-cdp-r7 (netclick bodies) and re-shot
 2026-11-13 in tmp/probe-sdk-0359/r2_cjeu*.json). The register: ~7,630 jurisprudence search
 hits for a bare empty-term browse; 'insurance' → 5,049. The affair index carries METADATA

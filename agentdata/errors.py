@@ -4,7 +4,7 @@
   thirdparty_upstream_unavailable / thirdparty_rate_limited / capability_unavailable / rate_limited
 - Usage family (exit 2): usage_error / op_unknown / resolve_kind_unknown /
   corpus-contract 4xx (undeclared_field / bad_value / unauthenticated / forbidden …) /
-  insufficient_credits (RFC-001 §3.6 — 网关 402 余额不足，携带升级提示)
+  insufficient_credits (RFC-001 §3.6 — gateway 402 insufficient balance, carries the upgrade hint)
 New entries require adversarial review (the same closed-set discipline as the Node side).
 """
 

@@ -1,6 +1,6 @@
 """us_fmcsa — FMCSA Motor Carrier Management Information Company Census (data.transportation.gov Socrata; keyless).
 
-company roster (0.3.51; admitted from research 册 288 us-fmcsa-census, probed live 2026-11-09,
+company roster (0.3.51; admitted from research booklet 288 us-fmcsa-census, probed live 2026-11-09,
 tmp/probe-sdk0350/l5/ p05-p07). The Company Census File az4n-8mr2 is the full-history US motor
 carrier universe — active AND out-of-service, 4,528,322 rows live 2026-11-09 ($select=count(*);
 up from the 2026-10 research probe's 4,526,044). The audit's ~400k estimate was the active face;

@@ -1,8 +1,8 @@
 """kr_fss — Korea Financial Supervisory Service 제재 정보 (sanctions disclosure,
 www.fss.or.kr /fss/job/openInfo/list.do?menuNo=200476, keyless SSR).
 
-KR legal face (0.3.62; admitted from the research booklet 册 133, 7.5 P0 after
-the 2026-11-03 翻案; re-probed live 2026-11-16 tmp/probe-e4/ with the SDK's own
+KR legal face (0.3.62; admitted from the research booklet 133, 7.5 P0 after
+the 2026-11-03 reversal; re-probed live 2026-11-16 tmp/probe-e4/ with the SDK's own
 polite UA — the excelDown endpoint answers the urlencoded POST with a clean
 PK zip through the transport's bytes channel; first POST × bytes combination
 in the tree).
@@ -24,7 +24,7 @@ LIVE LAWS (measured 2026-11-16, tmp/probe-e4/):
   - 1,245 of 5,804 rows carry NO inline C/D/E content: recent rows' content
     is a PDF ATTACHMENT on the view.do detail page
     (/fss.hpdownload?path=/dtm/opn/&file={encoded-name}, keyless, measured
-    146,771B %PDF — the 2026-11-03 翻案; pdfViewr returns a 477B Docuzen
+    146,771B %PDF — the 2026-11-03 reversal; pdfViewr returns a 477B Docuzen
     shell, that is not a failure). The face keeps these rows with null
     content columns and counts them in the census — the PDF walk is a batch
     concern, not a query-face round trip.

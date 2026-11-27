@@ -14,7 +14,7 @@ UPPER(field) LIKE UPPER('%saucito%') (case-insensitive contains); AND across cla
 for the SAME where, cached separately). exceededTransferLimit=true = more rows past
 resultOffset+resultRecordCount (maxRecordCount 2000 = the page ceiling, orderByFields=fid pins
 the walk). Zero-hit where answers features=[] cleanly (titulo='999999999').
-The property-chain card face (产权链: tarjetarpm.economia.gob.mx CSV/PDF per titulo) and the
+The property-chain card face (property-chain: tarjetarpm.economia.gob.mx CSV/PDF per titulo) and the
 name-lookup POST
 face (500/503, watch) are NOT this face — the FeatureServer is the geometry+holder register; the
 card is a batch-pipeline concern (19,840 × GET at 4-5s pacing ≈ 23h for the full chain history).

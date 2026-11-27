@@ -18,6 +18,9 @@ INDEX.JSON IS A PURE DIRECTORY LISTING, EVERY ERA (p2/p9): items carry name / ty
 compressed.gif — NOT a document type) / size / last-modified. No isPrimaryDocument field even on
 2026 filings. Every dir also lists scaffold rows: {adsh}-index-headers.html, {adsh}-index.html,
 {adsh}.txt (+ {adsh}-xbrl.zip on XBRL filings) — auto-generated navigation, not filed content.
+XML-ONLY DIRS ARE REAL (0.3.75 E17 collision): 13F-HR accessions carry ONLY the information table
+and primary_doc.xml — a directory can be all-xml with no .htm at all; is_document counts .xml
+since the fix-forward (the htm/html/txt-only regex had scored a real filing as scaffold-only).
 
 BOGUS ACCESSION = 200 SCAFFOLD (p11): index.json on a nonexistent accession answers 200 with a
 scaffold-only listing that includes a ghost "filename1.htm" placeholder row. Engine raises
@@ -174,10 +177,15 @@ def index_rows(data, adsh_dashed):
     for it in items:
         name = it.get("name") or ""
         scaffold = _is_scaffold(adsh_dashed, name)
+        # .xml is filed content too (0.3.75 fix-forward: 13F-HR accessions carry ONLY xml —
+        # information table + primary_doc — and the htm/html/txt-only regex misclassified a REAL
+        # filing as the bogus-accession scaffold shape; the ghost/scaffold rows are .htm/.txt, so
+        # the gate itself never weakens)
+        is_doc = (not scaffold and bool(re.search(r"\.(htm|html|txt|xml)$", name, re.I)))
         rows.append({"name": name, "size": it.get("size") or None,
                      "last_modified": it.get("last-modified") or None,
                      "scaffold": scaffold,
-                     "is_document": (not scaffold and bool(re.search(r"\.(htm|html|txt)$", name, re.I)))})
+                     "is_document": is_doc})
     if items and not any(r["is_document"] for r in rows):
         raise SdkError("upstream_not_found", provider="edgar_arch",
                        detail=f"no filed documents under accession {adsh_dashed} — the upstream answered a "

@@ -1,7 +1,7 @@
 """us_occ — US Office of the Comptroller of the Currency enforcement actions
 (apps.occ.gov/EASearch, keyless).
 
-US legal face (0.3.61; admitted from the research booklet us-occ-enforcement 册 127,
+US legal face (0.3.61; admitted from the research booklet us-occ-enforcement booklet 127,
 re-probed live 2026-11-16):
 
 CONTRACT:

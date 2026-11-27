@@ -1,7 +1,7 @@
 """tx_tdlr — Texas Department of Licensing and Regulation All Licenses (data.texas.gov Socrata; keyless).
 
 company roster (admitted in 0.3.48, probes tmp/probe-us-state-license-0348/ + research evidence
-tmp/probe-us-statelicense/; harvest-side recipe in the us-state-license volume, 册 323).
+tmp/probe-us-statelicense/; harvest-side recipe in the us-state-license volume, booklet 323).
 Shape verified 2026-11-05: GET /resource/7358-krk7.json?$limit= → array straight out (966,778-row
 corpus, 26 columns in the view — 18 real + 8 :@computed_region_* system columns; Socrata omits null
 fields per row, so a bare A/C Technician row ships 9 keys while an establishment row ships the

@@ -1,5 +1,5 @@
 """br_bacen — Banco Central do Brasil Olinda odata registers (olinda.bcb.gov.br; the company
-domain's first BR faces; research volume br-bacen-olinda-recipe, 册 236; faces admitted in
+domain's first BR faces; research volume br-bacen-olinda-recipe, booklet 236; faces admitted in
 0.3.38, probed first-hand 2026-11-04 tmp/probe-br-bacen-0338/ with the SDK's own polite UA,
 direct, zero extra headers).
 

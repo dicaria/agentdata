@@ -1,5 +1,5 @@
 """br_bacen_complaints — Banco Central do Brasil rdrweb complaint-index ranking (legal face;
-research volume br-bacen-olinda-recipe, 册 236; admitted in 0.3.39, probed first-hand
+research volume br-bacen-olinda-recipe, booklet 236; admitted in 0.3.39, probed first-hand
 2026-11-04 tmp/probe-br-bacen-0339/ with the SDK's own polite UA, direct).
 
 The RDR (Reclamações - Demandas Reclamadas) ranking consolidates the citizen complaints

@@ -2,7 +2,7 @@
 
 Two faces (0.3.46; probed 2026-11-05, tmp/probe-sg-datagovsg-0346/ — catalog p1 +
 initiate/poll on the ACRA others-UEN file + the 234 MB ACRA master + a Range GET on
-the minted S3 URL; research volume sg-companies-acra, recipe 册 193):
+the minted S3 URL; research volume sg-companies-acra, recipe booklet 193):
 
   * datasets — the platform catalog: GET /v2/public/api/datasets?page=N. ONE page per
     call, 10 rows per page, 4,665 datasets across 467 pages (measured), datasetId

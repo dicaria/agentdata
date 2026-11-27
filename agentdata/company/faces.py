@@ -511,6 +511,457 @@ class CompanyFaces:
             query=quartet,
         )
 
+    # —— 0.3.74 E16 FCA data-API family (dictionary slot: gb_contracts_finder_* < gb_fca_* <
+    # gb_fts_*; ONE keyless endpoint, api.data.fca.org.uk/search?index=…, FOUR indexes — the
+    # regulator's own portal data, not an exchange feed) ——
+
+    def gb_fca_firds_search(self, *, fininstrmgnlattrbts_id=None, tradgvnrltdattrbts_id=None,
+                            isin_sngl_noindx=None, isin_bskt=None, issr=None,
+                            fininstrmgnlattrbts_clssfctntp=None, keyword=None, active_only=True,
+                            date_field="publication", from_date=None, to_date=None,
+                            sort="fininstrmgnlattrbts_id", order="asc", offset=0, limit=20,
+                            execution=None, no_cache=None):
+        """company gb_fca_firds_search: FCA FIRDS instrument register — 169.6M published+active
+        UK-reportable instrument lines (own ISIN, MIC, issuer LEI, CFI, life-cycle dates); criteria
+        are plain strings AND'ed together, keyword is free text and mutually exclusive; dates bound
+        the --date-field (publication | first_trade | termination) and a bare from-date is legal
+        (the engine fills the far-future to-bound the index demands)."""
+        self._co_only("gb_fca_firds_search")
+        r = company.gb_fca.firds_search(
+            fininstrmgnlattrbts_id=fininstrmgnlattrbts_id,
+            tradgvnrltdattrbts_id=tradgvnrltdattrbts_id,
+            isin_sngl_noindx=isin_sngl_noindx, isin_bskt=isin_bskt, issr=issr,
+            fininstrmgnlattrbts_clssfctntp=fininstrmgnlattrbts_clssfctntp, keyword=keyword,
+            active_only=active_only, date_field=date_field, from_date=from_date, to_date=to_date,
+            sort=sort, order=order, offset=offset, limit=limit,
+            cache=self._c._cache,
+            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="gb_fca_firds_search",
+            input={k: v for k, v in result["params"].items()},
+            reason=(f"FCA FIRDS: {result['total']:,} instrument lines"
+                    + (" published+active" if active_only else " incl. inactive")
+                    + f" — {len(rows)} rows from offset {result['offset']}"
+                    + (f", top {top.get('fininstrmgnlattrbts_fullnm') or top.get('fininstrmgnlattrbts_shrtnm') or '—'}"
+                       f" ({top.get('fininstrmgnlattrbts_id')})" if top else "")
+                    + " — never-published internal records are excluded upstream; field sets vary by instrument type"),
+            result=result,
+            evidence=[{"quote": f"{x.get('fininstrmgnlattrbts_fullnm') or x.get('fininstrmgnlattrbts_shrtnm') or '—'}"
+                                f" · ISIN {x.get('fininstrmgnlattrbts_id') or '—'}"
+                                f" · issuer {x.get('issr') or '—'}"
+                                + (f" · CFI {x['fininstrmgnlattrbts_clssfctntp']}" if x.get("fininstrmgnlattrbts_clssfctntp") else ""),
+                       "url": "https://data.fca.org.uk/"} for x in rows[:5]],
+            provider_id="gb_fca", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def gb_fca_nsm_search(self, *, lei=None, company=None, text=None, text_mode="match_all_words",
+                          types=None, sources=None, formats=None, tag_esef=False,
+                          date_field="publication_date", from_date=None, to_date=None,
+                          sort="publication_date", order="desc", offset=0, limit=20,
+                          execution=None, no_cache=None):
+        """company gb_fca_nsm_search: UK National Storage Mechanism — 5.57M regulatory
+        disclosures 2010→today (RNS/EQS/PRN announcements, annual reports, final terms,
+        shareholdings, PDMR dealings…); filters AND together, --text adds the full-text path
+        (document content OR headline, latest versions only, ANDs with the LEI/facet filters);
+        rows carry only populated fields upstream and the absolute artefact URLs."""
+        self._co_only("gb_fca_nsm_search")
+        from . import gb_fca as _eng  # local alias — the `company` FILTER param shadows the package
+        r = _eng.nsm_search(
+            lei=lei, company=company, text=text, text_mode=text_mode, types=types,
+            sources=sources, formats=formats, tag_esef=tag_esef, date_field=date_field,
+            from_date=from_date, to_date=to_date, sort=sort, order=order, offset=offset,
+            limit=limit, cache=self._c._cache,
+            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        facets = result.get("facets") or {}
+        return self._flat_env(
+            tool="gb_fca_nsm_search",
+            input={k: v for k, v in result["params"].items()},
+            reason=(f"FCA NSM: {result['total']:,} disclosures"
+                    + (" (full-text path — latest versions only)" if text else "")
+                    + f" — {len(rows)} rows from offset {result['offset']}"
+                    + (f", top {top.get('company') or '—'} · {top.get('type') or '—'}"
+                       f" ({(top.get('publication_date') or '')[:10]})" if top else "")
+                    + (f" · facet vocabularies: {', '.join(sorted(facets))}" if facets else "")
+                    + " — the whole NSM is keyless here; the portal UI needs no login for the same data"),
+            result=result,
+            evidence=[{"quote": f"{x.get('company') or '—'} · {x.get('type') or '—'} · {(x.get('publication_date') or '—')[:10]}"
+                                + (f" · {x.get('headline') or '—'}" if x.get("headline") else ""),
+                       "url": x.get("document_url") or "https://data.fca.org.uk/"} for x in rows[:5]],
+            provider_id="gb_fca", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def gb_fca_official_list(self, *, listing_category=None, lei=None, security_isin=None, text=None,
+                             from_date=None, to_date=None, sort="security_isin", order="asc",
+                             offset=0, limit=20, execution=None, no_cache=None):
+        """company gb_fca_official_list: the FCA Official List — 15,160 live securities admitted
+        to official UK listing across 11 categories (ISIN, security name, category, status, issuer
+        LEI + name, initial admission date); rows carry only populated fields upstream (placeholder
+        records omit LEI/name; a null admission date is genuine data); --text matches ISIN, LEI or
+        issuer name, NOT the security name."""
+        self._co_only("gb_fca_official_list")
+        r = company.gb_fca.official_list(
+            listing_category=listing_category, lei=lei, security_isin=security_isin, text=text,
+            from_date=from_date, to_date=to_date, sort=sort, order=order, offset=offset,
+            limit=limit, cache=self._c._cache,
+            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="gb_fca_official_list",
+            input={k: v for k, v in result["params"].items()},
+            reason=(f"FCA Official List: {result['total']:,} live securities"
+                    + (f" ({listing_category[0]}…)" if listing_category else "")
+                    + f" — {len(rows)} rows from offset {result['offset']}"
+                    + (f", top {top.get('security_name') or top.get('issuer_name') or '—'}"
+                       f" ({top.get('security_isin') or '—'}, {top.get('listing_category') or '—'})" if top else "")
+                    + " — the regulator's Official List, not an exchange feed; join onto LEI/ISIN"),
+            result=result,
+            evidence=[{"quote": f"{x.get('security_name') or x.get('issuer_name') or '—'} · ISIN {x.get('security_isin') or '—'}"
+                                f" · {x.get('listing_category') or '—'} · {x.get('security_status') or '—'}"
+                                + (f" · admitted {(x.get('security_initial_admission_date') or '')[:10]}" if x.get("security_initial_admission_date") else ""),
+                       "url": "https://data.fca.org.uk/"} for x in rows[:5]],
+            provider_id="gb_fca", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def gb_fca_official_list_activity(self, *, security_activity, from_date=None, to_date=None,
+                                      sort="security_effective_datetime", order="desc", offset=0,
+                                      limit=20, execution=None, no_cache=None):
+        """company gb_fca_official_list_activity: the Official List daily event log — admissions
+        (102,667 all-time), cancellations (16,204), suspensions (733), restorations (206) with
+        effective datetime, ISIN, issuer LEI, category; the four kinds are separate queries
+        (security_activity REQUIRED and validated here — an unknown value would silently answer
+        the whole log upstream)."""
+        self._co_only("gb_fca_official_list_activity")
+        r = company.gb_fca.official_list_activity(
+            security_activity=security_activity, from_date=from_date, to_date=to_date, sort=sort,
+            order=order, offset=offset, limit=limit, cache=self._c._cache,
+            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="gb_fca_official_list_activity",
+            input={k: v for k, v in result["params"].items()},
+            reason=(f"Official List {security_activity}: {result['total']:,} events all-time"
+                    + f" — {len(rows)} rows from offset {result['offset']}"
+                    + (f", top effective {(top.get('security_effective_datetime') or '—')[:19].replace('T', ' ')}"
+                       f" · ISIN {top.get('security_isin') or '—'}" if top else "")
+                    + " — the listing-life-cycle audit trail behind the Official List snapshot"),
+            result=result,
+            evidence=[{"quote": f"{(x.get('security_effective_datetime') or '—')[:19].replace('T', ' ')} · ISIN {x.get('security_isin') or '—'}"
+                                f" · {x.get('security_name') or x.get('issuer_name') or '—'} · {x.get('listing_category') or '—'}",
+                       "url": "https://data.fca.org.uk/"} for x in rows[:5]],
+            provider_id="gb_fca", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def gb_lse_bond_details(self, *, tidm, execution=None, no_cache=None):
+        """company gb_lse_bond_details: the LSE security-details card (GB — isin/sedol/
+        listingDate/fullName/currencyCode/mifirIdentifierCode/maturityDate; LIVE REVERSAL
+        2026-11-24: the face answers EQUITY tidms too — BARC returns a full card with
+        maturityDate null (the research doc's "equities answer 404" was wrong); an unknown
+        tidm answers the honest 404 → found=false)."""
+        self._co_only("gb_lse_bond_details")
+        r = company.gb_lse.bond_details(tidm=tidm, cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        card = result.get("card") or {}
+        if r["found"]:
+            reason = (f"LSE security card {r['tidm']}: {card.get('fullName') or '—'}"
+                      f" · ISIN {card.get('isin') or '—'} · {card.get('currencyCode') or '—'}"
+                      f" · listed {card.get('listingDate') or '—'}"
+                      f" · maturity {card.get('maturityDate') or '—'}"
+                      f" · mifir {card.get('mifirIdentifierCode') or '—'}")
+        else:
+            reason = (f"LSE security card {r['tidm']}: not found (honest 404 — no such "
+                      f"instrument upstream; check the tidm on gb_lse_universe)")
+        return self._flat_env(
+            tool="gb_lse_bond_details",
+            input={"tidm": r["tidm"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{card.get('fullName') or r['tidm']} · ISIN {card.get('isin') or '—'}"
+                                f" · {card.get('currencyCode') or '—'} · listed {card.get('listingDate') or '—'}"
+                                f" · maturity {card.get('maturityDate') or '—'}",
+                       "url": f"https://www.londonstockexchange.com/en/quote/bonds/{r['tidm']}"}]
+                      if r["found"] else [],
+            provider_id="gb-lse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://apidata.londonstockexchange.com/cmdf/v1/securitybonddetails?tidm={r['tidm']}",
+                                "note": "generic security-details card — equities answer with maturityDate null"}},
+        )
+
+    def gb_lse_fundamentals(self, *, ric, execution=None, no_cache=None):
+        """company gb_lse_fundamentals: the LSE fundamentals card keyed by RIC (GB — PE/EPS/
+        free-float/outstanding/market-cap verbatim; UK cards m GBP, international-book cards m EUR —
+        the upstream's own figures, never re-unit-ed)."""
+        self._co_only("gb_lse_fundamentals")
+        r = company.gb_lse.fundamentals(ric=ric, cache=self._c._cache,
+                                        no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        row = result.get("row") or {}
+        if r["found"]:
+            reason = (f"LSE fundamentals {r['ric']}: PE {row.get('pe_ratio') or '—'} · EPS "
+                      f"{row.get('earnings_per_share') or '—'} · free float "
+                      f"{row.get('free_float_shares') or '—'} · outstanding "
+                      f"{row.get('outstanding_shares') or '—'} · mcap "
+                      f"{row.get('company_market_cap') or '—'} (m)")
+        else:
+            reason = (f"LSE fundamentals {r['ric']}: not found (check the RIC on "
+                      f"gb_lse_ric_lookup — the face keys on the LSE RIC, BARC.L form)")
+        return self._flat_env(
+            tool="gb_lse_fundamentals",
+            input={"ric": r["ric"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{r['ric']} · PE {row.get('pe_ratio') or '—'} · EPS "
+                                f"{row.get('earnings_per_share') or '—'} · free float "
+                                f"{row.get('free_float_shares') or '—'} · mcap "
+                                f"{row.get('company_market_cap') or '—'} (m)",
+                       "url": "https://www.londonstockexchange.com/"}] if r["found"] else [],
+            provider_id="gb-lse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://apidata.londonstockexchange.com/fundamentals/v1/lookup?ric={r['ric']}"}},
+        )
+
+    def gb_lse_index_membership(self, *, tidm, execution=None, no_cache=None):
+        """company gb_lse_index_membership: the instrument's FTSE index memberships with weights
+        (GB — indexCode/indexName/indexWeight are PARALLEL comma lists, an empty slot = not a member;
+        strict zip alignment, rows only for actual memberships; the full card rides result.card)."""
+        self._co_only("gb_lse_index_membership")
+        r = company.gb_lse.index_membership(tidm=tidm, cache=self._c._cache,
+                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        card = result.get("card") or {}
+        if r["found"]:
+            wset = ", ".join(f"{x['index_code']} {x['index_weight']}%" for x in rows[:4])
+            reason = (f"LSE FTSE memberships {r['tidm']}: {result['total']} of 11 index slots"
+                      f" ({wset}{' …' if result['total'] > 4 else ''})"
+                      f" — primary {card.get('primaryIndexName') or '—'}, constituent {card.get('constituentCode') or '—'}")
+        else:
+            reason = (f"LSE FTSE memberships {r['tidm']}: not found (check the tidm on gb_lse_universe)")
+        return self._flat_env(
+            tool="gb_lse_index_membership",
+            input={"tidm": r["tidm"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x['index_code']} · {x['index_name']} · weight {x['index_weight']}%",
+                       "url": f"https://www.londonstockexchange.com/en/quote/equity/{r['tidm']}"} for x in rows[:5]],
+            provider_id="gb-lse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://apidata.londonstockexchange.com/cmdf/v1/ftseindexconstituents?tidm={r['tidm']}"}},
+        )
+
+    def gb_lse_issuer_address(self, *, issuer_code, execution=None, no_cache=None):
+        """company gb_lse_issuer_address: the issuer's registered address and website (GB —
+        issuerCode from the gb_lse_security_master card)."""
+        self._co_only("gb_lse_issuer_address")
+        r = company.gb_lse.issuer_address(issuer_code=issuer_code, cache=self._c._cache,
+                                          no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        row = result.get("row") or {}
+        if r["found"]:
+            addr = " ".join(str(row.get("fullAddress") or "").split())
+            reason = (f"LSE issuer {r['issuer_code']}: {addr[:80]}"
+                      f" · website {row.get('websiteLink') or row.get('website') or '—'}")
+        else:
+            reason = (f"LSE issuer {r['issuer_code']}: not found (the issuerCode comes off the "
+                      f"gb_lse_security_master card)")
+        return self._flat_env(
+            tool="gb_lse_issuer_address",
+            input={"issuer_code": r["issuer_code"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{r['issuer_code']} · {' '.join(str(row.get('fullAddress') or '').split())[:80]}"
+                                f" · {row.get('websiteLink') or row.get('website') or '—'}",
+                       "url": "https://www.londonstockexchange.com/"}] if r["found"] else [],
+            provider_id="gb-lse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://apidata.londonstockexchange.com/issuer-address-website/v1?issuerCode={r['issuer_code']}"}},
+        )
+
+    def gb_lse_issuer_profile(self, *, code, execution=None, no_cache=None):
+        """company gb_lse_issuer_profile: the issuer's own IR card on the LSEG issuer-services cache
+        (GB — instruments[] family with tidm+ISIN+type, admissiondate, sector/indices, contacts,
+        reports/events; coverage is ISSUER-OPTED — VOVOD answers a 33-instrument card, BASDE an
+        honest 404 → found=false, never fabricated; the profile code is the nrdp displayissuercode,
+        NOT the ticker — Vodafone's ticker is VOD, its issuer code VOVOD)."""
+        self._co_only("gb_lse_issuer_profile")
+        r = company.gb_lse.issuer_profile(code=code, cache=self._c._cache,
+                                          no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        prof = result.get("profile") or {}
+        inst = result.get("instruments") or []
+        mi = prof.get("marketinformation") or {}
+        if r["found"]:
+            reason = (f"LSE issuer profile {r['code']}: {prof.get('name') or '—'}"
+                      f" · {len(inst)} instruments (primary {prof.get('primaryInstrument') or '—'})"
+                      f" · admitted {mi.get('admissiondate') or '—'}"
+                      f" · sector {(prof.get('tradinginformation') or {}).get('sector') or '—'}")
+        else:
+            reason = (f"LSE issuer profile {r['code']}: not found (coverage is issuer-opted — "
+                      f"uncarded issuers answer an honest 404; iterate nrdp displayissuercode to find carded ones)")
+        return self._flat_env(
+            tool="gb_lse_issuer_profile",
+            input={"code": r["code"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{prof.get('name') or r['code']} · {len(inst)} instruments · admitted "
+                                f"{mi.get('admissiondate') or '—'} · "
+                                f"{(prof.get('tradinginformation') or {}).get('sector') or '—'}",
+                       "url": f"https://cache-api.lsegissuerservices.com/profile/{r['code']}"}]
+                      if r["found"] else [],
+            provider_id="gb-lse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://cache-api.lsegissuerservices.com/profile/{r['code']}"}},
+        )
+
+    def gb_lse_ric_lookup(self, *, tidm, execution=None, no_cache=None):
+        """company gb_lse_ric_lookup: the tidm→RIC bridge (GB — BARC→BARC.L; the RIC keys
+        gb_lse_fundamentals)."""
+        self._co_only("gb_lse_ric_lookup")
+        r = company.gb_lse.ric_lookup(tidm=tidm, cache=self._c._cache,
+                                      no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        if r["found"]:
+            reason = f"LSE RIC bridge {r['tidm']} → {r['ric']}"
+        else:
+            reason = f"LSE RIC bridge {r['tidm']}: not resolved (check the tidm on gb_lse_universe)"
+        return self._flat_env(
+            tool="gb_lse_ric_lookup",
+            input={"tidm": r["tidm"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{r['tidm']} → {r['ric']}",
+                       "url": "https://www.londonstockexchange.com/"}] if r["found"] else [],
+            provider_id="gb-lse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://apidata.londonstockexchange.com/rdp/v1/ric?tidm={r['tidm']}"}},
+        )
+
+    def gb_lse_rns_archive(self, *, month, category=None, limit=None, execution=None, no_cache=None):
+        """company gb_lse_rns_archive: one month's RNS article index (GB — rows {url, category,
+        hash}; the slug is the RNS category (form-8-3 Takeover Code 1%+ disclosures ≈ 2,938/month,
+        form-8-5 EPT ≈ 1,870/month) but it is a category-company MELT — never read it as a company
+        name. Archive floor 2024-11 (older months answer S3 AccessDenied — refused locally); the
+        rolling ~25-month window is the depth ceiling)."""
+        self._co_only("gb_lse_rns_archive")
+        r = company.gb_lse.rns_archive(month=month, category=category, limit=limit,
+                                       cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        reason = (f"LSE RNS archive {r['month']}: {result['total']:,} articles"
+                  + (f" ({result['total']:,} filtered to category~\"{category}\" → {len(rows)} rows)"
+                     if category else "")
+                  + (f" — top {top['category']}" if top else ""))
+        return self._flat_env(
+            tool="gb_lse_rns_archive",
+            input={"month": r["month"], "category": category, "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x['category']} · {x['hash']}", "url": x["url"]} for x in rows[:5]],
+            provider_id="gb-lse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://www.londonstockexchange.com/en/sitemap-news-{r['month']}.xml",
+                                "window": "2024-11 floor (older months answer S3 AccessDenied)"}},
+        )
+
+    def gb_lse_rns_article(self, *, url, execution=None, no_cache=None):
+        """company gb_lse_rns_article: the RNS article's server-embedded full disclosure body (GB —
+        the JS-string articleBody decoded (\\x22/\\uXXXX/\\/ escapes), the RichTextGrid metadata
+        (Company information / Released On / Source / RNS Number) parsed, ISINs extracted from the
+        body (UK/IE issuers and NAV notes carry them; US-target form-8-3 bodies legitimately carry
+        none — the upstream's own absence)."""
+        self._co_only("gb_lse_rns_article")
+        r = company.gb_lse.rns_article(url=url, cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        md = result.get("metadata") or {}
+        if r["found"]:
+            reason = (f"LSE RNS article: {result.get('title') or '—'}"
+                      f" · disclosed by {md.get('Company information') or '—'}"
+                      f" · RNS {md.get('RNS Number') or '—'}"
+                      f" · released {md.get('Released On') or '—'}"
+                      f" · body {result['body_chars']:,} chars"
+                      + (f" · ISINs {', '.join(result['isins'][:4])}{'…' if len(result['isins']) > 4 else ''}"
+                         if result.get("isins") else " · no ISIN in body"))
+        else:
+            reason = ("LSE RNS article: the page carries no articleBody (a removed article answers an "
+                      "honest miss — check the url on gb_lse_rns_archive)")
+        return self._flat_env(
+            tool="gb_lse_rns_article",
+            input={"url": r["url"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{md.get('Company information') or '—'} · RNS "
+                                f"{md.get('RNS Number') or '—'} · {result['body_chars']:,} chars"
+                                + (f" · ISIN {result['isins'][0]}" if result.get("isins") else ""),
+                       "url": r["url"]}] if r["found"] else [],
+            provider_id="gb-lse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": r["url"], "panel": "articleBody (server-embedded)"}},
+        )
+
+    def gb_lse_security_master(self, *, tidm, execution=None, no_cache=None):
+        """company gb_lse_security_master: the nrdp join-key card (GB — instrumentId/isinCode/sedol/
+        mic XLON|XLOM/issuerCode/firstTradingDate/typology; the issuerCode feeds gb_lse_issuer_address,
+        the displayissuercode feeds gb_lse_issuer_profile, the tidm feeds the ric bridge)."""
+        self._co_only("gb_lse_security_master")
+        r = company.gb_lse.security_master(tidm=tidm, cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        card = result.get("card") or {}
+        if r["found"]:
+            reason = (f"LSE master {r['tidm']}: {card.get('instrumentName') or '—'}"
+                      f" · ISIN {card.get('isinCode') or '—'} · SEDOL {card.get('sedol') or '—'}"
+                      f" · MIC {card.get('mic') or '—'} · issuer {card.get('issuerCode') or '—'}"
+                      f" · first trade {card.get('firstTradingDate') or '—'}"
+                      f" · {card.get('typology') or '—'}")
+        else:
+            reason = (f"LSE master {r['tidm']}: not found (check the tidm on gb_lse_universe — "
+                      f"UK ticker BARC form or international SEDOL 0A00 form)")
+        return self._flat_env(
+            tool="gb_lse_security_master",
+            input={"tidm": r["tidm"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{r['tidm']} · {card.get('instrumentName') or '—'} · ISIN "
+                                f"{card.get('isinCode') or '—'} · MIC {card.get('mic') or '—'} · issuer "
+                                f"{card.get('issuerCode') or '—'}",
+                       "url": f"https://www.londonstockexchange.com/en/quote/equity/{r['tidm']}"}]
+                      if r["found"] else [],
+            provider_id="gb-lse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://apidata.londonstockexchange.com/nrdp/v1?tidm={r['tidm']}"}},
+        )
+
+    def gb_lse_universe(self, *, book="equity", limit=None, execution=None, no_cache=None):
+        """company gb_lse_universe: the LSE quote-page sitemap enumeration (GB — the TIDM
+        enumeration source: rows {book, tidm, slug, url}; five books totalling 62,713 pages,
+        equity 5,761 probe day; UK tickers BARC form plus international SEDOL 0A00 form — the
+        LSE international order book)."""
+        self._co_only("gb_lse_universe")
+        r = company.gb_lse.universe(book=book, limit=limit, cache=self._c._cache,
+                                    no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        reason = (f"LSE universe {r['book']}: {result['total']:,} quote pages"
+                  + (f" — sample {top['tidm']} ({top['slug']})" if top else ""))
+        return self._flat_env(
+            tool="gb_lse_universe",
+            input={"book": r["book"], "limit": limit},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{x['book']}/{x['tidm']} · {x['slug']}", "url": x["url"]} for x in rows[:5]],
+            provider_id="gb-lse", metas=[r["_meta"]],
+            query={"source": "live",
+                   "upstream": {"endpoint": f"https://www.londonstockexchange.com/en/sitemap-security-{r['book']}.xml"}},
+        )
+
     def gb_fts_release_packages(self, *, name=None, stages="award", limit=10, cursor=None,
                        updated_from=None, updated_to=None, execution=None, no_cache=None):
         """company gb_fts_release_packages: UK WTO-line procurement (FTS OCDS five params verbatim;
@@ -607,6 +1058,121 @@ class CompanyFaces:
                       for n in rows[:5]],
             provider_id="cf", metas=[r["_meta"]],
             query=quartet,
+        )
+
+    # —— 0.3.75 E17 EDGAR holdings-disclosure family (dictionary slots: us_sec_13dg_stakes < us_sec_13f_holdings <
+    # us_sec_companyconcept ('1'<'c'), us_sec_form4 between filing_document and frames ('fi'<'fo'<'fr')):
+    # the holdings-disclosure layer under the filings line — submissions=index, fts=hits, xbrl=facts,
+    # filing_document=bytes,
+    # THIS adds the three structured ownership schemas parsed live: 13F institutional holdings, Form 4/5
+    # insider transactions, Schedule 13D/G activist stakes (probe-e17 2026-11-23; zero new provider
+    # buckets — edgar_cik submissions + edgar_arch index/doc ride again; the XSL-shell law: 13F/13DG
+    # primaryDocument points at the human rendering, the raw XML sits at the accession root).
+    def us_sec_13dg_stakes(self, *, cik, limit=5, execution=None, no_cache=None):
+        """company us_sec_13dg_stakes: Schedule 13D/G activist stakes on one CIK (issuer OR filer
+        side — jointly filed) — submissions enumeration over the EIGHT form strings (structured era
+        "SCHEDULE 13D/G(/A)" AND legacy HTML era "SC 13D/G(/A)"), 2022+ edgarSubmission XML parsed
+        to filer cards (name/type/citizenship/shares/class percent/four powers); legacy HTML rides
+        parsed=False with doc_url — never a fabricated stake."""
+        self._co_only("us_sec_13dg_stakes")
+        cik10 = company.edgar_cik.normalize_cik(cik)
+        n = min(max(1, int(limit or 5)), 50)
+        cache, nc = self._c._cache, self._c.no_cache if no_cache is None else bool(no_cache)
+        r = company.edgar_ownership.fetch_13dg_filings(cik10, limit=n, cache=cache, no_cache=nc)
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        first = next((f for f in result["filings"] if f.get("parsed")), None)
+        stake = ""
+        if first:
+            fl = first.get("filers") or [{}]
+            stake = (f", e.g. {fl[0].get('name') or '?'} on {first.get('issuer_name') or '?'}"
+                     f" ({fl[0].get('class_percent') or 'pct n/a'} of class)" if first else "")
+        return self._flat_env(
+            tool="us_sec_13dg_stakes",
+            input={"cik": cik10, "limit": result["filings_scanned"]},
+            reason=(f"SEC Schedule 13D/G: {result['filings_scanned']} newest filings under CIK "
+                    f"{int(cik10)} — {result['structured_total']} structured (2022+ edgarSubmission "
+                    f"XML parsed to filer cards){stake}; the rest are legacy HTML era (SC 13D/G form "
+                    "strings) riding parsed=False with doc_url — eight form strings because "
+                    "submissions carries both families"),
+            result=result,
+            evidence=[{"quote": f"{f['form']} filed {f['filing_date']} — "
+                                + (f"{len(f.get('filers') or [])} filer(s), issuer "
+                                   f"{f.get('issuer_name') or '?'}" if f.get("parsed")
+                                   else "legacy HTML (metadata only)"),
+                       "url": f["doc_url"]}
+                      for f in result["filings"][:5]],
+            provider_id="edgar_ownership", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"submissions": f"CIK{cik10}",
+                                                  "forms": "SCHEDULE|SC 13D/G 8-string union"}},
+        )
+
+    def us_sec_13f_holdings(self, *, cik, limit=1, execution=None, no_cache=None):
+        """company us_sec_13f_holdings: 13F-HR institutional holdings of one filer CIK — the
+        information table parsed to position rows (issuer/class/cusip/value/shares/discretion/
+        voting powers). value_units rides the card (2023-Q1+ whole USD, earlier thousands — never
+        unit-ambiguous sums)."""
+        self._co_only("us_sec_13f_holdings")
+        cik10 = company.edgar_cik.normalize_cik(cik)
+        n = min(max(1, int(limit or 1)), 50)
+        cache, nc = self._c._cache, self._c.no_cache if no_cache is None else bool(no_cache)
+        r = company.edgar_ownership.fetch_13f_filings(cik10, limit=n, cache=cache, no_cache=nc)
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        first = result["filings"][0]
+        units = first["value_units"]
+        vsum = first.get("value_total")
+        return self._flat_env(
+            tool="us_sec_13f_holdings",
+            input={"cik": cik10, "limit": result["filings_scanned"]},
+            reason=(f"SEC 13F: {first['form']} filed {first['filing_date']} (report "
+                    f"{first['report_date'] or 'n/a'}) — {first['holdings_total']} positions, "
+                    f"value sum {vsum if vsum is not None else 'n/a'} ({units}; 2023-Q1+ whole "
+                    "USD, earlier thousands of USD — the units switch is period-based, the card "
+                    "always carries it)"),
+            result=result,
+            evidence=[{"quote": json.dumps(first["rows"][0], default=str)},
+                      {"quote": f"{first['accession']} information table {first['information_table']} "
+                                f"({first['holdings_total']} rows)",
+                       "url": f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/"
+                              f"{first['accession'].replace('-', '')}/{first['information_table']}"}]
+                      if first["rows"] else [],
+            provider_id="edgar_ownership", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"submissions": f"CIK{cik10}",
+                                                  "forms": "13F-HR, 13F-HR/A"}},
+        )
+
+    def us_sec_form4_transactions(self, *, cik, form="4", limit=5, execution=None, no_cache=None):
+        """company us_sec_form4_transactions: Form 4/5 insider transactions under one CIK (issuer
+        or insider — jointly filed) — the ownershipDocument XML parsed to flattened transaction
+        lines (date/code/shares/price/A-D/post-shares/direct-indirect; derivative lines carry
+        exercise/expiration/underlying)."""
+        self._co_only("us_sec_form4_transactions")
+        cik10 = company.edgar_cik.normalize_cik(cik)
+        raw_form = str(form or "4").strip()
+        if raw_form not in company.edgar_ownership._FORM4_FORMS:
+            raise SdkError("usage_error", provider="edgar_ownership",
+                           detail=f"form must be one of {', '.join(company.edgar_ownership._FORM4_FORMS)} "
+                                  f"(got \"{form}\")")
+        n = min(max(1, int(limit or 5)), 100)
+        cache, nc = self._c._cache, self._c.no_cache if no_cache is None else bool(no_cache)
+        r = company.edgar_ownership.fetch_form4_filings(cik10, form=raw_form, limit=n,
+                                                        cache=cache, no_cache=nc)
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        tx_total = sum(len(f.get("rows") or []) for f in result["filings"])
+        issuer = next((f.get("issuer") or {} for f in result["filings"] if f.get("issuer")), {})
+        return self._flat_env(
+            tool="us_sec_form4_transactions",
+            input={"cik": cik10, "form": raw_form, "limit": result["filings_scanned"]},
+            reason=(f"SEC Form {raw_form}: {result['filings_scanned']} newest filings under CIK "
+                    f"{int(cik10)} (issuer side {issuer.get('name') or '?'}, jointly filed under "
+                    f"insider CIKs too) — {tx_total} transaction lines parsed from the "
+                    "ownershipDocument XML"),
+            result=result,
+            evidence=[{"quote": json.dumps((result["filings"][0].get("rows") or [{}])[0], default=str)},
+                      {"quote": f"{result['filings'][0]['accession']} ({result['filings'][0]['filing_date']})",
+                       "url": result["filings"][0]["doc_url"]}],
+            provider_id="edgar_ownership", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"submissions": f"CIK{cik10}",
+                                                  "forms": raw_form}},
         )
 
     # —— 0.3.66 SEC XBRL structured-facts family (dictionary order: us_sec_companyconcept <
@@ -1373,6 +1939,82 @@ class CompanyFaces:
                                 + (f" · reg {x['registration_start']}" if x.get("registration_start") else ""),
                        "url": "https://registers.eiopa.europa.eu/PublicDataExchange/"} for x in rows[:5]],
             provider_id="eu_eiopa", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    # —— 0.3.74 E16 ESEF register (dictionary slot: eu_eiopa_iorps < eu_esef_facts <
+    # eu_esef_filings < eu_euronext_instrument_search; filings.xbrl.org — the EU Transparency
+    # Directive annual-report pillar, keyless JSON:API) ——
+
+    def eu_esef_facts(self, *, filing_id=None, lei=None, period_end=None, concept=None,
+                      all_periods=False, annual_only=True, include_dimensions=False,
+                      include_text=False, limit=None, execution=None, no_cache=None):
+        """company eu_esef_facts: the structured IFRS facts of one ESEF annual report
+        (XBRL-JSON → compact rows: concept, value, decimals, unit, period, entity, dimensions);
+        select by --filing-id or issuer --lei (latest period_end wins, --period-end picks
+        another); concept filter is case-insensitive with a trailing * wildcard — 'Revenue*'
+        catches both ifrs-full:Revenue and RevenueFromContractsWithCustomers."""
+        self._co_only("eu_esef_facts")
+        r = company.eu_esef.facts(
+            filing_id=filing_id, lei=lei, period_end=period_end, concept=concept,
+            all_periods=all_periods, annual_only=annual_only,
+            include_dimensions=include_dimensions, include_text=include_text, limit=limit,
+            cache=self._c._cache,
+            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        f = result["filing"] or {}
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="eu_esef_facts",
+            input=result["params"],
+            reason=(f"ESEF facts filing {f.get('filing_id')} — {f.get('entity_name') or '—'}"
+                    f" ({f.get('lei') or '—'}, period end {f.get('period_end') or '—'}):"
+                    f" {result['matched_count']} of {result['fact_count']} facts match"
+                    + (f", top {top.get('concept')} = {top.get('value')}" if top else "")
+                    + " — one XBRL-JSON artefact read end-to-end; durations are end-exclusive upstream"
+                      " (period_end is the raw instant minus one day, the inclusive end)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('concept')} = {x.get('value')}"
+                                + f" ({x.get('period_start') or x.get('period_end')} → {x.get('period_end')}"
+                                + f" {x.get('unit') or ''})",
+                       "url": f.get("json_url") or "https://filings.xbrl.org/"} for x in rows[:5]],
+            provider_id="eu_esef", metas=r.get("_metas") or [r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def eu_esef_filings(self, *, lei=None, name=None, country=None, period_end=None,
+                        period_from=None, period_to=None, added_from=None, added_to=None,
+                        fxo_id=None, sort="processed", order="desc", page=1, limit=30,
+                        execution=None, no_cache=None):
+        """company eu_esef_filings: the ESEF filings register — 27,817 inline-XBRL annual
+        reports from 7,505 EEA issuers (GB 2,982 filings / 806 issuers, DK 2,247, SE 1,841, NO
+        1,199, FR 1,188…; DE and IE absent); one row per filing with period_end, country, fxo_id
+        (-0 original, -1… amended) and the absolute viewer/zip/report/XBRL-JSON URLs; page is
+        1-BASED, limit caps at 1,000."""
+        self._co_only("eu_esef_filings")
+        r = company.eu_esef.filings(
+            lei=lei, name=name, country=country, period_end=period_end, period_from=period_from,
+            period_to=period_to, added_from=added_from, added_to=added_to, fxo_id=fxo_id,
+            sort=sort, order=order, page=page, limit=limit, cache=self._c._cache,
+            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="eu_esef_filings",
+            input=result["params"],
+            reason=(f"ESEF register: {result['total']:,} filings"
+                    + (f" from {name!r}" if name else (f" for {lei}" if lei else ""))
+                    + f" — page {result['page']} of {result['pages']}, {len(rows)} rows"
+                    + (f", top {top.get('entity_name') or '—'} · {top.get('period_end')} · {top.get('country')}" if top else "")
+                    + " — join onto eu_esef_facts by filing_id for the structured IFRS numbers"),
+            result=result,
+            evidence=[{"quote": f"{x.get('entity_name') or '—'} · {x.get('period_end')} · {x.get('country')}"
+                                f" · {x.get('fxo_id') or '—'}"
+                                + (f" · amended" if x.get("amendment") else ""),
+                       "url": x.get("viewer_url") or "https://filings.xbrl.org/"} for x in rows[:5]],
+            provider_id="eu_esef", metas=[r["_meta"]],
             query={"source": "raw", "upstream": result["params"]},
         )
 
@@ -3584,9 +4226,9 @@ class CompanyFaces:
                               metas=[r["_meta"]],
                               query={"source": "raw", "upstream": r["params"]})
 
-    # —— 0.3.56 Batch B 大国主轴 I（DE/JP/KR 三国既有辖域加深——de_register 实时检索面 + jplatpat 哈希门三面 +
-    # kr_kipris 专利旗舰面；字典槽位 alphabetical：de_inso < de_register < edgar_*；jp_fsa < jp_jplatpat < kr_*；
-    # kr_hometax < kr_kipris）——
+    # —— 0.3.56 Batch B major-economy axis I (DE/JP/KR existing-jurisdiction deepening — de_register live-search face + jplatpat hash-gate three-face +
+    # kr_kipris patent flagship face; dictionary slot alphabetical: de_inso < de_register < edgar_*; jp_fsa < jp_jplatpat < kr_*;
+    # kr_hometax < kr_kipris) ——
 
     def de_register_search(self, name=None, *, exact=True, q=None, offset=0,
                            execution=None, no_cache=None):
@@ -4138,7 +4780,7 @@ class CompanyFaces:
         )
     # —— 0.3.71 E13 HKEX DI disclosure-of-interests (dictionary slot: hk_hkex_securities <
     # hk_hkexdi_{corp_list,form,ir_summaries} < hk_hkexnews_document — '_'(0x5F)<'d'<'n';
-    # di.hkex.com.hk, the SFO Part XV register — second host under the hkex 做深 ruling) ——
+    # di.hkex.com.hk, the SFO Part XV register — second host under the hkex deep-dive ruling) ——
 
     def hk_hkexdi_corp_list(self, *, stock_code, list_code="ns", from_date=None,
                             to_date=None, pg=1, execution=None, no_cache=None):

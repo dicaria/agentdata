@@ -1,7 +1,7 @@
 """in_cci — India Competition Commission of India order registers
 (www.cci.gov.in, Laravel + DataTables server-side, keyless but CSRF'd).
 
-IN legal faces (0.3.63; admitted from the research booklet 册 legal-enforcement
+IN legal faces (0.3.63; admitted from the research booklet legal-enforcement
 3d; probed live 2026-11-16 tmp/probe-e5/): TWO faces over TWO registers —
 antitrust_orders (POST /antitrust/orders/list, 1,246 rows) and combinations
 (GET /combination/orders-section31, 1,491 rows — the POST answers 405, the
@@ -33,7 +33,7 @@ posture; /contents/copyright verbatim): "Material featured on Competition
 Commission of India (CCI) may be reproduced free of charge after taking
 proper permission by sending a mail to us. … Authorisation to reproduce such
 material must be obtained from the departments/copyright holders concerned."
-The faces query live and pass through; no hosted redistribution until 翻案.
+The faces query live and pass through; no hosted redistribution until reversal.
 
 Politeness: 0.5/2, concurrency 1, TTLs session 30min / data 6h.
 """

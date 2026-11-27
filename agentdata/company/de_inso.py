@@ -1,6 +1,6 @@
 """de_inso — German federal insolvency announcements (Insolvenzbekanntmachungen),
 neu.insolvenzbekanntmachungen.de/ap/suche.jsf (research volume de-insolvenzbekanntmachungen,
-册 225; faces admitted in 0.3.41, probed first-hand 2026-11-04 tmp/probe-de-insolvency-0341/
+booklet 225; faces admitted in 0.3.41, probed first-hand 2026-11-04 tmp/probe-de-insolvency-0341/
 with the SDK's own polite UA, direct).
 
 THE PORTAL IS A JAVASX FACES (Jakarta Faces) POSTBACK APP, not a query API. The chain is:

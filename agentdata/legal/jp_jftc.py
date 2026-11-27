@@ -1,7 +1,7 @@
 """jp_jftc — Japan Fair Trade Commission 審決・判決 database
 (snk.jftc.go.jp, Laravel + Akamai edge, keyless but fingerprinted).
 
-JP legal faces (0.3.63; admitted from the research booklet 册 legal-enforcement
+JP legal faces (0.3.63; admitted from the research booklet legal-enforcement
 3b; probed live 2026-11-16 tmp/probe-e5/): TWO faces over ONE database —
 decisions (the DC004 search) and decision (the DC005 full-text page).
 

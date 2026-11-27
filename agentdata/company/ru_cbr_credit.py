@@ -1,5 +1,5 @@
 """ru_cbr_credit — Bank of Russia credit-organisations register (www.cbr.ru FullCoList; the
-company domain's first RU face; research volume ru-cbr-registers-recipe, 册 235; face admitted
+company domain's first RU face; research volume ru-cbr-registers-recipe, booklet 235; face admitted
 in 0.3.37, probed first-hand 2026-11-04 tmp/probe-ru-cbr-0337/ with the SDK's own polite UA,
 direct).
 

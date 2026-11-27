@@ -2,7 +2,7 @@
 Compliance & enforcement axis (www.accc.gov.au, Drupal 10 views, keyless
 but fingerprinted + lazy).
 
-AU legal face (0.3.63; admitted from the research booklet 册 legal-enforcement
+AU legal face (0.3.63; admitted from the research booklet legal-enforcement
 3c; probed live 2026-11-16 tmp/probe-e5/): the enforcement-actions stream —
 media releases / speeches / updates on the Compliance and enforcement topic
 (topic:12039, ~3,106 items / 125 pages on 2026-11-16).

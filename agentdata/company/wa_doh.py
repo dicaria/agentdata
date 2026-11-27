@@ -2,7 +2,7 @@
 (data.wa.gov Socrata; keyless).
 
 company roster (admitted in 0.3.48, probes tmp/probe-us-state-license-0348/ + research evidence
-tmp/probe-us-statelicense/; harvest-side recipe in the us-state-license volume, 册 323).
+tmp/probe-us-statelicense/; harvest-side recipe in the us-state-license volume, booklet 323).
 Shape verified 2026-11-05: GET /resource/qxh8-f4bd.json?$limit= → array straight out
 (2,468,860-row corpus as of the 2026-11-05 probe — the register batch-refreshed past the research
 probe's 2,468,859 by one row the same day; 11 columns, all text-typed — dates arrive MM/DD/YYYY).

@@ -446,7 +446,7 @@ def register(v, g):
                           help="Result page, 1-based (100 hits/page)")
     f_dxsrch.add_argument("--limit", type=int, default=None,
                           help="Cap the returned rows")
-    # —— 0.3.45 ES BORME daily gazette 正册双面（lexicographic slot: es_borme between edgar_fts and es_cnmv）——
+    # —— 0.3.45 ES BORME daily gazette register pair（lexicographic slot: es_borme between edgar_fts and es_cnmv）——
     f_borme_day = v.add_parser("es_borme_day", parents=[g()],
                                help="BORME daily gazette inventory (one publication day's notices; no-publication day = published:false)",
                                description="www.boe.es/borme/dias/{y}/{m}/{d}/: the day's <li class=dispo> rows — "
@@ -480,7 +480,7 @@ def register(v, g):
                             help="Articulo ORDER number, exact (e.g. 756 = the 756th company in the notice)")
     f_borme_no.add_argument("--limit", type=int, default=20,
                             help="Companies to return (local slice wall 1-100, default 20; total_matched echoes the notice's company count)")
-    # —— 0.3.44 ES CNMV entidades 正册单面（lexicographic slot: es_cnmv between de_inso and fdic）——
+    # —— 0.3.44 ES CNMV entidades single register face（lexicographic slot: es_cnmv between de_inso and fdic）——
     f_cnmv = v.add_parser("es_cnmv_entities", parents=[g()],
                           help="CNMV supervised-entity register (one category per call, keyless full-list local scan)",
                           description="www.cnmv.es/portal/consultas/listadoentidad.aspx?id=1&tipoent=0..13: "
@@ -540,6 +540,72 @@ def register(v, g):
                                        "and filter locally")
     f_eiopa.add_argument("--limit", type=int, default=100, help="Rows (upstream body: pageSize; wall 1-100)")
     f_eiopa.add_argument("--page", type=int, default=1, help="Page, 1-BASED (upstream body: page; 0 → upstream 400)")
+    # —— 0.3.74 E16 ESEF register (dictionary slot: eu_eiopa_iorps < eu_esef_facts < eu_esef_filings < eu_euronext_instrument_search) ——
+    f_esef_fc = v.add_parser("eu_esef_facts", parents=[g()],
+                             help="ESEF structured IFRS facts of one annual report (filings.xbrl.org XBRL-JSON → compact rows)",
+                             description="The numeric skeleton of one ESEF annual report: every entity-level IFRS "
+                                         "fact as a row (concept, value, value_num, decimals, unit, period, entity). "
+                                         "Select the report by --filing-id (the numeric id on eu_esef_filings rows) "
+                                         "OR by issuer --lei (latest period_end wins; --period-end picks another "
+                                         "period). Defaults = the report's own period, annual durations only, "
+                                         "entity-level numeric facts; --all-periods / --include-interim / "
+                                         "--include-dimensions / --include-text widen it. Concept matching is "
+                                         "case-insensitive with a trailing * wildcard — 'Revenue*' catches both "
+                                         "ifrs-full:Revenue and RevenueFromContractsWithCustomers (issuers tag "
+                                         "revenue variously)")
+    f_esef_fc.add_argument("--filing-id", dest="filing_id", default=None,
+                           help="Numeric ESEF filing id (from eu_esef_filings rows) — exactly one of --filing-id / --lei")
+    f_esef_fc.add_argument("--lei", default=None,
+                           help="Issuer LEI, exact — exactly one of --filing-id / --lei; picks the latest period_end filing")
+    f_esef_fc.add_argument("--period-end", dest="period_end", default=None,
+                           help="Period end YYYY-MM-DD (with --lei: pick that period's filing; default = latest)")
+    f_esef_fc.add_argument("--concept", action="append", default=None,
+                           help="Concept filter, repeatable, case-insensitive, trailing * wildcard (e.g. Revenue*, ifrs-full:ProfitLoss)")
+    f_esef_fc.add_argument("--all-periods", dest="all_periods", action="store_true",
+                           help="Keep every period of the filing, not just the report's own period")
+    f_esef_fc.add_argument("--include-interim", dest="include_interim", action="store_true",
+                           help="Also keep interim (half-year) durations — default annual only")
+    f_esef_fc.add_argument("--include-dimensions", dest="include_dimensions", action="store_true",
+                           help="Also keep dimensional facts (segment/member breakdowns) — default entity-level only")
+    f_esef_fc.add_argument("--include-text", dest="include_text", action="store_true",
+                           help="Also keep non-numeric (text) facts — default numeric only")
+    f_esef_fc.add_argument("--limit", type=int, default=None,
+                           help="Cap the rows (default unlimited — the full fact list of the report)")
+    f_esef_fl = v.add_parser("eu_esef_filings", parents=[g()],
+                             help="ESEF annual-report register — 27,817 filings / 7,505 EEA issuers (filings.xbrl.org, keyless)",
+                             description="The EU Transparency Directive ESEF register: one row per inline-XBRL "
+                                         "annual report (period_end, country, fxo_id — suffix -0 original, -1… "
+                                         "amended — date_added, processed, error/warning/inconsistency counts + "
+                                         "the absolute viewer / package (zip) / report (inline XHTML) / "
+                                         "XBRL-JSON URLs). GB 2,982 filings / 806 issuers, DK 2,247, SE 1,841, "
+                                         "NO 1,199, FR 1,188…; DE and IE absent. lei is exact "
+                                         "(entity.identifier), name a case-insensitive partial match, country "
+                                         "repeatable (2-letter). page is 1-BASED; beyond the last page = empty "
+                                         "rows with total unchanged")
+    f_esef_fl.add_argument("--lei", default=None, help="Issuer LEI, exact (upstream filter: entity.identifier eq)")
+    f_esef_fl.add_argument("--name", default=None,
+                           help="Issuer name, case-insensitive partial (upstream: entity.name ilike %%..%%)")  # %% — argparse printf-expands help strings
+    f_esef_fl.add_argument("--country", action="append", default=None,
+                           help="Issuer country, 2-letter, repeatable (upstream: country in [gb, dk, …])")
+    f_esef_fl.add_argument("--period-end", dest="period_end", default=None,
+                           help="Exact period end YYYY-MM-DD (upstream: period_end eq)")
+    f_esef_fl.add_argument("--period-from", dest="period_from", default=None,
+                           help="Period-end lower bound YYYY-MM-DD (upstream: period_end ge)")
+    f_esef_fl.add_argument("--period-to", dest="period_to", default=None,
+                           help="Period-end upper bound YYYY-MM-DD (upstream: period_end le)")
+    f_esef_fl.add_argument("--added-from", dest="added_from", default=None,
+                           help="date_added lower bound YYYY-MM-DD (upstream: date_added ge)")
+    f_esef_fl.add_argument("--added-to", dest="added_to", default=None,
+                           help="date_added upper bound YYYY-MM-DD (upstream: date_added le)")
+    f_esef_fl.add_argument("--fxo-id", dest="fxo_id", default=None,
+                           help="Exact filing key with suffix (e.g. 2138002P5RNKC5W2JZ46-2025-02-28-ESEF-GB-0)")
+    f_esef_fl.add_argument("--sort", default="processed",
+                           help="processed | period_end | date_added | country | fxo_id | warning_count (order prefix - = desc)")
+    f_esef_fl.add_argument("--order", default="desc", help="asc | desc (default desc — newest processed first)")
+    f_esef_fl.add_argument("--page", type=int, default=1,
+                           help="Page, 1-BASED (upstream param: page[number]; 0 → upstream 400)")
+    f_esef_fl.add_argument("--limit", type=int, default=30,
+                           help="Rows (upstream param: page[size]; 1-1000; 1001 → upstream 400)")
     # —— 0.3.68 E10 exchange faces (dictionary slot: eu_eiopa < eu_euronext < fdic_failures) ——
     f_eunx = v.add_parser("eu_euronext_instrument_search", parents=[g()],
                           help="Euronext instrument resolver — ISIN / name / mnemonic (live.euronext.com searchJSON; keyless)",
@@ -719,6 +785,119 @@ def register(v, g):
                      help="Window end YYYY-MM-DD, bare (upstream param: publishedTo; default today)")
     f6.add_argument("--limit", type=int, default=10, help="Rows (upstream param: limit; 1-100; with --name = matches cap, fetch stays 100)")
     f6.add_argument("--cursor", default=None, help="Pagination cursor (upstream param: cursor; pass the same window when walking)")
+    # —— 0.3.74 E16 FCA data-API family (dictionary slot: gb_contracts_finder_* < gb_fca_* < gb_fts_*; ONE endpoint,
+    # api.data.fca.org.uk/search?index=…, FOUR indexes — dates in YYYY-MM-DD here, converted per index) ——
+    f_firds = v.add_parser("gb_fca_firds_search", parents=[g()],
+                           help="FCA FIRDS instrument register — 169.6M published+active instruments (api.data.fca.org.uk, keyless)",
+                           description="The FCA Financial Instrument Data Search: every UK-reportable instrument "
+                                       "line (shares, bonds, ETFs, securitisations, warrants…) with own ISIN, "
+                                       "trading venue MIC, issuer LEI, CFI classification and life-cycle dates. "
+                                       "Six criteria AND together, each a plain string; --keyword is FREE TEXT and "
+                                       "mutually exclusive with the criteria. Default = published + active lines "
+                                       "only (--include-inactive adds terminated lines); never-published internal "
+                                       "records are always excluded upstream. Dates are publication-window bounds "
+                                       "on the --date-field; a bare --from-date is legal (the engine fills the "
+                                       "far-future upper bound the index demands)")
+    f_firds.add_argument("--fininstrmgnlattrbts-id", dest="fininstrmgnlattrbts_id", default=None,
+                         help="Own ISIN of the instrument line (upstream criterion: exact)")
+    f_firds.add_argument("--tradgvnrltdattrbts-id", dest="tradgvnrltdattrbts_id", default=None,
+                         help="Trading venue MIC, uppercased by the engine (upstream criterion; e.g. XLON)")
+    f_firds.add_argument("--isin-sngl-noindx", dest="isin_sngl_noindx", default=None,
+                         help="Underlying ISIN for non-equity lines (upstream criterion: exact)")
+    f_firds.add_argument("--isin-bskt", dest="isin_bskt", default=None, help="Basket ISIN (upstream criterion: exact)")
+    f_firds.add_argument("--issr", default=None, help="Issuer LEI (upstream criterion: exact, uppercased by the engine)")
+    f_firds.add_argument("--fininstrmgnlattrbts-clssfctntp", dest="fininstrmgnlattrbts_clssfctntp", default=None,
+                         help="CFI classification code, exact 6 chars (e.g. ESVUFR ordinary shares; no wildcard upstream)")
+    f_firds.add_argument("--keyword", default=None,
+                         help="Free-text search across the register — mutually exclusive with every criterion and date flag")
+    f_firds.add_argument("--include-inactive", dest="include_inactive", action="store_true",
+                         help="Also return terminated/inactive lines (default: active lines only)")
+    f_firds.add_argument("--date-field", dest="date_field", default="publication",
+                         help="publication | first_trade | termination — which life-cycle date the window filters")
+    f_firds.add_argument("--from-date", dest="from_date", default=None, help="Window start YYYY-MM-DD (upstream form dd/MM/yyyy)")
+    f_firds.add_argument("--to-date", dest="to_date", default=None,
+                         help="Window end YYYY-MM-DD (upstream form dd/MM/yyyy; --from-date alone is legal — the engine fills the to bound)")
+    f_firds.add_argument("--sort", default="fininstrmgnlattrbts_id", help="One of the 9 verified FIRDS sort keys (default fininstrmgnlattrbts_id)")
+    f_firds.add_argument("--order", default="asc", help="asc | desc")
+    f_firds.add_argument("--offset", type=int, default=0, help="Row offset (upstream body: from; offset+limit ≤ 10,000 window law)")
+    f_firds.add_argument("--limit", type=int, default=20,
+                         help="Rows (upstream body: size; offset+limit ≤ 10,000 window law; engine caps 5,000)")
+    f_nsm = v.add_parser("gb_fca_nsm_search", parents=[g()],
+                         help="UK National Storage Mechanism — 5.57M regulatory disclosures (api.data.fca.org.uk, keyless)",
+                         description="Every UKLA/FCA-regulated disclosure 2010→today: RNS announcements, annual "
+                                     "reports, final terms, major-shareholding notices, PDMR dealings… One row per "
+                                     "disclosure with LEI, company, type, dates and the absolute artefact URL "
+                                     "(pdf/html/json/csv — Tagged rows also carry inline-XBRL views). Filters AND "
+                                     "together; --text switches to the full-text path (document content OR "
+                                     "headline, latest versions only) and still ANDs with the LEI/facet filters. "
+                                     "Facet values are case-insensitive against a live vocabulary (facets echo in "
+                                     "the answer); unknown values answer a silent 0 upstream")
+    f_nsm.add_argument("--lei", default=None, help="Issuer LEI, exact (uppercased by the engine)")
+    f_nsm.add_argument("--company", default=None,
+                       help="Company name — upstream case-insensitive PARTIAL match (a substring, not exact)")
+    f_nsm.add_argument("--text", default=None,
+                       help="Full-text phrase (searches document content OR headline; latest versions only — historical amendments excluded)")
+    f_nsm.add_argument("--text-mode", dest="text_mode", default="match_all_words",
+                       help="match_all_words (AND of words) | exact_match (the whole phrase) — default match_all_words")
+    f_nsm.add_argument("--type", action="append", default=None,
+                       help="Disclosure type, repeatable (e.g. 'Annual Financial Report', 'Final Terms'; facets in the answer carry the live vocabulary)")
+    f_nsm.add_argument("--source", action="append", default=None,
+                       help="Disclosure source, repeatable, case-SENSITIVE (e.g. RNS, EQS, PRN — stored casing required)")
+    f_nsm.add_argument("--document-format", dest="document_format", action="append", default=None,
+                       help="Document format, repeatable (pdf, html…)")
+    f_nsm.add_argument("--tag-esef", dest="tag_esef", action="store_true",
+                       help="Only disclosures tagged with ESEF inline XBRL (the annual-report subset)")
+    f_nsm.add_argument("--date-field", dest="date_field", default="publication_date",
+                       help="publication_date | submitted_date — which date the window bounds")
+    f_nsm.add_argument("--from-date", dest="from_date", default=None, help="Window start YYYY-MM-DD (upstream form full ISO datetime)")
+    f_nsm.add_argument("--to-date", dest="to_date", default=None, help="Window end YYYY-MM-DD (one-sided bounds legal)")
+    f_nsm.add_argument("--sort", default="publication_date",
+                       help="One of the 11 verified NSM sort keys (default publication_date)")
+    f_nsm.add_argument("--order", default="desc", help="asc | desc (default desc — newest first)")
+    f_nsm.add_argument("--offset", type=int, default=0, help="Row offset (upstream body: from; offset+limit ≤ 10,000 window law)")
+    f_nsm.add_argument("--limit", type=int, default=20, help="Rows (upstream body: size; offset+limit ≤ 10,000 window law; engine caps 5,000)")
+    f_ol = v.add_parser("gb_fca_official_list", parents=[g()],
+                        help="FCA Official List — 15,160 live listed securities across 11 categories (api.data.fca.org.uk, keyless)",
+                        description="The Official List kept under FSMA: every security admitted to official UK "
+                                    "listing with ISIN, full security name, listing category (equity shares "
+                                    "commercial/shell/international/transition, closed/open-ended funds, debt, "
+                                    "securitised derivatives, warrants…), status, issuer LEI + name, initial "
+                                    "admission date. Rows carry only populated fields upstream (placeholders "
+                                    "omit LEI/name; a null admission date is genuine data, not a bug). --text "
+                                    "matches ISIN, LEI or issuer name (partial) — NOT the security name")
+    f_ol.add_argument("--listing-category", dest="listing_category", action="append", default=None,
+                      help="One of the 11 Official List categories, repeatable — stored casing (e.g. 'Equity shares (commercial companies)', 'Debt and debt-like securities')")
+    f_ol.add_argument("--lei", default=None, help="Issuer LEI, exact (uppercased by the engine)")
+    f_ol.add_argument("--security-isin", dest="security_isin", default=None, help="Security ISIN, exact (uppercased by the engine)")
+    f_ol.add_argument("--text", default=None,
+                      help="Free text against ISIN, LEI or issuer name — partial, case-insensitive (not security_name)")
+    f_ol.add_argument("--from-date", dest="from_date", default=None,
+                      help="Initial-admission window start YYYY-MM-DD (upstream form dd/MM/yyyy)")
+    f_ol.add_argument("--to-date", dest="to_date", default=None, help="Initial-admission window end YYYY-MM-DD")
+    f_ol.add_argument("--sort", default="security_isin",
+                      help="security_isin | security_initial_admission_date | security_initial_admission_date,security_isin | lei | last_updated_date")
+    f_ol.add_argument("--order", default="asc", help="asc | desc")
+    f_ol.add_argument("--offset", type=int, default=0, help="Row offset (upstream body: from; offset+limit ≤ 10,000 window law)")
+    f_ol.add_argument("--limit", type=int, default=20, help="Rows (upstream body: size; offset+limit ≤ 10,000 window law; engine caps 5,000)")
+    f_ola = v.add_parser("gb_fca_official_list_activity", parents=[g()],
+                         help="Official List daily activity — 119,810 admissions/suspensions/restorations/cancellations (keyless)",
+                         description="The event log of the Official List: admissions (102,667 all-time), "
+                                     "cancellations (16,204), suspensions (733), restorations (206) with effective "
+                                     "datetime, ISIN, security name (suspension/cancellation rows), issuer LEI, "
+                                     "listing category and pub_seq_id. The four kinds are separate queries — "
+                                     "--security-activity is REQUIRED (an unknown value would silently answer "
+                                     "the whole log upstream, so it is validated here)")
+    f_ola.add_argument("--security-activity", dest="security_activity", required=True,
+                       choices=["Admission", "Suspension", "Restoration", "Cancellation"],
+                       help="Event kind, REQUIRED (stored casing — Admission | Suspension | Restoration | Cancellation)")
+    f_ola.add_argument("--from-date", dest="from_date", default=None,
+                       help="Effective-datetime window start YYYY-MM-DD (upstream form full ISO datetime; one-sided legal)")
+    f_ola.add_argument("--to-date", dest="to_date", default=None, help="Effective-datetime window end YYYY-MM-DD")
+    f_ola.add_argument("--sort", default="security_effective_datetime",
+                       help="security_effective_datetime | security_isin (verified subset; default newest first)")
+    f_ola.add_argument("--order", default="desc", help="asc | desc")
+    f_ola.add_argument("--offset", type=int, default=0, help="Row offset (upstream body: from; offset+limit ≤ 10,000 window law)")
+    f_ola.add_argument("--limit", type=int, default=20, help="Rows (upstream body: size; offset+limit ≤ 10,000 window law; engine caps 5,000)")
     f7 = v.add_parser("gb_fts_release_packages", parents=[g()],
                        help="UK above-threshold tenders (Find a Tender OCDS; upstream has no name-search param)",
                        description="WTO-line UK procurement releases: stages/limit/cursor/updatedFrom/updatedTo upstream-verbatim; --name is a client-side contains filter (forces fetch of the full 100-row page, matches buyer or suppliers)")
@@ -730,6 +909,116 @@ def register(v, g):
                      help="Window start YYYY-MM-DD or full ISO datetime (upstream param: updatedFrom; bare date gets T00:00:00Z)")
     f7.add_argument("--updated-to", dest="updated_to", default=None,
                      help="Window end (upstream param: updatedTo; bare date gets T23:59:59Z)")
+    # —— 0.3.76 E18 LSE exchange universe (dictionary slot: gb_fts_release_packages < gb_lse_* <
+    # gg_gfsc_regulated_entities — 'fts'<'lse', 'b'<'g'; apidata.londonstockexchange.com keyless
+    # REST + www sitemap/RNS pages + cache-api.lsegissuerservices.com issuer profiles — ONE
+    # provider id over THREE hosts, the hk_hkex/edgar_xbrl absolute-path precedent; the quote
+    # surfaces (pricing/instrument-summaries/trade-summaries/tmv/tns ticks/OHLCV bars) are
+    # MARKET-DATA — licensed goods, deliberately out) ——
+    f_lsebond = v.add_parser("gb_lse_bond_details", parents=[g()],
+                             help="LSE security-details card (apidata keyless; equities answer too with maturityDate null)",
+                             description="The security-details card: isin/sedol/listingDate/"
+                                         "fullName/currencyCode/mifirIdentifierCode/maturityDate. "
+                                         "LIVE REVERSAL 2026-11-24: the face answers EQUITY tidms "
+                                         "too — BARC returns a full card with maturityDate null "
+                                         "(the research doc's 'equities answer 404' was wrong; "
+                                         "securitybonddetails is the generic security card). An "
+                                         "unknown tidm answers the honest 404 → found=false")
+    f_lsebond.add_argument("--tidm", required=True,
+                           help="LSE ticker symbol (UK form BARC/VOD, international SEDOL form 0A00/01GT; from gb_lse_universe)")
+    f_lsefund = v.add_parser("gb_lse_fundamentals", parents=[g()],
+                             help="LSE fundamentals keyed by RIC (apidata keyless; PE/EPS/free float/shares/mcap)",
+                             description="The fundamentals card: pe_ratio/earnings_per_share/"
+                                         "free_float_shares/outstanding_shares/company_market_cap "
+                                         "verbatim (UK cards m GBP, international-book cards m EUR — "
+                                         "the upstream's own figures, never re-unit-ed). International "
+                                         "book XLOM cards answer EUR (AKZO Nobel PE 16.17 precedent)")
+    f_lsefund.add_argument("--ric", required=True,
+                           help="LSE RIC (BARC.L form; from gb_lse_ric_lookup)")
+    f_lseidx = v.add_parser("gb_lse_index_membership", parents=[g()],
+                            help="Instrument's FTSE index memberships with weights (apidata keyless; 11 slots)",
+                            description="The FTSE memberships as parallel comma lists (indexCode/"
+                                        "indexName/indexWeight — 11 slots, an empty slot = not a "
+                                        "member; strict zip alignment, rows only for actual "
+                                        "memberships; BARC sits in UKX at 2.18%). The full card "
+                                        "rides result.card (primaryIndexName/constituentCode/"
+                                        "countryOfRegistration)")
+    f_lseidx.add_argument("--tidm", required=True,
+                          help="LSE ticker symbol (UK form BARC/VOD, international SEDOL form 0A00; from gb_lse_universe)")
+    f_lseaddr = v.add_parser("gb_lse_issuer_address", parents=[g()],
+                             help="Issuer registered address + website (apidata keyless; issuerCode keyed)",
+                             description="The issuer contact card: fullAddress/website/websiteLink. "
+                                         "The issuerCode comes off the gb_lse_security_master card "
+                                         "(BARC → BASDE)")
+    f_lseaddr.add_argument("--issuer-code", dest="issuer_code", required=True,
+                           help="nrdp issuerCode (e.g. BASDE; from gb_lse_security_master)")
+    f_lseprof = v.add_parser("gb_lse_issuer_profile", parents=[g()],
+                             help="Issuer IR card on the LSEG issuer-services cache (issuer-opted coverage)",
+                             description="The issuer's own IR card: instruments[] family with "
+                                         "tidm+ISIN+type, admissiondate, sector/indices, contacts, "
+                                         "reports/events. Coverage is ISSUER-OPTED — VOVOD answers a "
+                                         "33-instrument card (admissiondate 1988-10-26), BASDE an "
+                                         "honest 404 → found=false, never fabricated; the profile "
+                                         "code is the nrdp displayissuercode, NOT the ticker "
+                                         "(Vodafone: ticker VOD, issuer code VOVOD); iterate nrdp "
+                                         "displayissuercode to find carded issuers")
+    f_lseprof.add_argument("--code", required=True,
+                           help="nrdp displayissuercode (VOD/AKXRM form; from gb_lse_security_master)")
+    f_lseric = v.add_parser("gb_lse_ric_lookup", parents=[g()],
+                            help="tidm→RIC bridge (apidata keyless; BARC→BARC.L)",
+                            description="The RIC bridge that keys gb_lse_fundamentals (BARC→BARC.L, "
+                                        "international 0A00→0A00.L)")
+    f_lseric.add_argument("--tidm", required=True,
+                          help="LSE ticker symbol (from gb_lse_universe)")
+    f_lsernsa = v.add_parser("gb_lse_rns_archive", parents=[g()],
+                             help="One month's RNS article index (www sitemap-news; 2024-11 archive floor)",
+                             description="The RNS article index for one month (~44k-49k full months, "
+                                         "35,272 in-progress probe day): rows {url, category, hash}. "
+                                         "The slug is the RNS category (form-8-3 Takeover Code 1%+ "
+                                         "disclosures ≈ 2,938/month, form-8-5 EPT ≈ 1,870/month, "
+                                         "net-asset-value-s, transaction-in-own-shares, …) but it is "
+                                         "a category-company MELT — never read it as a company name. "
+                                         "Archive floor 2024-11: older months answer S3 AccessDenied "
+                                         "403 (refused locally before the request); the rolling "
+                                         "~25-month window is the depth ceiling. --category substring "
+                                         "filter, --limit slices (full count always rides result.total)")
+    f_lsernsa.add_argument("--month", required=True, help="Month yyyy-MM (2024-11 through current)")
+    f_lsernsa.add_argument("--category", default=None,
+                           help="Category substring filter on the slug (e.g. form-8-3 — the Takeover Code 1%%+ disclosure family)")  # %% — argparse printf-expands help strings
+    f_lsernsa.add_argument("--limit", type=int, default=None, help="Display slice (the FULL filtered total always rides result.total)")
+    f_lsernse = v.add_parser("gb_lse_rns_article", parents=[g()],
+                             help="RNS article full text (server-embedded articleBody + metadata grid + ISINs)",
+                             description="The disclosure body itself: the article page embeds the "
+                                         "complete server-rendered HTML as a JS string (articleBody, "
+                                         "\\x22/\\uXXXX/\\/ escapes decoded), the RichTextGrid metadata "
+                                         "rows (Company information / Released On / Source / RNS "
+                                         "Number) parsed, ISINs extracted from the body (UK/IE issuers "
+                                         "and NAV notes carry them; US-target form-8-3 bodies "
+                                         "legitimately carry none — the upstream's own absence)")
+    f_lsernse.add_argument("--url", required=True,
+                           help="Article URL verbatim from gb_lse_rns_archive rows (a bare category/hash tail also parses)")
+    f_lsenrdp = v.add_parser("gb_lse_security_master", parents=[g()],
+                             help="nrdp join-key card (apidata keyless; ISIN/SEDOL/MIC/issuerCode/firstTradingDate)",
+                             description="The per-instrument identity card — the universe join key: "
+                                         "instrumentId/isinCode/sedol/mic (XLON main board | XLOM "
+                                         "international)/issuerCode/firstTradingDate/typology/"
+                                         "displayissuercode. The issuerCode feeds gb_lse_issuer_address, "
+                                         "the displayissuercode feeds gb_lse_issuer_profile, the tidm "
+                                         "feeds the ric bridge")
+    f_lsenrdp.add_argument("--tidm", required=True,
+                           help="LSE ticker symbol (UK form BARC/VOD, international SEDOL form 0A00; from gb_lse_universe)")
+    f_lseuni = v.add_parser("gb_lse_universe", parents=[g()],
+                            help="LSE quote-page sitemap enumeration (the TIDM enumeration source; 62,713 pages)",
+                            description="The quote-page sitemap for one book: rows {book, tidm, slug, "
+                                        "url}. Five books totalling 62,713 pages (equity 5,761 / bonds "
+                                        "45,455 / etps 5,471 / others 2,032 / turquoise 3,993 probe "
+                                        "week): UK tickers BARC/HSBA form plus international 4-digit "
+                                        "SEDOL forms 0A00 (German/Dutch/Swiss issuers ride the LSE "
+                                        "international order book). --book one of equity|bonds|etps|"
+                                        "others|turquoise, --limit slices (full count rides result.total)")
+    f_lseuni.add_argument("--book", default="equity", choices=["equity", "bonds", "etps", "others", "turquoise"],
+                          help="Security book (default equity)")
+    f_lseuni.add_argument("--limit", type=int, default=None, help="Display slice (the FULL count always rides result.total)")
     # —— 0.3.33 offshore Channel-Islands registers batch (GG GFSC + JE JFSC) ——
     f_gg2 = v.add_parser("gg_gfsc_registered_businesses", parents=[g()],
                          help="Guernsey registered (prescribed) businesses (GFSC full feed, local scan)",
@@ -1471,6 +1760,29 @@ def register(v, g):
     # ruling: one pass, docs included) — the two faces that had shipped (fulltext_search/
     # submissions) keep suppressed deprecated parsers routed through root cli's _FLAT_ALIAS
     # with a stderr warning; removal slated 0.4.x ——
+    # —— 0.3.75 E17 EDGAR holdings-disclosure family (dictionary slots: us_sec_13dg_stakes < us_sec_13f_holdings <
+    # us_sec_companyconcept ('1'<'c') and us_sec_filing_document < us_sec_form4_transactions <
+    # us_sec_frames ('fi'<'fo'<'fr'); the structured ownership layer: zero new provider buckets,
+    # edgar_cik submissions + edgar_arch index/doc) ——
+    f15pre = v.add_parser("us_sec_13dg_stakes", parents=[g()],
+                          help="SEC Schedule 13D/G activist stakes on one CIK (structured 2022+ schema parsed)",
+                          description="Schedule 13D/G under one CIK (issuer OR filer — jointly filed): "
+                                      "submissions enumeration over the EIGHT form strings (structured era "
+                                      "SCHEDULE 13D/G(/A) + legacy HTML era SC 13D/G(/A)); the 2022+ "
+                                      "edgarSubmission XML parses to filer cards (name/type/citizenship/"
+                                      "shares/class percent/four voting-dispositive powers), legacy HTML "
+                                      "rides parsed=False with doc_url — never a fabricated stake.")
+    f15pre.add_argument("--cik", required=True, help="CIK, 1-10 digits (accepts CIK-prefixed) — issuer or filer side both work")
+    f15pre.add_argument("--limit", type=int, default=5, help="Newest filings to parse (1-50)")
+    f15pre2 = v.add_parser("us_sec_13f_holdings", parents=[g()],
+                           help="SEC 13F-HR institutional holdings of one filer CIK (information table parsed)",
+                           description="13F-HR(/A) under one institution CIK: the information table parsed "
+                                       "to position rows (nameOfIssuer/titleOfClass/cusip/value/shares/"
+                                       "discretion/voting powers). value_units rides the card: 2023-Q1+ "
+                                       "whole USD, earlier periods thousands of USD — the units switch is "
+                                       "period-based, never guess from magnitude.")
+    f15pre2.add_argument("--cik", required=True, help="Institution CIK, 1-10 digits (accepts CIK-prefixed)")
+    f15pre2.add_argument("--limit", type=int, default=1, help="Newest 13F filings to parse (1-50)")
     f15b = v.add_parser("us_sec_companyconcept", parents=[g()],
                         help="SEC single-concept time series (the cheap point query, 404 = never filed)",
                         description="data.sec.gov /api/xbrl/companyconcept — one concept × one "
@@ -1518,6 +1830,17 @@ def register(v, g):
                       help="Strip HTML to plain text (stdlib parser: script/style skipped, block tags newline)")
     f15d.add_argument("--list", dest="list_mode", action="store_true", default=False,
                       help="Directory mode: the accession's document table instead of one document's body")
+    # us_sec_form4_transactions slots between filing_document and frames — 'fi'<'fo'<'fr' (0.3.75 E17)
+    f15pre3 = v.add_parser("us_sec_form4_transactions", parents=[g()],
+                           help="SEC Form 4/5 insider transactions under one CIK (ownershipDocument XML parsed)",
+                           description="Forms 4/4/A/5/5/A under one CIK (issuer or insider — jointly filed): "
+                                       "the ownershipDocument XML parsed to flattened transaction lines "
+                                       "(date/code/shares/price/acquired-disposed/post-shares/direct-"
+                                       "indirect; derivative lines carry exercise/expiration/underlying "
+                                       "security). One row per transaction, owner name carried on it.")
+    f15pre3.add_argument("--cik", required=True, help="CIK, 1-10 digits (accepts CIK-prefixed) — issuer or insider side both work")
+    f15pre3.add_argument("--form", default="4", help="Form choice: 4 (default) / 4/A / 5 / 5/A")
+    f15pre3.add_argument("--limit", type=int, default=5, help="Newest filings to parse (1-100)")
     f15c = v.add_parser("us_sec_frames", parents=[g()],
                         help="SEC cross-section: one concept × unit × frame, every filer in one shot",
                         description="data.sec.gov /api/xbrl/frames — one concept × unit × period "
@@ -1696,6 +2019,17 @@ FLAT = {
     "es_oepm_bopi": lambda a: {"tomo": a.tomo, "date": a.date},
     # 0.3.59 EU EIOPA IORP register (slot: es_oepm_bopi < eu_eiopa_iorps < fdic_failures)
     "eu_eiopa_iorps": lambda a: {"limit": a.limit, "page": a.page},
+    # 0.3.74 E16 ESEF register (slot: eu_eiopa_iorps < eu_esef_facts < eu_esef_filings < eu_euronext_instrument_search)
+    "eu_esef_facts": lambda a: {"filing_id": a.filing_id, "lei": a.lei, "period_end": a.period_end,
+                                "concept": a.concept, "all_periods": a.all_periods,
+                                "annual_only": not a.include_interim,
+                                "include_dimensions": a.include_dimensions,
+                                "include_text": a.include_text, "limit": a.limit},
+    "eu_esef_filings": lambda a: {"lei": a.lei, "name": a.name, "country": a.country,
+                                  "period_end": a.period_end, "period_from": a.period_from,
+                                  "period_to": a.period_to, "added_from": a.added_from,
+                                  "added_to": a.added_to, "fxo_id": a.fxo_id, "sort": a.sort,
+                                  "order": a.order, "page": a.page, "limit": a.limit},
     "eu_euronext_instrument_search": lambda a: {"q": a.q},
     # 0.3.58 FDIC BankFind siblings (dictionary order: fdic_failures < fdic_financials < fdic_history < fdic_institutions < fdic_locations)
     "fdic_failures": lambda a: {"filters": a.filters, "fields": a.fields, "limit": a.limit,
@@ -1728,9 +2062,48 @@ FLAT = {
     "gb_contracts_finder_published_notices": lambda a: {"name": a.name, "published_from": a.published_from,
                                       "published_to": a.published_to, "stages": a.stages,
                                       "limit": a.limit, "cursor": a.cursor},
+    # 0.3.74 E16 FCA data-API family (slot: gb_contracts_finder_published_notices < gb_fca_firds_search <
+    # gb_fca_nsm_search < gb_fca_official_list < gb_fca_official_list_activity < gb_fts_release_packages)
+    "gb_fca_firds_search": lambda a: {"fininstrmgnlattrbts_id": a.fininstrmgnlattrbts_id,
+                                      "tradgvnrltdattrbts_id": a.tradgvnrltdattrbts_id,
+                                      "isin_sngl_noindx": a.isin_sngl_noindx, "isin_bskt": a.isin_bskt,
+                                      "issr": a.issr,
+                                      "fininstrmgnlattrbts_clssfctntp": a.fininstrmgnlattrbts_clssfctntp,
+                                      "keyword": a.keyword, "active_only": not a.include_inactive,
+                                      "date_field": a.date_field, "from_date": a.from_date,
+                                      "to_date": a.to_date, "sort": a.sort, "order": a.order,
+                                      "offset": a.offset, "limit": a.limit},
+    "gb_fca_nsm_search": lambda a: {"lei": a.lei, "company": a.company, "text": a.text,
+                                    "text_mode": a.text_mode, "types": a.type, "sources": a.source,
+                                    "formats": a.document_format, "tag_esef": a.tag_esef,
+                                    "date_field": a.date_field, "from_date": a.from_date,
+                                    "to_date": a.to_date, "sort": a.sort, "order": a.order,
+                                    "offset": a.offset, "limit": a.limit},
+    "gb_fca_official_list": lambda a: {"listing_category": a.listing_category, "lei": a.lei,
+                                       "security_isin": a.security_isin, "text": a.text,
+                                       "from_date": a.from_date, "to_date": a.to_date,
+                                       "sort": a.sort, "order": a.order, "offset": a.offset,
+                                       "limit": a.limit},
+    "gb_fca_official_list_activity": lambda a: {"security_activity": a.security_activity,
+                                                "from_date": a.from_date, "to_date": a.to_date,
+                                                "sort": a.sort, "order": a.order,
+                                                "offset": a.offset, "limit": a.limit},
     "gb_fts_release_packages": lambda a: {"name": a.name, "stages": a.stages, "limit": a.limit,
                                  "cursor": a.cursor, "updated_from": a.updated_from,
                                  "updated_to": a.updated_to},
+    # 0.3.76 E18 LSE exchange universe (slot: gb_fts_release_packages < gb_lse_* < gg_gfsc_* —
+    # 'fts'<'lse'; the ten faces in dictionary order: bond < fundamentals < index < issuer_address
+    # < issuer_profile < ric < rns_archive < rns_article < security_master < universe)
+    "gb_lse_bond_details": lambda a: {"tidm": a.tidm},
+    "gb_lse_fundamentals": lambda a: {"ric": a.ric},
+    "gb_lse_index_membership": lambda a: {"tidm": a.tidm},
+    "gb_lse_issuer_address": lambda a: {"issuer_code": a.issuer_code},
+    "gb_lse_issuer_profile": lambda a: {"code": a.code},
+    "gb_lse_ric_lookup": lambda a: {"tidm": a.tidm},
+    "gb_lse_rns_archive": lambda a: {"month": a.month, "category": a.category, "limit": a.limit},
+    "gb_lse_rns_article": lambda a: {"url": a.url},
+    "gb_lse_security_master": lambda a: {"tidm": a.tidm},
+    "gb_lse_universe": lambda a: {"book": a.book, "limit": a.limit},
     # 0.3.33 offshore Channel-Islands registers batch
     "gg_gfsc_registered_businesses": lambda a: {"name": a.name, "category": a.category,
                                                 "ref": a.ref, "limit": a.limit},
@@ -1832,6 +2205,10 @@ FLAT = {
     # wa_doh between usaspending and vies_vat — US sub-national faces take the state code prefix, ny_open_data precedent)
     "tx_tdlr_licenses": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset,
                                    "order": a.order},
+    # 0.3.75 E17 EDGAR holdings-disclosure family (dictionary slots: us_sec_13dg_stakes < us_sec_13f_holdings <
+    # us_sec_companyconcept — '1'<'c'; form4 rides between filing_document and frames — 'fi'<'fo'<'fr')
+    "us_sec_13dg_stakes": lambda a: {"cik": a.cik, "limit": a.limit},
+    "us_sec_13f_holdings": lambda a: {"cik": a.cik, "limit": a.limit},
     # 0.3.66 SEC XBRL structured-facts family (dictionary slots: us_sec_companyconcept <
     # us_sec_companyfacts < us_sec_frames < us_sec_fulltext_search — 'c'<'f'; us_sec_tickers after
     # us_sec_submissions; the block slots between tx_tdlr and usaspending — '_'<'a'. Renamed
@@ -1844,6 +2221,8 @@ FLAT = {
     # 0.3.69 E11 filing-document body fetch (slot: companyfacts < filing_document < frames — 'fi'<'fr')
     "us_sec_filing_document": lambda a: {"cik": a.cik, "accession": a.accession, "filename": a.filename,
                                "url": a.url, "text": a.text, "list_mode": a.list_mode},
+    # 0.3.75 E17 (slot: filing_document < form4_transactions < frames — 'fi'<'fo'<'fr')
+    "us_sec_form4_transactions": lambda a: {"cik": a.cik, "form": a.form, "limit": a.limit},
     "us_sec_frames": lambda a: {"concept": a.concept, "frame": a.frame, "taxonomy": a.taxonomy,
                       "unit": a.unit},
     "us_sec_fulltext_search": lambda a: {"q": a.q, "forms": a.forms, "startdt": a.startdt,
@@ -1905,6 +2284,10 @@ COUNTRY = {
     "es_oepm_bopi": "ES",
     # 0.3.59 EU EIOPA IORP register (slot: es_oepm_bopi < eu_eiopa_iorps < fdic_failures)
     "eu_eiopa_iorps": "EU",
+    # 0.3.74 E16 ESEF + FCA family (slots: eu_eiopa_iorps < eu_esef_* < eu_euronext_instrument_search;
+    # gb_contracts_finder_published_notices < gb_fca_* < gb_fts_release_packages)
+    "eu_esef_facts": "EU",
+    "eu_esef_filings": "EU",
     "eu_euronext_instrument_search": "EU",
     # 0.3.58 FDIC BankFind siblings (dictionary order: fdic_failures < fdic_financials < fdic_history < fdic_institutions < fdic_locations)
     "fdic_failures": "US",
@@ -1921,7 +2304,23 @@ COUNTRY = {
     "fr_regafi_authorisations": "FR",
     "fr_regafi_entities": "FR",
     "gb_contracts_finder_published_notices": "GB",
+    # 0.3.74 E16 FCA family (slot: gb_contracts_finder_published_notices < gb_fca_* < gb_fts_release_packages)
+    "gb_fca_firds_search": "GB",
+    "gb_fca_nsm_search": "GB",
+    "gb_fca_official_list": "GB",
+    "gb_fca_official_list_activity": "GB",
     "gb_fts_release_packages": "GB",
+    # 0.3.76 E18 LSE exchange universe (slot: gb_fts_release_packages < gb_lse_* < gg_gfsc_*)
+    "gb_lse_bond_details": "GB",
+    "gb_lse_fundamentals": "GB",
+    "gb_lse_index_membership": "GB",
+    "gb_lse_issuer_address": "GB",
+    "gb_lse_issuer_profile": "GB",
+    "gb_lse_ric_lookup": "GB",
+    "gb_lse_rns_archive": "GB",
+    "gb_lse_rns_article": "GB",
+    "gb_lse_security_master": "GB",
+    "gb_lse_universe": "GB",
     "gg_gfsc_registered_businesses": "GG",
     "gg_gfsc_regulated_entities": "GG",
     "gleif_direct_parent": "GLOBAL",
@@ -1978,10 +2377,15 @@ COUNTRY = {
     "tx_tdlr_licenses": "US",
     # 0.3.66 SEC XBRL structured-facts family (us_sec_* slots between tx_tdlr and usaspending — '_'<'a';
     # renamed pre-release 2026-11-17 — the two shipped faces keep deprecated sec_* aliases, removal 0.4.x)
+    # 0.3.75 E17 EDGAR holdings-disclosure family (13dg/13f sort before companyconcept — '1'<'c';
+    # form4 between filing_document and frames — 'fi'<'fo'<'fr')
+    "us_sec_13dg_stakes": "US",
+    "us_sec_13f_holdings": "US",
     "us_sec_companyconcept": "US",
     "us_sec_companyfacts": "US",
     # 0.3.69 E11 filing-document body fetch (www.sec.gov/Archives — same US SEC family)
     "us_sec_filing_document": "US",
+    "us_sec_form4_transactions": "US",
     "us_sec_frames": "US",
     "us_sec_fulltext_search": "US",
     "us_sec_submissions": "US",

@@ -1,6 +1,6 @@
 """ca_ccar — Canadian Civil Aircraft Register (Transport Canada CCARCS-RIACC), keyless.
 
-transportation aviation axis (0.3.54 founding batch, 册 292; probed first-hand 2026-11-10
+transportation aviation axis (0.3.54 founding batch, booklet 292; probed first-hand 2026-11-10
 tmp/probe-ca-ccar/ with the SDK's own polite UA, direct). THE REGISTER IS A WEBFORMS APP, but the
 measured shape is a stateless GET pair — no ViewState dance needed:
 
@@ -19,7 +19,7 @@ Anywhere; the Ending/Exact/Beginning modes are form-only and never surface in th
 measured). At least one criterion required — a bare empty query would drag the whole register and
 is walled locally (politeness cap 200 rows; total_matched always reported).
 
-The ADet id space is ~500k with holes (册 292) — a not-found id is a legal empty, never a guess.
+The ADet id space is ~500k with holes (booklet 292) — a not-found id is a legal empty, never a guess.
 The owner block carries name+address verbatim from the public register (public-register
 precedent: us_fmcsa company_officer_1/2); nothing is enriched on top.
 """
@@ -39,13 +39,13 @@ provider = {
     "ttl": {"search": 21600, "aircraft": 21600},  # the register rolls slowly; day-scale TTL
 }
 
-# 管道包裹形：|value|（空 = ||）；五槽 cn/mn/sn/on/m（common name / model / serial / owner / mark）
+# pipe-wrapped form: |value| (empty = ||); five slots cn/mn/sn/on/m (common name / model / serial / owner / mark)
 _FIELDS = (("common_name", "cn"), ("model_name", "mn"), ("serial_number", "sn"),
            ("owner", "on"), ("mark", "m"))
 
 _ROW_RE = re.compile(r'ADet\.aspx\?id=(\d+)[^>]*>([^<]*)</a>.*?</td>(.*?)</tr>', re.S)
 
-# 档案页标签 -> 行键（块内四块：Aircraft / Manufacturer / Registration / Registered Owner）
+# archive-page tab labels -> row keys (four blocks: Aircraft / Manufacturer / Registration / Registered Owner)
 _BLOCKS = ("Aircraft Information", "Manufacturer Information", "Registration Information",
            "Registered Owner Information")
 _LABELS = {

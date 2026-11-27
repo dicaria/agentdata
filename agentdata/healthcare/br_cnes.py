@@ -2,7 +2,7 @@
 Departamento de Informática do SUS, keyless).
 
 BR healthcare face (0.3.58; the domain's first BR face; admitted from research booklet
-br-datasus-facilities 册 111, probed live 2026-11-13, tmp/probe-sdk-0358/p5+p7). CNES is the
+br-datasus-facilities booklet 111, probed live 2026-11-13, tmp/probe-sdk-0358/p5+p7). CNES is the
 Cadastro Nacional de Estabelecimentos de Saúde — the national facility register every Brazilian
 healthcare establishment (public and private) must hold. One GET serves the roster, one GET by
 code serves the single card; both answer the SAME 37-field row (verified identical key sets):

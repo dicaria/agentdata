@@ -1,6 +1,6 @@
 """fr_adlc — French Autorité de la concurrence company-level fine register (data.gouv.fr official mirror; keyless).
 
-legal antitrust-enforcement face (0.3.51; admitted from research 册 164 fr-adlc-datagouv-bulk,
+legal antitrust-enforcement face (0.3.51; admitted from research booklet 164 fr-adlc-datagouv-bulk,
 probed live 2026-11-09, tmp/probe-sdk0350/l5/ p01+p02). The authority's own domain
 (autoritedelaconcurrence.fr — NOT autorite-concurrence.fr, the look-alike decoy that dies on
 every stack) egress-blocks this exit, but the authority publishes everything through its

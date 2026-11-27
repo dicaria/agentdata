@@ -1,6 +1,6 @@
 """ru_cbr_warning — Bank of Russia warning list of entities with signs of illegal financial
 activity (www.cbr.ru UniDbQuery DownloadExcel export 123126; the legal domain's first RU face;
-research volume ru-cbr-registers-recipe, 册 235; face admitted in 0.3.37, probed first-hand
+research volume ru-cbr-registers-recipe, booklet 235; face admitted in 0.3.37, probed first-hand
 2026-11-04 tmp/probe-ru-cbr-0337/ with the SDK's own polite UA, direct).
 
 One face — warning_list. The register ships as ONE xlsx (~3.1MB) through the UniDbQuery export

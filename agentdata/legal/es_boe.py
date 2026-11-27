@@ -5,7 +5,7 @@ es_borme already rides the same host for the mercantile register's own gazette).
 One face (0.3.57; probed 2026-11-12, tmp/probe-sdk-0357/ — boe-sumario.json (2026-11-10,
 259 items, 8 sections) + boe-sumario-T20261112.json (210 items incl. section T) + a 404
 Saturday (2026-11-14) + a 1965-01-05 depth hit (164KB — the API serves the archive back
-to the 1960s); research volume es-boe-sumario-api, 册 271):
+to the 1960s); research volume es-boe-sumario-api, booklet 271):
 
   * sumario — one publication day's full table of contents:
     GET /datosabiertos/api/boe/sumario/{YYYYMMDD}. **Content negotiation is the channel

@@ -4,7 +4,7 @@ alpha-2 Laos and the SDK prefixes are country codes; city faces take the host/lo
 (chi_bacp/nyc_dcwp/lacity — the 0.3.48 tx_/wa_ state-axis ruling extended).
 
 company roster (admitted in 0.3.49, probes tmp/probe-us-citylicense-0349/; research evidence
-tmp/probe-us-citylicense/, harvest-side recipe in the us-city-license volume, 册 328).
+tmp/probe-us-citylicense/, harvest-side recipe in the us-city-license volume, booklet 328).
 Shape verified 2026-11-05: GET /resource/6rrh-rzua.json?$limit= → array straight out
 (632,799-row corpus — the Listing of Active Businesses, business-tax registration register:
 NOT a license book; a location can pre-register with a future location_start_date).

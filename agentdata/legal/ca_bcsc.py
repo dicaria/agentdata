@@ -1,7 +1,7 @@
 """ca_bcsc — BC Securities Commission Disciplined Parties list (gateway.bcsc.bc.ca
 Sitecore SearchTable, keyless).
 
-CA legal face (0.3.58; admitted from research booklet ca-csa-disciplined 册 136, probed live
+CA legal face (0.3.58; admitted from research booklet ca-csa-disciplined booklet 136, probed live
 2026-11-13, tmp/probe-sdk-0358/p3_bcsc.py — the working body replays the site's own
 Disciplined List DataTable exactly). The BCSC keeps the sanctioned/disciplined roster of the
 British Columbia Securities Commission — parties sanctioned under the Securities Act (BC);

@@ -1,7 +1,7 @@
 """us_cftc — CFTC enforcement register (www.cftc.gov Drupal views; keyless).
 
 legal enforcement faces (0.3.51 actions; 0.3.64 redlist+dispositions — batch E6; 0.3.65
-opinions — batch E7; admitted from research 册 286 us-cftc-enforcement, actions probed live
+opinions — batch E7; admitted from research booklet 286 us-cftc-enforcement, actions probed live
 2026-11-09 tmp/probe-sdk0350/l5/, redlist+dispositions probed live 2026-11-16 tmp/probe-e6/,
 opinions probed live 2026-11-17 tmp/probe-e7/). Four views surfaces:
 

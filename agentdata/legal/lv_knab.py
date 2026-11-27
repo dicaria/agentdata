@@ -1,7 +1,7 @@
 """lv_knab — KNAB (Latvia, Corruption Prevention and Combating Bureau) political party
 finance public database (info.knab.gov.lv/api, keyless).
 
-LV legal faces (0.3.59; admitted from research booklet lv-knab-party-finance 册 — the party-
+LV legal faces (0.3.59; admitted from research booklet lv-knab-party-finance booklet — the party-
 finance family's 18th pillar, rated 9/10 P0 — re-probed live 2026-11-13,
 tmp/probe-sdk-0359/r2_knab_*.json). Two faces over the Vite-bundle-reverse-engineered API:
 /api/parties — the party register (112 parties live; registrationNumber is the LV company

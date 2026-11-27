@@ -4,7 +4,7 @@ and the disclosure stream behind it).
 
 Two faces (0.3.57; probed 2026-11-12, tmp/probe-sdk-0357/ — kap-igs-a.json (756 rows ×
 27 keys) + kap-igs-w.json (the W placeholder) + kap-byCriteria.json (2,000-row cap window)
-+ the four-way gate measurement; research volume 领域数据源调研 册 121):
++ the four-way gate measurement; research volume booklet 121):
 
   * members — the KAP-member register: GET /tr/api/company/items/{type}/{state}. type is
     the register's own segment code (IGS / YK / PYS / BBDK / IGMS — passed verbatim, the

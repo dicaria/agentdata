@@ -1,8 +1,8 @@
 """us_npi — US NPPES NPI registry, organizational face (npiregistry.cms.hhs.gov v2.1; keyless).
 
-healthcare provider-master face (0.3.53; admitted from research 册 106 us-npi-providers, probed
+healthcare provider-master face (0.3.53; admitted from research booklet 106 us-npi-providers, probed
 live 2026-11-10, tmp/probe-sdk0352/). The National Provider Identifier is the US healthcare
-universe's join key (CMS Open Payments, LEIE exclusions — the 册 106 bridges). The face pins
+universe's join key (CMS Open Payments, LEIE exclusions — the booklet 106 bridges). The face pins
 enumerationType=Organizational (NPI-2): organization_name reverse lookup is the
 company-enrichment channel (an exact-phrase match — "Mayo" alone answers zero, "Mayo Clinic"
 answers 2; spaces must travel URL-encoded, both measured live), and the organizational record
@@ -15,14 +15,14 @@ exactly one row); organization_name / taxonomy_description / postal_code / city 
 single criteria (each answers the default 10-row page); state ALONE is refused upstream with
 error 07 "Field state requires additional search criteria" — state is a refiner, never a
 criterion; enumerationType=Organizational has been observed mixing NPI-1 individual rows
-(册 106 probe 11-02), so the face filters enumeration_type=="NPI-2" client-side. limit: the
+(booklet 106 probe 11-02), so the face filters enumeration_type=="NPI-2" client-side. limit: the
 API SILENTLY CLAMPS >200 to 200 (limit=250 answered result_count=200, no error — the
 upstream-silent-clamp family), so 1-200 is a local wall pinned by measurement. skip: no
 total echo — enumeration is a walk-to-empty-page (skip=1200 still answered a full page live,
 past the documented 1000 ceiling); result_count is the PAGE row count, never a corpus total.
 Upstream Errors [{number, description, field}] map verbatim into usage_error detail.
 The bulk download hosts (download.npi.nppes / ndhdata) are network-dead from this egress
-(roadmap §七) — the monthly full files ride the raw harvest line, not this face.
+(roadmap §7) — the monthly full files ride the raw harvest line, not this face.
 No published quota → 1/2 polite, TTL 24h (registry records change slowly).
 """
 provider = {

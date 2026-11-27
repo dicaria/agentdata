@@ -487,7 +487,7 @@ class LegalFaces:
             query={"source": "raw", "upstream": {"path": f"/api/content/cma-cases/{result['slug']}"}},
         )
 
-    # ---------- 0.3.16 legal CO SIC 制裁面（datos.gov.co Socrata 73dx-n59j；与 co_secop_contracts 同 $-参数契约） ----------
+    # ---------- 0.3.16 legal CO SIC sanctions face (datos.gov.co Socrata 73dx-n59j; same $-param contract as co_secop_contracts) ----------
 
     def co_sic_sanctions(self, where=None, *, limit=20, offset=0, order=None, execution=None, no_cache=None):
         """legal co_sic_sanctions: Colombia SIC firm-sanctions register (datos.gov.co Socrata 73dx-n59j, keyless):
@@ -716,7 +716,7 @@ class LegalFaces:
             provider_id="ca_sema", metas=[r["_meta"]],
         )
 
-    # —— 0.3.59 执法党产簇 first slice: ch_finma_enforcement_news (dictionary slot:
+    # —— 0.3.59 enforcement/party-finance cluster first slice: ch_finma_enforcement_news (dictionary slot:
     # ca_sema < ch_finma < idb — FINMA's whole news surface: press releases + enforcement
     # news; the query term is mandatory live law, the page window is upstream-fixed at 20) ——
     def ch_finma_enforcement_news(self, q, *, lang="en", limit=20, offset=0,
@@ -1395,7 +1395,7 @@ class LegalFaces:
             query={"source": "raw", "upstream": {"method": "POST", "path": "/api/zoek", "body": result["body"]}},
         )
 
-    # —— 0.3.59 执法党产簇: eu_cijeu_search (joins the case-law searchers — nl_rechtspraak's
+    # —— 0.3.59 enforcement/party-finance cluster: eu_cijeu_search (joins the case-law searchers — nl_rechtspraak's
     # cluster; the letters run eu < nl, cluster adjacency wins; the CJEU affair index is
     # metadata-only — full text rides the CELEX → EUR-Lex Cellar bridge) ——
     def eu_cijeu_search(self, q=None, *, lang="EN", limit=20, page=0,
@@ -1736,7 +1736,7 @@ class LegalFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
-    # —— 0.3.59 执法党产簇: ch_efk_party_financings (dictionary slot: ca-cluster letters put
+    # —— 0.3.59 enforcement/party-finance cluster: ch_efk_party_financings (dictionary slot: ca-cluster letters put
     # ch < ie — slotted ahead of ie_sipo to keep the party-money cluster contiguous:
     # SIPO lobbying → EFK party financing → EE ERJK quarterly reports) ——
     def ch_efk_party_financings(self, lang="de", *, year=None, actor=None,
@@ -1968,7 +1968,7 @@ class LegalFaces:
                                 "local_scan": {"section": p["section"]}}},
         )
 
-    # —— 0.3.59 执法党产簇: lv_knab parties/payments pair (dictionary slot: es_boe < lv_knab
+    # —— 0.3.59 enforcement/party-finance cluster: lv_knab parties/payments pair (dictionary slot: es_boe < lv_knab
     # < ua_nazk — the party-finance family's 18th pillar: LV party register + the
     # transaction-level named-donation ledger, daily-rolled, personCode state-masked) ——
     def lv_knab_parties(self, limit=100, page=1, execution=None, no_cache=None):
@@ -2158,7 +2158,7 @@ class LegalFaces:
             query={"source": "raw", "upstream": r["params"]},
         )
 
-    # —— 0.3.59 执法党产簇: fr_amf sanction/transaction pair + in_indiacode_search
+    # —— 0.3.59 enforcement/party-finance cluster: fr_amf sanction/transaction pair + in_indiacode_search
     # (dictionary slots: fr_adlc < fr_amf < in_indiacode < it_arera — the AMF REST double
     # face is single-shot full-JSON, no pagination upstream; India Code is the DSpace 7
     # discovery API over the Central+State act repository) ——
@@ -2548,8 +2548,9 @@ class LegalFaces:
         )
 
     # ===================== 0.3.60 batch E2 — API-faces depth wave (AU/BR/CA/DE/DK/IT/PL/US) =====================
-    # 命名依据 docs/domains/command-naming.md §一/§二/§四/§六/§七：token 全部指向上游路径资源段、
-    # 上游文档产品名或上游公开对象名；长名不砍（§七）。
+    # Naming per docs/domains/command-naming.md §1/§2/§4/§6/§7: every token points at an upstream path
+    # resource segment, an upstream document/product name, or an upstream public object name; long
+    # names are not truncated (§7).
 
     def au_frl_titles(self, collection=None, term=None, *, top=20, execution=None, no_cache=None):
         """legal au_frl_titles: Australian Federal Register of Legislation titles (the Office of

@@ -1,10 +1,10 @@
 """dk_ft — Finanstilsynet (Denmark's financial supervisory authority) supervision archive
 (inspection reports + supervisory decisions, www.finanstilsynet.dk/gbapi/search/getPage, keyless).
 
-DK legal face (0.3.60; admitted from research booklet dk-ft-gbapi-eu-finreg-sweep 册, re-probed
+DK legal face (0.3.60; admitted from research booklet dk-ft-gbapi-eu-finreg-sweep, re-probed
 live 2026-11-13, tmp/probe-e2/dk_*.json — two live laws the booklet did not carry are baked in
 here: (1) the POST REQUIRES a Referer header (without it the API answers 400 "Incorrect request
-referer header" — the booklet's "零门 urllib bare POST" no longer holds); (2) the request body is
+referer header" — the booklet's "zero-gate urllib bare POST" no longer holds); (2) the request body is
 a NESTED object — userInput is an object {query, months, categorizations, additionalFilters,
 template} (+ from/to/exactMatch/sortBy), not a plain string (a string userInput answers 400).
 The page HTML also carries the search configuration that the POST body must echo back verbatim.

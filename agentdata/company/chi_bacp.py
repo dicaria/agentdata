@@ -1,7 +1,7 @@
 """chi_bacp — Chicago BACP business licenses full history (data.cityofchicago.org Socrata; keyless).
 
 company roster (admitted in 0.3.49, probes tmp/probe-us-citylicense-0349/ + research evidence
-tmp/probe-us-citylicense/; harvest-side recipe in the us-city-license volume, 册 328 — the SDK's
+tmp/probe-us-citylicense/; harvest-side recipe in the us-city-license volume, booklet 328 — the SDK's
 first US city-axis faces, tx_tdlr/wa_doh the state axis).
 Shape verified 2026-11-05: GET /resource/r5kz-chrr.json?$limit= → array straight out
 (1,210,956-row corpus, full history 1997→; payment_date refreshed DAILY — the probe rows carry

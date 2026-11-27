@@ -1,7 +1,7 @@
 """nyc_dcwp — NYC DCWP license register (data.cityofnewyork.us Socrata; keyless).
 
 company roster (admitted in 0.3.49, probes tmp/probe-us-citylicense-0349/; research evidence
-tmp/probe-us-citylicense/, harvest-side recipe in the us-city-license volume, 册 328 — city
+tmp/probe-us-citylicense/, harvest-side recipe in the us-city-license volume, booklet 328 — city
 axis, chi_bacp/lacity the siblings).
 Shape verified 2026-11-05: GET /resource/w7w3-xahh.json?$limit= → array straight out
 (72,452-row corpus — DCWP's own applications+licenses book, NOT the padlocked licensed-

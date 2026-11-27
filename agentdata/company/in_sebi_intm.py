@@ -1,6 +1,6 @@
 """in_sebi_intm — SEBI registered intermediaries + the defaulters/expelled brokers register
 (www.sebi.gov.in/sebiweb; the company domain's first IN face; research volume
-in-sebi-intermediaries, 册 232; faces admitted in 0.3.35, probed first-hand 2026-11-04
+in-sebi-intermediaries, booklet 232; faces admitted in 0.3.35, probed first-hand 2026-11-04
 tmp/probe-legal-0335/ with the SDK's own polite UA, direct).
 
 Two faces, both the same card-table surface. Registered intermediaries: the index page
@@ -165,7 +165,7 @@ def intermediaries_raw(category="sb_equity", *, search=None, regno=None,
         raise SdkError("usage_error", provider="in_sebi_intm",
                        detail="in_sebi_intermediaries requires --search or --regno: an empty search "
                               "over a full category TIMES OUT server-side (intmId=30 = 5,011 equity "
-                              "brokers — the whole-category shot died at research time, 册 232)")
+                              "brokers — the whole-category shot died at research time, booklet 232)")
     intm_id, label = CATEGORIES[category]
     params = {"intmId": str(intm_id), "search": q or "", "regNo": reg or ""}
     r = call_provider(provider, "recognised", params, cache=cache, no_cache=no_cache,

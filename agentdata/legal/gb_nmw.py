@@ -1,6 +1,6 @@
 """gb_nmw — UK National Minimum Wage naming-scheme rounds (gov.uk press releases; keyless).
 
-legal enforcement face (0.3.64, batch E6; admitted from research 册 101 naming-schemes,
+legal enforcement face (0.3.64, batch E6; admitted from research booklet 101 naming-schemes,
 probed live 2026-11-16 tmp/probe-e6/ nmw_s1/s2/h1). The "named and shamed" register: BEIS/
 DBT-HMRC publish each round as a press release whose attachment is THE official list
 (Round 22 = 492 employers × 15 columns: employer/trading names, postcode + region + local
@@ -11,13 +11,13 @@ GET /api/search.json?q="named and shamed" "minimum wage"&order=-public_timestamp
   → 41 results live (Round 22 2026-01-19 newest; the full history 2013→2026 walks back
     through start= offsets — the recipe's Round 1-22 back-trail lives on this same query).
 **The content API body is EMPTY for these pages** (attachments only live in the HTML page,
-册 101 pit) — the round detail op therefore fetches the rendered page and extracts the
+booklet 101 pit) — the round detail op therefore fetches the rendered page and extracts the
 asset coordinates: assets.publishing.service.gov.uk/.../Round_22_NMW_Naming_Scheme__List_
 of_employers_as_of_16_October.xlsx (91.6KB, 2 sheets). Per the EUASL precedent the SDK face
 is the COORDINATE surface — the xlsx bodies ride the batch line, never the JSON face.
 Attachment names carry no year suffix (…_16_October.xlsx, not …_16_October_2025.xlsx —
 hand-assembling them 404s with a 41B JSON body; only extracted hrefs are truth).
-Slug collision pit (册 101): gov.uk redirects the 2018 "nearly-200" slug to the older
+Slug collision pit (booklet 101): gov.uk redirects the 2018 "nearly-200" slug to the older
 "nearly-180" release — the search row's link is the truth, never a remembered slug.
 TTL: rounds 24h (≈2 rounds/year — the index barely moves) / round 7d; polite rate 1 rps
 (gov.uk publishes no search-API quota — conservative, same family as gb_mhra/gb_cma).

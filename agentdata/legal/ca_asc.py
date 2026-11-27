@@ -1,7 +1,7 @@
 """ca_asc — Alberta Securities Commission notices / decisions / orders enforcement library
 (www.asc.ca Coveo headless chain, keyless).
 
-CA legal face (0.3.58; admitted from research booklet ca-provinces-round2 册 139, probed live
+CA legal face (0.3.58; admitted from research booklet ca-provinces-round2 booklet 139, probed live
 2026-11-13, tmp/probe-sdk-0358/p4_asc.py). The ASC enforcement library (7,304 documents live —
 notices, decisions, orders, rulings 2001→today) rides a THREE-STEP KEYLESS chain, all plain
 urllib (the de_register token-chain pattern):

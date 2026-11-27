@@ -1,6 +1,6 @@
 """tr_spk — Turkish Capital Markets Board administrative fines + trading bans (ws.spk.gov.tr
 IdariYaptirimlar service; the legal domain's first TR face; research volume tr-spk-ws-api,
-册 234; faces admitted in 0.3.36, probed first-hand 2026-11-04 tmp/probe-tr-spk-0336/ with the
+booklet 234; faces admitted in 0.3.36, probed first-hand 2026-11-04 tmp/probe-tr-spk-0336/ with the
 SDK's own polite UA, direct).
 
 Two faces, both local full-register scans (the Swagger v2 surface publishes NO query parameters
@@ -30,7 +30,7 @@ automatically (3 detail GETs on a cold call — the ticker edge is the substance
 The person-detail sibling /Kisi/{id} answered EMPTY with the masked mkkSicilNo as id (t2,
 2026-11-04): its key is the unmasked MKK number, which the public list masks — not shippable.
 
-Channel: research-time probing needed Chrome UA + proxy + Referer (册 234); the SDK layer
+Channel: research-time probing needed Chrome UA + proxy + Referer (booklet 234); the SDK layer
 disproved all of it — honest agentdata UA, direct, zero extra headers, all seven endpoints 200
 (t1/t2, 2026-11-04). Rate: ws.spk.gov.tr publishes no window -> polite 0.5 rps / burst 2 (the
 registry-search family posture; the host-layer bucket is shared with tr_spk_borsa on the same

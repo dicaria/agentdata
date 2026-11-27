@@ -1,6 +1,6 @@
 """tr_bddk — BDDK (Banking Regulation and Supervision Agency of Türkiye) authorised-
 institution card register, www.bddk.org.tr/Kurulus/Liste/{id} (research volume
-tr-bddk-kurulus-recipe, 册 237; face admitted in 0.3.40, probed first-hand 2026-11-04
+tr-bddk-kurulus-recipe, booklet 237; face admitted in 0.3.40, probed first-hand 2026-11-04
 tmp/probe-tr-bddk-0340/ with the SDK's own polite UA, direct).
 
 TWELVE category pages, each server-rendered with the whole category inline (no paging, no

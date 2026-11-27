@@ -1,7 +1,7 @@
 """nl_acm — Netherlands Authority for Consumers & Markets publication register
 (www.acm.nl, keyless Drupal).
 
-NL legal faces (0.3.62; admitted from the research booklet 册 132, 7.5 P0;
+NL legal faces (0.3.62; admitted from the research booklet 132, 7.5 P0;
 re-probed live 2026-11-16 tmp/probe-e4/ with the SDK's own polite UA — the
 host serves the default Accept: application/json too, NO Accept wall):
 
@@ -53,7 +53,7 @@ provider = {
 
 _ACCEPT = {"Accept": "text/html,application/xhtml+xml,application/xml,*/*"}
 
-# slug-token taxonomy (research 册 132 pin; heuristic word-boundary match over the
+# slug-token taxonomy (research booklet 132 pin; heuristic word-boundary match over the
 # hyphen-joined slug — NOT an upstream field)
 _CATEGORIES = {
     "concentratie": "concentratie", "boete": "boete", "onderzoek": "onderzoek",

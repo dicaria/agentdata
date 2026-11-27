@@ -1,7 +1,7 @@
 """fr_amf — AMF (Autorité des marchés financiers) sanctions & settlements, REST listing
 double face (www.amf-france.org/fr/rest, keyless).
 
-FR legal faces (0.3.59; admitted from research booklet fr-amf-sanctions 册 125, re-probed
+FR legal faces (0.3.59; admitted from research booklet fr-amf-sanctions booklet 125, re-probed
 live 2026-11-13, tmp/probe-sdk-0359/r1_amf_*.json — the REST family was broken through on
 2026-11-03 and re-verified today). The AMF publishes its two decision streams as single-shot
 full-JSON REST endpoints: listing_sanction (454 rows live — disciplinary sanctions by the

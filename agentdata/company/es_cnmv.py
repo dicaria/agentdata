@@ -1,7 +1,7 @@
-"""es_cnmv — CNMV entidades 正册 (Spanish securities-market licence register, www.cnmv.es; keyless).
+"""es_cnmv — CNMV entidades register (Spanish securities-market licence register, www.cnmv.es; keyless).
 
 One face (0.3.44; probed 2026-11-04, tmp/probe-es-cnmv/ le_0..le_13 + three detail samples;
-research volume 册 240 es-cnmv-entidades-registros):
+research volume booklet 240 es-cnmv-entidades-registros):
 
   * entities — the register of entities authorised/supervised by the CNMV, FOURTEEN categories
     behind one endpoint: GET /portal/consultas/listadoentidad.aspx?id=1&tipoent=<0..13> — one
@@ -27,7 +27,7 @@ The register's own grammar, pinned from the evidence (le_*.bin):
     collect them from the list hrefs, never synthesize a walk.
   * **NIF double form**: the national list carries both dashed (A-83217281) and bare
     (B22526768) spellings — normalised here (de-hyphen, upper) for joins, raw form kept as a
-    census fact. The NIF keyspace is shared with the CNMV sanctions register (legal 册 134,
+    census fact. The NIF keyspace is shared with the CNMV sanctions register (legal booklet 134,
     datosentidad.aspx) — roster↔sanctions is the licence-lifecycle join.
   * **the cookie banner occupies <h1>** on the big pages («Aviso de cookies» while te=4 holds
     812 rows) — the page title is read from <title>, never h1; the data verdict is the row
@@ -40,7 +40,7 @@ The register's own grammar, pinned from the evidence (le_*.bin):
 Channel: plain GET HTML, no key, no CAPTCHA, no published rate window → polite 0.5 rps /
 burst 2 (registry-search family posture). TTL 24h (register dumps move slowly). The three
 detail page families (esis/esisextranjeraslp/esisentcredito, 150-223KB, keyless 200) are the
-recipe's 二期 — this face carries each row's own detail href so the detail face can compose.
+recipe's phase two — this face carries each row's own detail href so the detail face can compose.
 """
 import html
 import re

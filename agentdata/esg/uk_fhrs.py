@@ -1,6 +1,6 @@
 """uk_fhrs — UK Food Hygiene Rating Scheme live search (api.ratings.food.gov.uk; keyless).
 
-esg food-safety face (0.3.53; admitted from research 册 290 uk-fsa-fhrs, probed live 2026-11-10,
+esg food-safety face (0.3.53; admitted from research booklet 290 uk-fsa-fhrs, probed live 2026-11-10,
 tmp/probe-sdk0352/). The FSA FHRS/FHIS combined register is ~615,098 establishments live
 2026-11-10 (meta.totalCount, unfiltered walk) — England/Wales/NI hygiene ratings 0-5 plus the
 Scottish Pass/FHIS scheme in one corpus, refreshed daily (the bulk CSV blob rolls daily;

@@ -1,6 +1,6 @@
 """ca_osb — Office of the Superintendent of Bankruptcy (Canada) CCAA records,
 open.canada.ca CKAN package 92697343-d36d-4427-a1a8-ebac6b2725cc (research volume
-ca-osb-insolvency, 册 227; face admitted in 0.3.43, probed first-hand 2026-11-05
+ca-osb-insolvency, booklet 227; face admitted in 0.3.43, probed first-hand 2026-11-05
 tmp/probe-ca-osb-0343/ — the catalog GET and the 285KB XLSX both 200 + PK magic,
 honest agentdata UA, keyless, direct).
 

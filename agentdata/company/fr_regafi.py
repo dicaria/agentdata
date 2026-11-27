@@ -1,6 +1,6 @@
 """fr_regafi — French ACPR financial-sector register (regafi.fr Opendatasoft Explore API v2.1; keyless).
 
-company qualification face pair (0.3.53; admitted from research 册 113 fr-regafi-finance-licences,
+company qualification face pair (0.3.53; admitted from research booklet 113 fr-regafi-finance-licences,
 probed live 2026-11-10, tmp/probe-sdk0352/). Regafi is the official register of financial agents
 kept by the ACPR (Autorité de Contrôle Prudentiel et de Résolution) — the regafi.fr React/huwise
 shell's real backend is the ODS Explore API v2.1, fully open. Two datasets ship as two ops:

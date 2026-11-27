@@ -1,7 +1,7 @@
 """ch_finma — FINMA (Swiss Financial Market Supervisory Authority) news & enforcement
 search, the Sitecore CMS search API (www.finma.ch/{lang}/api/search/getresult, keyless).
 
-CH legal face (0.3.59; admitted from research booklet ch-finma 册 146, re-probed live
+CH legal face (0.3.59; admitted from research booklet ch-finma booklet 146, re-probed live
 2026-11-13, tmp/probe-sdk-0359/r2_finma*.json — two live-law changes vs the booklet's
 2026-11 probes are baked in: (1) the query term is now MANDATORY — an empty query or a
 Thema-GUID-only body answers Count: 0 where the old probes counted; (2) pagination rides

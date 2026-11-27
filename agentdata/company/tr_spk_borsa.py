@@ -1,5 +1,5 @@
 """tr_spk_borsa — SPK publicly-listed companies directory (ws.spk.gov.tr HalkaAcikSirket
-service; the company domain's first TR face; research volume tr-spk-ws-api, 册 234; face
+service; the company domain's first TR face; research volume tr-spk-ws-api, booklet 234; face
 admitted in 0.3.36, probed first-hand 2026-11-04 tmp/probe-tr-spk-0336/ with the SDK's own
 polite UA, direct).
 

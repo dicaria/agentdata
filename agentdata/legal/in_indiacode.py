@@ -1,7 +1,7 @@
 """in_indiacode — India Code (indiacode.gov.in) central & state acts search, the DSpace 7
 REST discovery API (/server/api/discover/search/objects, keyless).
 
-IN legal face (0.3.59; admitted from research booklet in-indiacode 册, probed live
+IN legal face (0.3.59; admitted from research booklet in-indiacode, probed live
 2026-11-13, tmp/probe-sdk-0359/r2_indiacode*.json). India Code is the official repository of
 Central and State Acts — 'companies act' alone hits 13,530 items (6,765 pages at size=2;
 136 pages at size=100 — the upstream honors size verbatim to at least 100).

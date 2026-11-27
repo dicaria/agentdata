@@ -1,6 +1,6 @@
 """kz_gbd_ul — Kazakhstan GBD_UL legal-entities master register (data.egov.kz; the company
 master register's 19th jurisdiction and first Central-Asian one; research volume kz-egov-gbd-ul,
-册 209; face admitted in 0.3.34, probed first-hand 2026-11-04 tmp/probe-company-0334/).
+booklet 209; face admitted in 0.3.34, probed first-hand 2026-11-04 tmp/probe-company-0334/).
 
 One face — companies. GET /datasets/getdata?index=gbd_ul&version=v1&page=N&count=M[&text=…]
 answers {"elements": [13-column rows], "totalCount", "totalPages", "currentPage"}; the columns

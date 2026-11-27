@@ -1,5 +1,5 @@
 """kr_law — Korea 국가법령정보센터 dual-pillar list search (www.law.go.kr, keyless; the
-KR statutes + case-law double gap closed in one source). Register 2026-11-04 (册 265), core
+KR statutes + case-law double gap closed in one source). Register 2026-11-04 (booklet 265), core
 contract re-verified live 2026-11-12 with the SDK's own polite UA (probes
 tmp/probe-sdk-0356/p5_* — INCLUDING the negative: the register-note's "session trio"
 (GET homepage warm cookie + Referer + X-Requested-With) turned out to be the successful probe

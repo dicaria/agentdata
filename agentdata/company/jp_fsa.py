@@ -1,6 +1,6 @@
 """jp_fsa — FSA (Financial Services Agency of Japan) licensed / registered institution
 XLSX farm, www.fsa.go.jp/en/regulated/licensed/{stem}.xlsx (research volume
-jp-fsa-licensed-xlsx-farm, 册 241; face admitted in 0.3.42, probed first-hand
+jp-fsa-licensed-xlsx-farm, booklet 241; face admitted in 0.3.42, probed first-hand
 2026-11-04/05 tmp/probe-jp-fsa-0342/ — the hub plus all 31 files 200 + PK magic +
 sharedStrings with zero parse failures, honest agentdata UA, 4.5s pacing).
 
