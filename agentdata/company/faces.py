@@ -1060,6 +1060,341 @@ class CompanyFaces:
             query=quartet,
         )
 
+    # —— 0.3.77 E20 Nasdaq Nordic four-venue screener family + MFN.se Nordic disclosure wire (dictionary slots: nasdaq_nordic_* between
+    # jp_jpx and no_brreg — the four Nordic venues CPH/STO/HEL/ICE in one screener anchor; se_mfn_* between
+    # ru_cbr_credit and sg_datagovsg — the Swedish source joins the jurisdiction set 36→37; ALL nasdaq-nordic
+    # ops pin transport='curl' — the FIRST load-bearing curl-channel batch, api.nasdaq.com JA3-gates python
+    # TLS (urllib 403 411B / curl UA-only 200, probe-e20 ctrl.sh same-day dual-stack proof); red line: the
+    # screener quote columns and the star 52-week blocks are stripped at the face layer, price-history/
+    # trade-history/order-depth/market-prices/carbon stay out entirely) ——
+    def nasdaq_nordic_universe(self, *, category="MAIN_MARKET", segment=None, market=None,
+                              execution=None, no_cache=None):
+        """company nasdaq_nordic_universe: the Nordic listed-company census — Copenhagen/
+        Stockholm/Helsinki/Iceland in one anchor (probe day 1,112: Main 255+238+210+0 by
+        cap segment + First North 409), ISIN/orderbookId/symbol/sector/green flags per row;
+        the default-segment trap means MAIN_MARKET needs its segment spelled out and
+        FIRST_NORTH takes none; the upstream's quote columns are stripped (red line)."""
+        self._co_only("nasdaq_nordic_universe")
+        r = company.nasdaq_nordic.universe(category=category, segment=segment, market=market,
+                                           cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="nasdaq_nordic_universe",
+            input=result["params"],
+            reason=(f"Nasdaq Nordic {result['params']['category']}"
+                    + (f"/{result['params']['segment']}" if result['params'].get('segment') else "")
+                    + (f" @ {result['params']['market']}" if result['params'].get('market') else "")
+                    + (f": {result['total']:,} listed — {len(rows)} rows"
+                       if result.get("total") is not None
+                       else f": {len(rows)} rows (no pagination block upstream)")
+                    + " (ISIN/orderbookId identity; "
+                      "the upstream quote columns are deliberately stripped)")
+            + (f" — top {top.get('fullName')} · {top.get('isin')} · {top.get('orderbookId')}" if top else ""),
+            result=result,
+            evidence=[{"quote": f"{x.get('fullName')} · {x.get('isin')} · {x.get('orderbookId')}"
+                                f" · {x.get('currency')} · {x.get('sector')}",
+                       "url": "https://www.nasdaq.com/european-market-activity"} for x in rows[:5]],
+            provider_id="nasdaq-nordic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def nasdaq_nordic_indexes(self, *, execution=None, no_cache=None):
+        """company nasdaq_nordic_indexes: the Nordic index board — 86 indexes, IX-prefixed
+        orderbookIds (OMXS30 = IX447), the enumeration source for index_members."""
+        self._co_only("nasdaq_nordic_indexes")
+        r = company.nasdaq_nordic.indexes(cache=self._c._cache,
+                                          no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        return self._flat_env(
+            tool="nasdaq_nordic_indexes",
+            input={},
+            reason=(f"Nasdaq Nordic index board: {result['total']} indexes (IX orderbookIds) — "
+                    f"{len(rows)} rows; index_members keys on these IX ids"),
+            result=result,
+            evidence=[{"quote": f"{x.get('fullName')} · {x.get('orderbookId')} · {x.get('currency')}",
+                       "url": "https://www.nasdaq.com/european-market-activity"} for x in rows[:5]],
+            provider_id="nasdaq-nordic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def nasdaq_nordic_index_members(self, *, index_id, execution=None, no_cache=None):
+        """company nasdaq_nordic_index_members: one index's constituent list (OMXS30 IX447 =
+        exactly 30; Nordic 120 IX10282 returns the first-100 window — the upstream ignores
+        offset/size, a documented cap, not a coverage claim)."""
+        self._co_only("nasdaq_nordic_index_members")
+        r = company.nasdaq_nordic.index_members(index_id=index_id, cache=self._c._cache,
+                                                no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        return self._flat_env(
+            tool="nasdaq_nordic_index_members",
+            input={"index_id": r["index_id"]},
+            reason=(f"{r['index_id']} members: {result.get('count', 0)} constituents"
+                    + (" — first-100 window (upstream ignores offset/size, larger boards truncate here)"
+                       if result.get("count", 0) >= 100 else "")
+                    if r["found"] else f"{r['index_id']}: no such index orderbookId (honest miss)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('fullName')} · {x.get('isin')} · {x.get('orderbookId')}",
+                       "url": "https://www.nasdaq.com/european-market-activity"} for x in rows[:5] if r["found"]],
+            provider_id="nasdaq-nordic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"endpoint":
+                    f"https://api.nasdaq.com/api/nordic/instruments/{r['index_id']}/index-children"}},
+        )
+
+    def nasdaq_nordic_instrument_info(self, *, instrument_id, execution=None, no_cache=None):
+        """company nasdaq_nordic_instrument_info: the instrument master card (symbol/
+        companyName/exchange/segment/marketStatus/isin/currency); assetClass=SHARES is
+        mandatory upstream (400 10001 without it); the embedded quote blocks are stripped
+        (red line)."""
+        self._co_only("nasdaq_nordic_instrument_info")
+        r = company.nasdaq_nordic.instrument_info(instrument_id=instrument_id, cache=self._c._cache,
+                                                  no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        card = result.get("card") or {}
+        return self._flat_env(
+            tool="nasdaq_nordic_instrument_info",
+            input={"instrument_id": r["instrument_id"]},
+            reason=(f"Nasdaq Nordic master {r['instrument_id']}: {card.get('companyName')}"
+                    f" · {card.get('exchange')} · {card.get('segment')} · ISIN {card.get('isin')}"
+                    if r["found"] else f"{r['instrument_id']}: no such instrument (honest miss — the 400-10003 law)"),
+            result=result,
+            evidence=[{"quote": f"{card.get('symbol')} · {card.get('companyName')} · {card.get('currency')}"
+                                f" · {card.get('exchange')} · {card.get('segment')}",
+                       "url": "https://www.nasdaq.com/european-market-activity"}] if r["found"] else [],
+            provider_id="nasdaq-nordic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"endpoint":
+                    f"https://api.nasdaq.com/api/nordic/instruments/{r['instrument_id']}/info?assetClass=SHARES"}},
+        )
+
+    def nasdaq_nordic_instrument_summary(self, *, instrument_id, execution=None, no_cache=None):
+        """company nasdaq_nordic_instrument_summary: the share-base card — shares outstanding
+        + market-cap-of-share-series + ISIN + green-equity flags (Maersk TX2195: 9,586,488
+        shares / DKK 188.6bn series cap); the day-range/52-week price blocks are stripped
+        (red line)."""
+        self._co_only("nasdaq_nordic_instrument_summary")
+        r = company.nasdaq_nordic.instrument_summary(instrument_id=instrument_id, cache=self._c._cache,
+                                                     no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        s = result.get("summary") or {}
+        shares = (s.get("shares") or {}).get("value")
+        cap = (s.get("marketCap") or {}).get("value")
+        return self._flat_env(
+            tool="nasdaq_nordic_instrument_summary",
+            input={"instrument_id": r["instrument_id"]},
+            reason=(f"{r['instrument_id']} share base: {shares or '—'} shares"
+                    f" · series market cap {cap or '—'}"
+                    if r["found"] else f"{r['instrument_id']}: no such instrument (honest miss — the 400-10003 law)"),
+            result=result,
+            evidence=[{"quote": f"shares {shares} · series cap {cap} · ISIN {(s.get('isin') or {}).get('value')}"
+                                f" · green equity {(s.get('greenEquityDesignation') or {}).get('value')}",
+                       "url": "https://www.nasdaq.com/european-market-activity"}] if r["found"] else [],
+            provider_id="nasdaq-nordic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"endpoint":
+                    f"https://api.nasdaq.com/api/nordic/instruments/{r['instrument_id']}/summary?assetClass=SHARES"}},
+        )
+
+    def nasdaq_nordic_fundamentals(self, *, instrument_id, execution=None, no_cache=None):
+        """company nasdaq_nordic_fundamentals: the Morningstar key-stats card (PE/PB/PS/
+        margins/ROE/debt-equity — nine ratios verbatim; Maersk TX2195 PE 10.59 on probe
+        day); an unknown id answers the 200-Drupal-shell (found=false), not 404."""
+        self._co_only("nasdaq_nordic_fundamentals")
+        r = company.nasdaq_nordic.fundamentals(instrument_id=instrument_id, cache=self._c._cache,
+                                               no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        metrics = result.get("metrics") or []
+        head = " · ".join(f"{m.get('metric')} {m.get('value')}" for m in metrics[:3]) if metrics else ""
+        return self._flat_env(
+            tool="nasdaq_nordic_fundamentals",
+            input={"instrument_id": r["instrument_id"]},
+            reason=(f"{r['instrument_id']} key stats: {head}"
+                    + (f" — {len(metrics)} metrics" if metrics else "")
+                    if r["found"] else f"{r['instrument_id']}: no Morningstar key-stats card (the star shell law)"),
+            result=result,
+            evidence=[{"quote": f"{m.get('metric')}: {m.get('value')}",
+                       "url": "https://www.nasdaq.com/european-market-activity"} for m in metrics[:5] if r["found"]],
+            provider_id="nasdaq-nordic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"endpoint":
+                    f"https://api.nasdaq.com/api/nordic/star/{r['instrument_id']}/key-stats"}},
+        )
+
+    def nasdaq_nordic_company_details(self, *, instrument_id, execution=None, no_cache=None):
+        """company nasdaq_nordic_company_details: the Morningstar company profile — narrative
+        companyProfile + stockStyle/fiscalYearEnd/employees/website (issuer self-description,
+        the only narrative source in the Nordic family)."""
+        self._co_only("nasdaq_nordic_company_details")
+        r = company.nasdaq_nordic.company_details(instrument_id=instrument_id, cache=self._c._cache,
+                                                  no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        profile = result.get("profile") or {}
+        cp = (profile.get("companyProfile") or {}).get("value") or ""
+        return self._flat_env(
+            tool="nasdaq_nordic_company_details",
+            input={"instrument_id": r["instrument_id"]},
+            reason=(f"{r['instrument_id']} profile: {cp[:160]}{'…' if len(cp) > 160 else ''}"
+                    + (f" — {profile.get('employees', {}).get('value')} employees" if profile.get('employees') else "")
+                    if r["found"] else f"{r['instrument_id']}: no Morningstar company card (the star shell law)"),
+            result=result,
+            evidence=[{"quote": f"{cp[:220]}{'…' if len(cp) > 220 else ''}",
+                       "url": "https://www.nasdaq.com/european-market-activity"}] if r["found"] else [],
+            provider_id="nasdaq-nordic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"endpoint":
+                    f"https://api.nasdaq.com/api/nordic/star/{r['instrument_id']}/company-details"}},
+        )
+
+    def nasdaq_nordic_trading_halt(self, *, execution=None, no_cache=None):
+        """company nasdaq_nordic_trading_halt: the current TRADING_HALT register — a
+        present-state screener, not an event stream (probe day 16 rows; the count moves
+        daily); the Nordic analogue of TMX suspended / Euronext Newsboard."""
+        self._co_only("nasdaq_nordic_trading_halt")
+        r = company.nasdaq_nordic.trading_halt(cache=self._c._cache,
+                                               no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="nasdaq_nordic_trading_halt",
+            input=result["params"],
+            reason=(f"Nasdaq Nordic TRADING_HALT: {result['total']} instruments currently halted"
+                    + (f" — top {top.get('fullName')}" if top else "")),
+            result=result,
+            evidence=[{"quote": f"{x.get('fullName')} · {x.get('orderbookId')} · {x.get('currency')}",
+                       "url": "https://www.nasdaq.com/european-market-activity"} for x in rows[:5]],
+            provider_id="nasdaq-nordic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def nasdaq_nordic_etf(self, *, execution=None, no_cache=None):
+        """company nasdaq_nordic_etf: the ETP board under its TRUE enumeration — the
+        settings default ('ETP') 400s, the real category value is ETF (probe day 32 funds,
+        single page); same identity columns / quote strip as universe."""
+        self._co_only("nasdaq_nordic_etf")
+        r = company.nasdaq_nordic.etf(cache=self._c._cache,
+                                      no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        return self._flat_env(
+            tool="nasdaq_nordic_etf",
+            input=result["params"],
+            reason=(f"Nasdaq Nordic ETF board: {result['total']} funds — {len(rows)} rows "
+                    "(the 'ETP' settings default is a 400; ETF is the true category value)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('fullName')} · {x.get('isin')} · {x.get('currency')}",
+                       "url": "https://www.nasdaq.com/european-market-activity"} for x in rows[:5]],
+            provider_id="nasdaq-nordic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": result["params"]},
+        )
+
+    def nasdaq_nordic_lookup(self, *, q, execution=None, no_cache=None):
+        """company nasdaq_nordic_lookup: the search resolver — one company may list on
+        several venues/currencies (Ericsson B: ERIC B/SEK + ERIBR/EUR), so the join key
+        is the orderbookId, never the bare name or ISIN; groups answer as a list."""
+        self._co_only("nasdaq_nordic_lookup")
+        r = company.nasdaq_nordic.lookup(q=q, cache=self._c._cache,
+                                         no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        groups = result.get("groups") or []
+        gnames = ", ".join(g.get("group") or "?" for g in groups[:4])
+        return self._flat_env(
+            tool="nasdaq_nordic_lookup",
+            input={"q": r["q"]},
+            reason=(f"Nasdaq Nordic lookup \"{r['q']}\": {result['hits']} instruments across "
+                    f"{len(groups)} groups ({gnames}) — join on orderbookId, not the name"
+                    if r["found"] else f"Nasdaq Nordic lookup \"{r['q']}\": no hits (honest empty)"),
+            result=result,
+            evidence=[{"quote": f"{i.get('fullName')} · {i.get('orderbookId')} · {i.get('symbol')}"
+                                f" · {i.get('currency')} · {g.get('group')}",
+                       "url": "https://www.nasdaq.com/european-market-activity"}
+                      for g in groups for i in (g.get("instruments") or [])][:5],
+            provider_id="nasdaq-nordic", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"endpoint":
+                    f"https://api.nasdaq.com/api/nordic/search?searchText={r['q']}"}},
+        )
+
+    def se_mfn_wire(self, *, market="nordic", execution=None, no_cache=None):
+        """company se_mfn_wire: the MFN.se full stream for one market segment — the newest
+        announcements/PDMR reports across SE/DK/FI/NO issuers (48 entries/page); the stream
+        path is segmented (the bare /all/s 301s), so an explicit market always rides; the
+        canonical paths negotiate to the JSON Feed under the SDK's Accept (no machine-feed
+        URL is ever touched — the robots ban is on URL suffixes)."""
+        self._co_only("se_mfn_wire")
+        r = company.se_mfn.wire(market=market, cache=self._c._cache,
+                                no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        entries = result["entries"]
+        top = (entries or [None])[0]
+        top_iss = ((top.get("issuer") or {}).get("name")
+                   or (top.get("issuer") or {}).get("slug")) if top else None
+        return self._flat_env(
+            tool="se_mfn_wire",
+            input={"market": r["market"]},
+            reason=(f"MFN {r['market']} wire: {len(entries)} entries"
+                    + (f" — newest {top.get('date')} {top_iss}"
+                       f" · {(top.get('title') or '')[:70]}" if top else "")),
+            result=result,
+            evidence=[{"quote": f"{x.get('date')} · "
+                                + (((x.get('issuer') or {}).get('name')
+                                    or (x.get('issuer') or {}).get('slug')) or "—")
+                                + f" · {(x.get('title') or '')[:90]}",
+                       "url": f"https://mfn.se{x.get('path')}"} for x in entries[:5]],
+            provider_id="se-mfn", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"endpoint": f"https://mfn.se/all/s/{r['market']}"}},
+        )
+
+    def se_mfn_issuer_feed(self, *, slug, offset=0, execution=None, no_cache=None):
+        """company se_mfn_issuer_feed: one issuer's MFN announcement feed, 48 entries
+        per offset page (Ambu p1 2026-11 → p2 2025-12→ seamless on probe day) — deep
+        history by offset stepping; an unknown slug is the soft-404 (200, empty-items
+        feed), returned honestly empty."""
+        self._co_only("se_mfn_issuer_feed")
+        r = company.se_mfn.issuer_feed(slug=slug, offset=offset, cache=self._c._cache,
+                                       no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        entries = result["entries"]
+        top = (entries or [None])[0]
+        return self._flat_env(
+            tool="se_mfn_issuer_feed",
+            input={"slug": r["slug"], "offset": r["offset"]},
+            reason=(f"MFN /{r['slug']} feed: {len(entries)} entries at offset {r['offset']}"
+                    + (f" — newest {top.get('date')} · {(top.get('title') or '')[:70]}" if top else "")
+                    + ("" if entries else " (empty — possibly the soft-404: no such issuer slug)")),
+            result=result,
+            evidence=[{"quote": f"{x.get('date')} · {(x.get('title') or '')[:90]}",
+                       "url": f"https://mfn.se{x.get('path')}"} for x in entries[:5]],
+            provider_id="se-mfn", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"endpoint":
+                    f"https://mfn.se/all/a/{r['slug']}" + (f"?offset={r['offset']}" if r["offset"] else "")}},
+        )
+
+    def se_mfn_article(self, *, path, execution=None, no_cache=None):
+        """company se_mfn_article: one disclosure's full card — the single-item JSON feed
+        (date = the UTC publish_date authority; the issuer card carries slug/name/isins/
+        leis/tickers; the body text and html ride verbatim); an unknown path answers the
+        honest 404 → found=false."""
+        self._co_only("se_mfn_article")
+        r = company.se_mfn.article(path=path, cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        a = result.get("article") or {}
+        return self._flat_env(
+            tool="se_mfn_article",
+            input={"path": r["path"]},
+            reason=(f"MFN article: {(a.get('title') or '')[:100]}"
+                    f" · published {a.get('date')} · issuer {((a.get('issuer') or {}).get('name') or (a.get('issuer') or {}).get('slug'))}"
+                    f" · {len(a.get('text') or '')} chars of body"
+                    if r["found"] else f"MFN article {r['path']}: no such article path (honest miss)"),
+            result=result,
+            evidence=[{"quote": f"{a.get('date')} · {(a.get('title') or '')[:120]}"
+                                f" · issuer {((a.get('issuer') or {}).get('name') or (a.get('issuer') or {}).get('slug'))}"
+                                f" · isins {(a.get('issuer') or {}).get('isins')}",
+                       "url": f"https://mfn.se{r['path']}"}] if r["found"] else [],
+            provider_id="se-mfn", metas=[r["_meta"]],
+            query={"source": "raw", "upstream": {"endpoint": f"https://mfn.se{r['path']}"}},
+        )
+
     # —— 0.3.75 E17 EDGAR holdings-disclosure family (dictionary slots: us_sec_13dg_stakes < us_sec_13f_holdings <
     # us_sec_companyconcept ('1'<'c'), us_sec_form4 between filing_document and frames ('fi'<'fo'<'fr')):
     # the holdings-disclosure layer under the filings line — submissions=index, fts=hits, xbrl=facts,
@@ -3920,6 +4255,385 @@ class CompanyFaces:
             query={"source": "live",
                    "upstream": {"endpoint": "https://thecse.com/en/api/webapi/company/",
                                 "symbol": r["symbol"]}},
+        )
+    # —— 0.3.78 E21 TMX Canada directory + GraphQL gateway family (dictionary slots: ca_tmx_* between
+    # ca_cse_listed and ch_six_fqs_search; ONE provider id over TWO hosts, the hk_hkex/edgar_xbrl
+    # absolute-path precedent: www.tsx.com /json/company-directory/* keyless JSON + app-money.tmx.com
+    # Apollo GraphQL POST. Dual-stack urllib passes on both hosts bare-UA (probe-e21 dualstack.py
+    # 2026-11-27) — NO curl pin, the nasdaq-nordic contrast. The E10 deferral is CLOSED: the 2026-11-18
+    # AWS WAF JS challenge keyed on exit-IP reputation windows, not headers — both 2026-11-23 and
+    # 2026-11-27 egress answered clean 14/14. Red line: the gateway's quote block is stripped at the
+    # QUERY level (the 41-field profile selection never asks prices/volumes/ranges) and the filings face
+    # is metadata-only — urlToPdf lands on app.quotemedia.com, robots bans /data/ (pointer kept, never
+    # fetched)) ——
+
+    def ca_tmx_company_profile(self, *, symbol, execution=None, no_cache=None):
+        """company ca_tmx_company_profile: the TMX issuer master card (app-money.tmx.com
+        getQuoteBySymbol pinned to a 41-field selection) — identity/exchange, sector/industry,
+        market cap, PE/dividend family, beta/eps/ROE/ROA/debt-equity, share base, description,
+        contacts, employees. THE RED LINE IS QUERY-LEVEL: the upstream's 48-field card includes
+        a quote block (price/volume/day range/moving averages/52-week/alpha/vwap) that is never
+        asked — market data stays out of the request itself, not stripped after the fact."""
+        self._co_only("ca_tmx_company_profile")
+        r = company.ca_tmx.company_profile(symbol=symbol, cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        c = r.get("card") or {}
+        if r["found"]:
+            reason = (f"TMX issuer card {r['symbol']}: {c.get('name') or '—'}"
+                      f" · {c.get('exchangeName') or '—'} · {c.get('sector') or '—'}"
+                      f" · mktcap {c.get('MarketCap') or '—'} · PE {c.get('peRatio') or '—'}"
+                      f" · div yield {c.get('dividendYield') or '—'}"
+                      + (f" · {c.get('employees')} employees" if c.get("employees") else "")
+                      + " — 41-field selection; the upstream quote block is never asked (red line at the query level)")
+        else:
+            reason = (f"TMX issuer card {r['symbol']}: not found (the gateway answered GraphQL null; "
+                      "check the ticker form via ca_tmx_directory_search / ca_tmx_instrument_search)")
+        return self._flat_env(
+            tool="ca_tmx_company_profile",
+            input={"symbol": r["symbol"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{c.get('symbol') or r['symbol']} {c.get('name') or '—'} · "
+                                f"{c.get('sector') or '—'} · {c.get('industry') or '—'} · "
+                                f"{c.get('website') or '—'}",
+                       "url": "https://money.tmx.com/en/quote/" + r["symbol"]}
+                      ] if r["found"] else [],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"gateway": "https://app-money.tmx.com/graphql",
+                                                  "op": "getQuoteBySymbol", "symbol": r["symbol"]}},
+        )
+
+    def ca_tmx_delisted(self, *, exchange="tsx", execution=None, no_cache=None):
+        """company ca_tmx_delisted: the TMX delisting event window (www.tsx.com
+        /json/company-directory/delisted/{exchange}) — name/symbol/epoch-date rows.
+        THE EVENT-WINDOW LAW: a rolling ~12-week window with NO pagination (?page= is
+        ignored upstream, byte-identical rows) — sweep monthly, there is no deep
+        backfill through this door."""
+        self._co_only("ca_tmx_delisted")
+        r = company.ca_tmx.delisted(exchange=exchange, cache=self._c._cache,
+                                    no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="ca_tmx_delisted",
+            input=result["params"],
+            reason=(f"TMX {result['params']['exchange'].upper()} delisting window: {result['total']} rows"
+                    + (f" — latest {top.get('symbol')} {top.get('name')} (epoch {top.get('date')})" if top else "")
+                    + " (rolling ~12-week window, NO pagination — ?page is ignored upstream; "
+                      "monthly sweep is the archival duty)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('symbol')} {x.get('name')} (epoch {x.get('date')})",
+                       "url": "https://www.tsx.com/json/company-directory/delisted/"
+                              + result["params"]["exchange"]} for x in rows[:5]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": result["params"]},
+        )
+
+    def ca_tmx_directory_search(self, *, exchange="tsx", q, execution=None, no_cache=None):
+        """company ca_tmx_directory_search: name/symbol prefix search over one board's
+        listed-company directory (www.tsx.com /json/company-directory/search/{exchange}/{q})
+        — company-level rows {symbol, name, instruments:[…]} where one parent may carry
+        several instrument children (.U variants, AB share classes). THE PREFIX LAW: the
+        match is NAME OR SYMBOL — a single-letter scan carries ~10% name-only rows; dedup
+        on symbol for a universe census."""
+        self._co_only("ca_tmx_directory_search")
+        r = company.ca_tmx.directory_search(exchange=exchange, q=q, cache=self._c._cache,
+                                            no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        multi = sum(1 for x in rows if len(x.get("instruments") or []) > 1)
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="ca_tmx_directory_search",
+            input=result["params"],
+            reason=(f"TMX {result['params']['exchange'].upper()} directory prefix {result['params']['q']!r}: "
+                    f"{result['total']} matches, {len(rows)} rows"
+                    + (f" · {multi} multi-instrument rows (.U/AB children)" if multi else "")
+                    + (f" — top {top.get('symbol')} {top.get('name')}" if top else "")
+                    + " (name-OR-symbol prefix law — single-letter scans carry ~10% name-only "
+                      "rows; dedup on symbol for a census)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('symbol')} {x.get('name')}"
+                                + (f" · {len(x.get('instruments') or [])} instrument(s)" if x.get("instruments") else ""),
+                       "url": "https://www.tsx.com/json/company-directory/search/"
+                              + result["params"]["exchange"] + "/" + result["params"]["q"]} for x in rows[:5]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": result["params"]},
+        )
+
+    def ca_tmx_dividends(self, *, symbol, page=1, batch=10, execution=None, no_cache=None):
+        """company ca_tmx_dividends: the dividend history, paginated (app-money.tmx.com
+        getDividendsForSymbol) — exDate/amount/currency/payableDate/declarationDate/
+        recordDate rows; page forward while has_next_page."""
+        self._co_only("ca_tmx_dividends")
+        r = company.ca_tmx.dividends(symbol=symbol, page=page, batch=batch, cache=self._c._cache,
+                                     no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        return self._flat_env(
+            tool="ca_tmx_dividends",
+            input=result["params"],
+            reason=(f"TMX dividend history {r['symbol']} page {result['page']} (batch {result['batch']}): "
+                    f"{len(rows)} rows"
+                    + (f", page_number {result['page_number']}" if result.get("page_number") is not None else "")
+                    + (", next page available — walk while has_next_page" if result.get("has_next_page")
+                       else ", last page")),
+            result=result,
+            evidence=[{"quote": f"{x.get('exDate')} {x.get('amount')} {x.get('currency') or '—'}"
+                                f" · pay {x.get('payableDate') or '—'} · rec {x.get('recordDate') or '—'}",
+                       "url": "https://money.tmx.com/en/quote/" + r["symbol"]} for x in rows[:5]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"gateway": "https://app-money.tmx.com/graphql",
+                                                  "op": "getDividendsForSymbol", **result["params"]}},
+        )
+
+    def ca_tmx_filings(self, *, symbol, limit=10, execution=None, no_cache=None):
+        """company ca_tmx_filings: the regulatory-filings register (app-money.tmx.com
+        getCompanyFilings) — filingDate/description/name/size/urlToPdf rows.
+        METADATA ONLY: urlToPdf points at app.quotemedia.com whose robots (Disallow: /
+        with an Allow whitelist not covering /data/) bans the PDF content — the pointer
+        value is kept verbatim, never fetched."""
+        self._co_only("ca_tmx_filings")
+        r = company.ca_tmx.filings(symbol=symbol, limit=limit, cache=self._c._cache,
+                                   no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        return self._flat_env(
+            tool="ca_tmx_filings",
+            input=result["params"],
+            reason=(f"TMX filings register {r['symbol']}: {len(rows)} rows (limit {result['params']['limit']}) "
+                    "— METADATA ONLY: urlToPdf lands on app.quotemedia.com, robots-banned for /data/ "
+                    "(the pointer value rides verbatim, the PDF content is never fetched)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('filingDate')} · {x.get('description') or x.get('name') or '—'}"
+                                f" · {x.get('size')}B",
+                       "url": "https://money.tmx.com/en/quote/" + r["symbol"]} for x in rows[:5]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"gateway": "https://app-money.tmx.com/graphql",
+                                                  "op": "getCompanyFilings", "symbol": r["symbol"]}},
+        )
+
+    def ca_tmx_index_constituents(self, *, index_symbol, execution=None, no_cache=None):
+        """company ca_tmx_index_constituents: one index's constituent list with
+        quotedMarketValue/weight + the index keyData card (adjMarketCap/numConstituents/
+        peRatio/divYield…) — ^TSX answers 215 members (RY weight 7.7% probe day).
+        Index symbols carry the caret (^TSX form)."""
+        self._co_only("ca_tmx_index_constituents")
+        r = company.ca_tmx.index_constituents(index_symbol=index_symbol, cache=self._c._cache,
+                                              no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        kd = result.get("key_data") or {}
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="ca_tmx_index_constituents",
+            input=result["params"],
+            reason=(f"TMX index {r['index_symbol']}: {result['count']} constituents"
+                    + (f", numConstituents {kd.get('numConstituents')}" if kd.get("numConstituents") is not None else "")
+                    + (f", adjMarketCap {kd.get('adjMarketCap')}" if kd.get("adjMarketCap") is not None else "")
+                    + (f", PE {kd.get('peRatio')} divYield {kd.get('divYield')}"
+                       if kd.get("peRatio") is not None else "")
+                    + (f" — top weight {top.get('symbol')} {top.get('weight')}" if top else "")
+                    + " (constituent identity + weights — no index price history, red line)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('symbol')} {x.get('longName') or x.get('shortName') or '—'}"
+                                f" · weight {x.get('weight')} · {x.get('exchange') or '—'}",
+                       "url": "https://money.tmx.com/en/quote/" + r["index_symbol"]} for x in rows[:5]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"gateway": "https://app-money.tmx.com/graphql",
+                                                  "ops": ["getIndexConstituents", "getIndexKeyData"],
+                                                  "symbol": r["index_symbol"]}},
+        )
+
+    def ca_tmx_insider_activities(self, *, symbol, execution=None, no_cache=None):
+        """company ca_tmx_insider_activities: the SEDI AGGREGATED insider view
+        (app-money.tmx.com getCompanyInsidersActivities) — per-insider buy/sell
+        aggregates over three windows (threeMonths/sixMonths/twelveMonths) plus an
+        activitySummary net per period. The per-transaction ledger is
+        ca_tmx_insider_transactions."""
+        self._co_only("ca_tmx_insider_activities")
+        r = company.ca_tmx.insider_activities(symbol=symbol, cache=self._c._cache,
+                                              no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        periods = result.get("periods") or []
+        summary = result.get("summary") or []
+        return self._flat_env(
+            tool="ca_tmx_insider_activities",
+            input=result["params"],
+            reason=(f"TMX insider activities {r['symbol']}: {len(periods)} period windows "
+                    f"(threeMonths/sixMonths/twelveMonths) + {len(summary)} summary rows "
+                    "(per-insider buy/sell aggregates; the per-transaction ledger is "
+                    "ca_tmx_insider_transactions)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('periodkey')} · buy {x.get('buyShares')} / sell {x.get('soldShares')}"
+                                f" · net {x.get('netActivity')} of {x.get('totalShares')}",
+                       "url": "https://money.tmx.com/en/quote/" + r["symbol"]} for x in summary[:3]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"gateway": "https://app-money.tmx.com/graphql",
+                                                  "op": "getCompanyInsidersActivities", "symbol": r["symbol"]}},
+        )
+
+    def ca_tmx_insider_transactions(self, *, symbol, month_duration=12, execution=None, no_cache=None):
+        """company ca_tmx_insider_transactions: the SEDI insider transaction ledger
+        (app-money.tmx.com getInsiderTransactions) — one raw row per transaction
+        (filer/relationship/securitydesignation/transactionTypeCode/marketvalue/
+        filingdate…). THE DEPTH LAW: month_duration controls history depth — 12 ≈
+        ~480 rows, 120 ≈ 4,177 rows ≈ ten years (the SEDI ceiling); clamped 1..120."""
+        self._co_only("ca_tmx_insider_transactions")
+        r = company.ca_tmx.insider_transactions(symbol=symbol, month_duration=month_duration,
+                                                cache=self._c._cache,
+                                                no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="ca_tmx_insider_transactions",
+            input=result["params"],
+            reason=(f"TMX insider ledger {r['symbol']}: {result['count']} transactions over "
+                    f"{result['month_duration']} months (1..120 — 120 ≈ ten years, the SEDI ceiling)"
+                    + (f" — latest {top.get('filer') or '—'} {top.get('transactionTypeCode') or '—'}"
+                       f" ({top.get('filingdate') or '—'})" if top else "")),
+            result=result,
+            evidence=[{"quote": f"{x.get('filingdate') or '—'} · {x.get('filer') or '—'}"
+                                f" · {x.get('relationship') or '—'} · {x.get('transactionTypeCode') or '—'}"
+                                f" · mktval {x.get('marketvalue') or '—'}",
+                       "url": "https://money.tmx.com/en/quote/" + r["symbol"]} for x in rows[:5]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"gateway": "https://app-money.tmx.com/graphql",
+                                                  "op": "getInsiderTransactions", **result["params"]}},
+        )
+
+    def ca_tmx_instrument_search(self, *, keywords, execution=None, no_cache=None):
+        """company ca_tmx_instrument_search: the cross-exchange instrument resolver
+        (app-money.tmx.com searchInstruments) — symbol/name/exchange/instrumentType
+        (equity|etf), spanning the US cross-listings (A:US NYE forms) that the CA-only
+        directory search never sees."""
+        self._co_only("ca_tmx_instrument_search")
+        r = company.ca_tmx.instrument_search(keywords=keywords, cache=self._c._cache,
+                                             no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        return self._flat_env(
+            tool="ca_tmx_instrument_search",
+            input=result["params"],
+            reason=(f"TMX instrument resolver {result['keywords']!r}: {result['hits']} hits "
+                    "(cross-exchange incl. US cross-listings — the directory search is CA-only; "
+                    "instrumentType equity|etf)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('symbol')} {x.get('name')} · {x.get('exchange') or '—'}"
+                                f" · {x.get('instrumentType') or '—'}",
+                       "url": "https://money.tmx.com/en/"} for x in rows[:5]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"gateway": "https://app-money.tmx.com/graphql",
+                                                  "op": "searchInstruments", "keywords": result["keywords"]}},
+        )
+
+    def ca_tmx_recent_listings(self, *, exchange="tsx", execution=None, no_cache=None):
+        """company ca_tmx_recent_listings: the TMX new-listing event window
+        (www.tsx.com /json/company-directory/recent/{exchange}) — name/symbol/epoch-date
+        rows. THE EVENT-WINDOW LAW: a rolling window with NO pagination — sweep
+        monthly; there is no deep backfill through this door."""
+        self._co_only("ca_tmx_recent_listings")
+        r = company.ca_tmx.recent_listings(exchange=exchange, cache=self._c._cache,
+                                           no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="ca_tmx_recent_listings",
+            input=result["params"],
+            reason=(f"TMX {result['params']['exchange'].upper()} new-listing window: {result['total']} rows"
+                    + (f" — latest {top.get('symbol')} {top.get('name')} (epoch {top.get('date')})" if top else "")
+                    + " (rolling window, NO pagination — monthly sweep is the archival duty)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('symbol')} {x.get('name')} (epoch {x.get('date')})",
+                       "url": "https://www.tsx.com/json/company-directory/recent/"
+                              + result["params"]["exchange"]} for x in rows[:5]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": result["params"]},
+        )
+
+    def ca_tmx_short_interest(self, *, symbol, execution=None, no_cache=None):
+        """company ca_tmx_short_interest: the biweekly short-interest record
+        (app-money.tmx.com getCompanyShortInterest) — SHORT_INTEREST shares /
+        SHORTINTERESTPCT / days-to-cover 10|30|90 / BUSINESS_DATE settlement instant."""
+        self._co_only("ca_tmx_short_interest")
+        r = company.ca_tmx.short_interest(symbol=symbol, cache=self._c._cache,
+                                          no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rec = r.get("record") or {}
+        if r["found"]:
+            reason = (f"TMX short interest {r['symbol']}: {rec.get('SHORT_INTEREST') or '—'} shares"
+                      f" ({rec.get('SHORTINTERESTPCT') or '—'}%), days-to-cover 10/30/90 = "
+                      f"{rec.get('DAYSTOCOVER10DAY') or '—'}/{rec.get('DAYSTOCOVER30DAY') or '—'}/"
+                      f"{rec.get('DAYSTOCOVER90DAY') or '—'} · BUSINESS_DATE {rec.get('BUSINESS_DATE') or '—'}")
+        else:
+            reason = (f"TMX short interest {r['symbol']}: no record (the gateway answered GraphQL "
+                      "null — biweekly series, sparse for small caps)")
+        return self._flat_env(
+            tool="ca_tmx_short_interest",
+            input={"symbol": r["symbol"]},
+            reason=reason, result=result,
+            evidence=[{"quote": f"{rec.get('QM_TICKER') or r['symbol']} · {rec.get('BUSINESS_DATE') or '—'}"
+                                f" · {rec.get('SHORT_INTEREST') or '—'} shares · {rec.get('SHORTINTERESTPCT') or '—'}%",
+                       "url": "https://money.tmx.com/en/quote/" + r["symbol"]}
+                      ] if r["found"] else [],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"gateway": "https://app-money.tmx.com/graphql",
+                                                  "op": "getCompanyShortInterest", "symbol": r["symbol"]}},
+        )
+
+    def ca_tmx_suspended(self, *, exchange="tsx", execution=None, no_cache=None):
+        """company ca_tmx_suspended: the TMX suspension PRESENT-STATE register
+        (www.tsx.com /json/company-directory/suspended/{exchange}) — name/symbol
+        rows only, no dates: a snapshot, not an event stream (the TMX analogue of
+        nasdaq_nordic_trading_halt)."""
+        self._co_only("ca_tmx_suspended")
+        r = company.ca_tmx.suspended(exchange=exchange, cache=self._c._cache,
+                                     no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["rows"]
+        top = (rows or [None])[0]
+        return self._flat_env(
+            tool="ca_tmx_suspended",
+            input=result["params"],
+            reason=(f"TMX {result['params']['exchange'].upper()} suspension register: {result['total']} rows "
+                    "— PRESENT-STATE only (name/symbol, no dates: a snapshot, not an event "
+                    "stream; the TMX analogue of nasdaq_nordic_trading_halt)"
+                    + (f" — top {top.get('symbol')} {top.get('name')}" if top else "")),
+            result=result,
+            evidence=[{"quote": f"{x.get('symbol')} {x.get('name')}",
+                       "url": "https://www.tsx.com/json/company-directory/suspended/"
+                              + result["params"]["exchange"]} for x in rows[:5]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": result["params"]},
+        )
+
+    def ca_tmx_wsh_events(self, *, symbol, execution=None, no_cache=None):
+        """company ca_tmx_wsh_events: the corporate-events calendar (Wall Street Horizon
+        sourced, app-money.tmx.com getWSHEventData) — EAD earnings announcement / ECC
+        conference call / CON status with ISIN aboard for the registry join. THE SHAPE
+        LAW: data.quote.data is the event LIST; event_date is MM/DD/YYYY verbatim
+        (US order, never reformatted)."""
+        self._co_only("ca_tmx_wsh_events")
+        r = company.ca_tmx.wsh_events(symbol=symbol, cache=self._c._cache,
+                                      no_cache=self._c.no_cache if no_cache is None else bool(no_cache))
+        result = {k: x for k, x in r.items() if k != "_meta"}
+        rows = result["events"]
+        return self._flat_env(
+            tool="ca_tmx_wsh_events",
+            input=result["params"],
+            reason=(f"TMX corporate-events calendar {r['symbol']}: {result['count']} events "
+                    "(Wall Street Horizon sourced: EAD earnings / ECC conference call / CON "
+                    "status; ISIN aboard; event_date MM/DD/YYYY verbatim)"),
+            result=result,
+            evidence=[{"quote": f"{x.get('event_type') or '—'} {x.get('event_date') or '—'}"
+                                f" · {x.get('event_name') or '—'} · status {x.get('event_status') or '—'}",
+                       "url": "https://money.tmx.com/en/quote/" + r["symbol"]} for x in rows[:5]],
+            provider_id="ca-tmx", metas=[r["_meta"]],
+            query={"source": "live", "upstream": {"gateway": "https://app-money.tmx.com/graphql",
+                                                  "op": "getWSHEventData", "symbols": [r["symbol"]]}},
         )
     # —— 0.3.46 SG data.gov.sg open-data platform (dictionary slot: sg_datagovsg after ru_cbr;
     # the ACRA register of record rides the national platform as bulk CSV — no per-company

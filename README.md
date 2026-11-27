@@ -3,16 +3,16 @@
 [![PyPI](https://img.shields.io/pypi/v/agentdata)](https://pypi.org/project/agentdata/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/dicaria/agentdata/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![Commands](https://img.shields.io/badge/296_commands-9_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
+[![Commands](https://img.shields.io/badge/322_commands-9_domains-teal)](https://github.com/dicaria/agentdata/blob/main/docs/domains/api.md)
 
-**One Python client and CLI over 296 public datasets — company registries,
+**One Python client and CLI over 322 public datasets — company registries,
 sanctions lists, procurement awards, drug approvals — with no API keys and no
 accounts.**
 
 Government data holds the decisive facts about companies, but it is scattered
-across 186 public APIs, each with its own pagination, rate
-limits, and undocumented quirks. **agentdata puts 296 of those datasets behind
-one interface**: a pure-standard-library client and CLI across 36 jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
+across 189 public APIs, each with its own pagination, rate
+limits, and undocumented quirks. **agentdata puts 322 of those datasets behind
+one interface**: a pure-standard-library client and CLI across 37 jurisdictions. Every upstream gotcha we hit live is already pinned — politeness
 and caching are built in.
 
 ## Install
@@ -21,18 +21,18 @@ and caching are built in.
 python -m pip install agentdata
 ```
 
-For a reproducible install, pin the release: `python -m pip install agentdata==0.3.76`.
+For a reproducible install, pin the release: `python -m pip install agentdata==0.3.78`.
 
 Prefer not to touch PyPI? Install straight from a release tarball:
 
 ```bash
-python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.76.tar.gz
+python -m pip install https://github.com/dicaria/agentdata/archive/refs/tags/v0.3.78.tar.gz
 ```
 
 Or via git (pin a tag for reproducible installs):
 
 ```bash
-python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.76
+python -m pip install git+https://github.com/dicaria/agentdata.git@v0.3.78
 ```
 
 Or track the latest release (convenience for agents and scripts — a fresh
@@ -165,7 +165,7 @@ You can — and then you get to rediscover what is already pinned here:
 - **Quirks are pre-solved, not rediscovered.** Every command encodes traps we
   hit against the live API: anti-forgery token dances, Socrata parameters that
   are silently ignored, registries that clamp your page size without an error.
-- **One envelope across all 296 commands.** Query echo, `reason`, `evidence`,
+- **One envelope across all 322 commands.** Query echo, `reason`, `evidence`,
   source metadata, `jurisdiction` — your code parses one shape.
 - **Upstream parameter names, verbatim.** What the official API docs call a
   parameter is what the SDK takes — no invented vocabulary to unlearn.
@@ -176,11 +176,11 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Coverage
 
-**296 datasets · 186 upstream providers · 36 jurisdictions:** US 68 · global 40 · UK 29 · EU 20 · Canada 14 · Brazil 10 · France 10 · JP 9 · Switzerland 7 · DE 7 · Korea 7 · ES 6 · HK 6 · India 6 · Türkiye 6 · Australia 5 · IT 5 · New Zealand 5 · AT 3 · Colombia 3 · MX 3 · NL 3 · Czechia 2 · EE 2 · Guernsey 2 · Ireland 2 · LV 2 · Norway 2 · PL 2 · RU 2 · SG 2 · UA 2 · DK 1 · Finland 1 · Jersey 1 · Kazakhstan 1.
+**322 datasets · 189 upstream providers · 37 jurisdictions:** US 68 · global 40 · EU 30 · UK 29 · Canada 27 · Brazil 10 · France 10 · JP 9 · Switzerland 7 · DE 7 · Korea 7 · ES 6 · HK 6 · India 6 · Türkiye 6 · Australia 5 · IT 5 · New Zealand 5 · AT 3 · Colombia 3 · MX 3 · NL 3 · SE 3 · Czechia 2 · EE 2 · Guernsey 2 · Ireland 2 · LV 2 · Norway 2 · PL 2 · RU 2 · SG 2 · UA 2 · DK 1 · Finland 1 · Jersey 1 · Kazakhstan 1.
 
 | Domain | Commands | Sources |
 |---|---|---|
-| `company` | 119 | GLEIF, SEC EDGAR (registry, full-text search, the XBRL structured-facts family, the filing-document body fetch & the holdings-disclosure trio: 13F institutional holdings, Form 4 insider transactions, Schedule 13D/G activist stakes), FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses, ACPR Regafi financial-sector register (FR), J-PlatPat IP trio & KIPRIS patents (JP/KR), Unternehmensregister register search (DE), KAP members & disclosures (TR), OEPM BOPI gazette index (ES), INPI accounting ratios (FR), EIOPA IORP pension register (EU), BNDES financing operations (BR), NZX SSR listed/issuer/announcements trio (NZ), SIX official notices & detail (CH), Deutsche Börse T7 universe & Newsboard (DE), KRX Global universe & indices (KR), FCA data-API family: NSM search, Official List + daily activity, FIRDS instruments (GB), ESEF filings & facts (EU), the LSE exchange-universe family: sitemap universe, nrdp master, bond/security card, RIC bridge, FTSE index membership, fundamentals, issuer address & IR profile, RNS archive & full-text articles (GB) |
+| `company` | 145 | GLEIF, SEC EDGAR (registry, full-text search, the XBRL structured-facts family, the filing-document body fetch & the holdings-disclosure trio: 13F institutional holdings, Form 4 insider transactions, Schedule 13D/G activist stakes), FDIC, USAspending, TED, VIES, UK Contracts Finder & FTS, Zefix (CH), Brreg (NO), YTJ (FI), recherche-entreprises (FR), RUES (CO), Hometax (KR), ROR, NZ Companies Office, ARES (CZ), GFSC (GG), JFSC (JE), GBD_UL (KZ), SEBI intermediaries (IN), SPK public-company register (TR), BDDK licensed institutions (TR), CBR credit institutions (RU), BACEN institutions, branches, verified domains & open-finance API directory (BR), federal insolvency announcements (DE), FSA licensed-institution registers (JP), CCAA restructuring roster (CA), CNMV supervised entities & BORME gazette (ES), data.gov.sg platform (SG), TDLR licenses (TX) & DOH credentials (WA), Chicago BACP business licenses, LA City business register, NYC DCWP licenses, ACPR Regafi financial-sector register (FR), J-PlatPat IP trio & KIPRIS patents (JP/KR), Unternehmensregister register search (DE), KAP members & disclosures (TR), OEPM BOPI gazette index (ES), INPI accounting ratios (FR), EIOPA IORP pension register (EU), BNDES financing operations (BR), NZX SSR listed/issuer/announcements trio (NZ), SIX official notices & detail (CH), Deutsche Börse T7 universe & Newsboard (DE), KRX Global universe & indices (KR), FCA data-API family: NSM search, Official List + daily activity, FIRDS instruments (GB), ESEF filings & facts (EU), the LSE exchange-universe family: sitemap universe, nrdp master, bond/security card, RIC bridge, FTSE index membership, fundamentals, issuer address & IR profile, RNS archive & full-text articles (GB), the TMX Canada family: directory prefix search + recent/delisted/suspended registers (www.tsx.com JSON) + the GraphQL gateway (company profile 41-field selection, short interest, insider ledger & aggregate, index constituents, WSH events, filings metadata, dividends, instrument search) (CA) |
 | `economy` | 18 | World Bank WDI, Eurostat, ECB reference rates, FRED, WHO xMart, UN Comtrade, ILOSTAT, BLS, BIS, IMF, OECD, Comext |
 | `esg` | 8 | Climate TRACE, EITI, EU ETS (EUTL), EPA FRS, UK FSA food-hygiene ratings (FHRS), SGM mining concessions (MX) |
 | `healthcare` | 34 | US FDA approvals & recalls, ClinicalTrials.gov, RxNav, DailyMed, AccessGUDID, UK MHRA alerts, Health Canada DPD & MDALL, EUDAMED, RASFF & Safety Gate (EU), TGA (AU), Europe PMC, MeSH, US NPPES provider organizations, NAVII facility search (JP), CNES facility register (BR) |
@@ -192,7 +192,7 @@ You can — and then you get to rediscover what is already pinned here:
 
 ## Full command index
 
-Ten entry points — `agentdata` plus one command per domain — and 296 dataset
+Ten entry points — `agentdata` plus one command per domain — and 322 dataset
 commands under them: one command per upstream dataset, parameters kept under
 their upstream names. The block below is the complete index, grouped by domain
 in `DOMAIN_ORDER` — the order the CLI registers the domains in (the 0.3.10
@@ -208,7 +208,7 @@ see above).
 ```bash
 agentdata capabilities --format md
 
-# company (119)
+# company (145)
 agentdata company gleif_lei_records --lei 5493001KJTIIGC8Y1R12
 agentdata company gleif_lei_records_search --filter-entity-legal-name Nestle --filter-entity-jurisdiction CH --page-size 5
 agentdata company gleif_direct_parent --lei 5493001KJTIIGC8Y1R12
@@ -312,6 +312,19 @@ agentdata company hk_hkexnews_search --stock 00700 --row-range 20
 agentdata company hk_hkexnews_document --url https://www1.hkexnews.hk/listedco/listconews/sehk/2026/1118/2026111800448.pdf
 agentdata company ca_cse_listed --status Active --limit 20
 agentdata company ca_cse_company --symbol PAU
+agentdata company ca_tmx_directory_search --exchange tsx --q bank
+agentdata company ca_tmx_recent_listings --exchange tsx
+agentdata company ca_tmx_delisted --exchange tsx
+agentdata company ca_tmx_suspended --exchange tsxv
+agentdata company ca_tmx_company_profile --symbol RY
+agentdata company ca_tmx_short_interest --symbol RY
+agentdata company ca_tmx_insider_transactions --symbol RY --month-duration 12
+agentdata company ca_tmx_insider_activities --symbol RY
+agentdata company ca_tmx_index_constituents --index-symbol ^TSX
+agentdata company ca_tmx_wsh_events --symbol RY
+agentdata company ca_tmx_filings --symbol RY --limit 10
+agentdata company ca_tmx_dividends --symbol RY --page 1 --batch 10
+agentdata company ca_tmx_instrument_search --keywords bank
 agentdata company hk_hkexdi_corp_list --stock-code 00700 --list an --from-date 2025-01-01
 agentdata company hk_hkexdi_form --fn IR20261118E00140
 agentdata company hk_hkexdi_ir_summaries --stock-code 02656
@@ -344,6 +357,20 @@ agentdata company gb_lse_issuer_address --issuer-code BASDE
 agentdata company gb_lse_issuer_profile --code VOVOD
 agentdata company gb_lse_rns_archive --month 2026-10 --category form-8-3 --limit 5
 agentdata company gb_lse_rns_article --url https://www.londonstockexchange.com/en/news/article/form-8-3-easyjet-plc/aa77-b0-c2-4e-8b-441fb9
+agentdata company nasdaq_nordic_universe --market CPH --segment LARGE_CAP
+agentdata company nasdaq_nordic_universe --category FIRST_NORTH
+agentdata company nasdaq_nordic_indexes
+agentdata company nasdaq_nordic_index_members --index-id IX447
+agentdata company nasdaq_nordic_instrument_info --instrument-id TX2195
+agentdata company nasdaq_nordic_instrument_summary --instrument-id TX2195
+agentdata company nasdaq_nordic_fundamentals --instrument-id TX2195
+agentdata company nasdaq_nordic_company_details --instrument-id TX2195
+agentdata company nasdaq_nordic_trading_halt
+agentdata company nasdaq_nordic_etf
+agentdata company nasdaq_nordic_lookup --q Ericsson
+agentdata company se_mfn_wire --market sweden
+agentdata company se_mfn_issuer_feed --slug ambu --offset 48
+agentdata company se_mfn_article --path /nir/a/ambu/transactions-under-ambus-share-buyback-program-eccc77cf
 
 # economy (18)
 agentdata economy bis_sdmx_series --flow WS_CBPOL --key M.US --start 2026-01-01
@@ -573,6 +600,101 @@ runs on the same machine — that is by design.
 
 The complete batch log — every release back to 0.1.0 — lives in the source
 repo's Chinese README; this public README carries the most recent batches:
+
+**0.3.78 — Batch E21, the TMX Canada directory + GraphQL gateway family: thirteen
+faces (+13 born flat, 309→322; company 132→145; +1 provider `ca-tmx`, keyless; CA
+pure deepening — zero new jurisdictions, the 37-stamp set holds; live-probed
+end-to-end 2026-11-27 tmp/probe-e21/).** ONE provider over TWO hosts: the four
+directory faces (`ca_tmx_directory_search` / `_recent_listings` / `_delisted` /
+`_suspended`) ride www.tsx.com `/json/company-directory/*` keyless JSON while the
+nine gateway faces ride app-money.tmx.com Apollo GraphQL POST (absolute-path ops,
+the hk_hkex/edgar_xbrl/gb_lse precedent; Origin/Referer ride only on the gateway;
+introspection is production-OFF — the contracts were excavated from the site's
+webpack chunks). **The E10 deferral CLOSES**: tsx.com's 2026-11-18 AWS WAF JS
+challenge keyed on EXIT-IP REPUTATION WINDOWS, not headers — the 2026-11-23 and
+2026-11-27 egresses answered clean 14/14, and the dual-stack probe passed bare-UA
+urllib on BOTH hosts, so NOTHING is curl-pinned (the nasdaq-nordic contrast).
+Laws per family: the directory prefix law is NAME-OR-SYMBOL (single-letter scans
+carry ~10% name-only rows; rows are company-level with multi-instrument children —
+.U variants and AB classes, 17 of 140 TSX "a" rows; the envelope is
+{last_updated,length,results,isHttpError} with length authoritative and
+last_updated the census instant shared by all four ops); recent/delisted are
+ROLLING ~12-week windows with NO pagination (?page byte-identical — monthly sweep
+is the archival duty) while suspended is a PRESENT-STATE register (name/symbol
+only, the nasdaq_nordic_trading_halt analogue); the profile face pins a 41-field
+selection with the quote block STRIPPED AT THE QUERY LEVEL (prices/volumes/ranges/
+52-week/moving-averages never enter the request — WORD-level law,
+priceToBook/priceToCashFlow are kept fields; RY 39 live keys + 2 null); short
+interest rides the bi-weekly register (RY 2026-11-25: 11,960,786 shares);
+insiders run monthDuration 1..120 (12 ≈ 480 rows, 120 ≈ 4,177 rows ≈ ten years,
+the SEDI ceiling) plus the three-window activity aggregate; index constituents
+take ^-prefixed symbols (^TSX 215 members with the keyData ratio card — index
+price history stays out); WSH events keep the data.quote.data event-LIST shape
+with MM/DD/YYYY dates verbatim (Wall Street Horizon upstream, ISIN aboard);
+filings are METADATA-ONLY (urlToPdf lands on app.quotemedia.com whose robots bans
+/data/ — the pointer is kept, never fetched); dividends paginate page
+1..500/batch 1..100; instrument search is the cross-exchange resolver (keywords
+1..80, includes US cross-listings). **Carried fix disclosed**: E20's
+nasdaq_nordic engine dropped cache/no_cache on every call — the ten faces' TTLs
+never engaged; threading is fixed in this batch for BOTH modules and pinned by
+the cache-threading law test.** Rate limits ca-tmx 1/1 one row; TTLs
+profile/dir_search/dividends/insider/insider_activities/constituents/instr_search
+24h, delisted/recent/suspended/short_interest/filings/wsh 1h; rate-limits v1.65
+(189 providers / 322 faces); offline pins tests/test_flat_0378.py + engine laws
+tests/test_ca_tmx.py; company-thirdparty-api-design.md §4.55; command-naming rows
+310-322; mapping/company.md 13 booklets.
+
+**0.3.77 — Batch E20, the Nasdaq Nordic four-venue screener family + the MFN
+Nordic disclosure wire: thirteen faces (+13 born flat, 296→309; company
+119→132; +2 providers `nasdaq-nordic` (api.nasdaq.com/api/nordic — the
+five-venue census DK/SE/NO/FI/IS served by ONE host) and `se-mfn` (mfn.se —
+the JSON Feed disclosure wire), both keyless; SE is jurisdiction #37 — the
+first new stamp since E15 (nasdaq_nordic_* = EU multi-venue, se_mfn_* = SE);
+live-probed end-to-end 2026-11-24 tmp/probe-e20/).**
+The nasdaq family: `nasdaq_nordic_universe` (the four-venue screener census,
+Σ=1,112: Main 255 CPH + 238 STO + 210 HEL + 0 ICE + First North 409; the
+DEFAULT-SEGMENT TRAP — MAIN_MARKET without segment answers ONLY Large Cap,
+segment required, FIRST_NORTH takes none), `nasdaq_nordic_indexes` (86
+IX-prefixed indexes), `nasdaq_nordic_index_members` (IX447 = OMXS30 walks
+clean at exactly 30; the 100-ROW WINDOW law — the upstream answers the first
+100 and ignores offset/size, Nordic 120 IX10282 truncates with window_note),
+`nasdaq_nordic_instrument_info` (the qdHeader master card; assetClass=SHARES
+mandatory — 400 10001 without), `nasdaq_nordic_instrument_summary` (the
+share-base card — Maersk TX2195: 9,586,488 shares, DKK 188.6bn series cap;
+the summary strip is a LIVE KEY CENSUS: the sharePriceChange×6 return family
++ priceNotation + the day/52-week/volume blocks stripped, the red line),
+`nasdaq_nordic_fundamentals` (the family-unique Morningstar nine-ratio card
+— TX2195 PE 10.59), `nasdaq_nordic_company_details` (the five-card
+Morningstar profile), `nasdaq_nordic_trading_halt` (a present-state register,
+16 rows probe day — not an event stream), `nasdaq_nordic_etf` (category=ETF
+true enumeration, 32 funds — the settings-default 'ETP' answers 400),
+`nasdaq_nordic_lookup` (the group resolver — Ericsson B answers ERIC B/SEK +
+ERIBR/EUR; the join key is the orderbookId). The mfn family: `se_mfn_wire`
+(/all/s/{market}, five markets, the stream-segment law — bare /all/s 301s to
+/all/s/nordic, an explicit market always rides), `se_mfn_issuer_feed`
+(48/offset pages to full depth — Ambu p1 2026-11 → p2 2025-12 seamless;
+unknown slug = 200 empty-items soft-404, returned honestly empty),
+`se_mfn_article` (the single-item feed full card — publish_date UTC
+authority, issuer isins/leis/tickers aboard; unknown path = honest 404).**
+The channel laws: THE CURL CHANNEL IS LOAD-BEARING FOR THE FIRST TIME
+(api.nasdaq.com is an Akamai JA3 fingerprint gate — urllib 403 under every
+header combo, curl bare-UA 200, same-hour dual-stack measured; all ten
+nasdaq ops pin transport="curl"), the ENVELOPE law ({data,messages,status}
+unwrap), the 400-10003 law (unknown instrument = 400 "Instrument not found",
+NOT 404 — notFound=[400], a ledger first), the STAR-SHELL law (unknown
+star/index id = 200 Drupal HTML shell → found=false), the 42-KEY SUPERSET
+ROW law (one row shape across all four screeners — 23 quote/volume columns
+stripped, the red line; strikePrice/couponRate/contractSize/expirationDate/
+totalExpenseRatio are instrument TERMS, kept), and the CONTENT-NEGOTIATION
+law (mfn.se canonical paths answer the JSON Feed spec to Accept:
+application/json and HTML to browsers — the probe-day HTML-parse plan killed
+live same-day; the SDK pins the JSON face, shape drift raises; robots bans
+URL SUFFIXES only — bare canonical paths carry none). Rate limits
+nasdaq-nordic 1/1 · se-mfn 1/1; TTLs universe/indexes/halt/etf/cards 1h,
+children/lookup/company/articles 1d (mfn wire/feed 1h, article 1d);
+rate-limits v1.64 (188 providers / 309 faces); offline pins
+tests/test_flat_0377.py (15) + engine-law tests/test_nasdaq_nordic.py +
+tests/test_se_mfn.py (37).
 
 **0.3.76 — Batch E18, the LSE exchange-universe family: ten faces (+10 born
 flat, 286→296; company 109→119; +1 provider `gb-lse` over THREE hosts —

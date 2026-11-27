@@ -240,6 +240,8 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
 - **Single authoritative implementation** (adversarial-review ruling; 2026-10-26 user ruling converged on a single stack): Python `sdk/python/agentdata` (stdlib-only, zero dependencies) is the **sole authoritative implementation** (CLI=`agentdata`) — the former Node `service/` twin baseline was withdrawn (consumer inventory = a self-referential loop with no external users; the 0.1.6 behavior / 0.2.1 naming divergences falsified dual-stack maintainability). The acceptance bar is unchanged = per-provider capability/error/cache vectors + **real-transport verification** (the lesson of GUDID blocking undici by TLS fingerprint: golden vectors cannot replace verification against live transport). Future HTTP/MCP serving of real-time queries wraps the client.py implementation in a thin shell; no second implementation will be created.
 - **Face order and jurisdiction (from 0.3.10, dual ruling)**: command faces are double-sorted — across domains by `DOMAIN_ORDER` dictionary order (company/esg/healthcare/legal/procurement/research/security), within a domain by face-name dictionary order (under the two-segment `<source>_<dataset>` naming this groups by source automatically); **the ordering source of truth = the English identifier** (zh pages translate the copy only and never drive the ordering). The CLI success envelope carries a `jurisdiction` chapter (same source as the §9.6 jurisdiction column): semantics = the issuing authority's jurisdiction, with institutions covering global phenomena (GLEIF/ROR/EITI/ClimateTRACE/SIPRI/MeSH/EPMC/Crossref/OpenAlex/bioRxiv/OpenCitations/OSV/Paris MoU) = `GLOBAL`; the vocabulary is ISO-3166 alpha-2 + `EU` + `GLOBAL`. The jurisdiction source of truth = each domain's cli.py `COUNTRY` (same face set as FLAT), synchronized in capabilities.mjs — guarded by the seven tests of `tests/test_face_order_jurisdiction.py` (dual order / COUNTRY coverage / vocabulary / mjs sync). The corpus faces search/read are hosted mixed-jurisdiction services and carry no chapter.
 
+- **Transport channels**: the default HTTP channel is stdlib urllib; a provider op may pin `transport:"curl"` (executed through the local curl binary, same URL/headers contract) where the upstream gate is a TLS/JA3 fingerprint gate rather than a query gate. E20 `nasdaq-nordic` is the FIRST load-bearing curl provider (all ten ops; api.nasdaq.com answers urllib 403 under every header combo and curl bare-UA 200, same-hour dual-stack measured tmp/probe-e20/) — every earlier curl mention in this ledger was probe-tooling, not a pinned op.
+
 ### 9.6 Domain capability registry (current state)
 
 > Per-face rows below were maintained through 0.3.39; from 0.3.40 onward the authoritative
@@ -1212,6 +1214,61 @@ The CLI is the first shell of the same contract; the HTTP shell only does transp
   (a compressed draft between 0.3.73 and 0.3.74 + the full block — the draft
   removed here); rate-limits v1.63; see changelog entry 113)
 
+
+→ **0.3.77, 309 faces** (company +the E20 thirteen: `nasdaq_nordic_universe` /
+  `nasdaq_nordic_indexes` / `nasdaq_nordic_index_members` / `nasdaq_nordic_instrument_info` /
+  `nasdaq_nordic_instrument_summary` / `nasdaq_nordic_fundamentals` / `nasdaq_nordic_company_details` /
+  `nasdaq_nordic_trading_halt` / `nasdaq_nordic_etf` / `nasdaq_nordic_lookup` + `se_mfn_wire` /
+  `se_mfn_issuer_feed` / `se_mfn_article` — the Nasdaq Nordic four-venue screener family
+  (CPH/STO/HEL/ICE one anchor) + the MFN Nordic disclosure wire, +2 providers `nasdaq-nordic`/`se-mfn`
+  (both keyless), **37 jurisdictions — SE NEW, the first new jurisdiction stamp since E15**
+  (nasdaq_nordic_* = EU multi-venue, se_mfn_* = SE), company 119→132); **THE CURL CHANNEL IS
+  LOAD-BEARING FOR THE FIRST TIME** (api.nasdaq.com sits behind an Akamai JA3 fingerprint gate —
+  urllib 403 under every header combo, curl bare-UA 200, same-hour dual-stack measured; all ten
+  nasdaq ops pin transport="curl"); the ENVELOPE law (api.nasdaq.com wraps EVERY payload in
+  {data,messages,status} — module-level unwrap); the 400-10003 law (unknown instrument = 400
+  "Instrument not found", NOT 404 — notFound=[400], a ledger first) + the STAR-SHELL law (unknown
+  star/index id = 200 Drupal HTML shell, caught as upstream_unavailable → found=false); the
+  100-ROW WINDOW law (index_members answers the first 100 and ignores offset/size — IX447=OMXS30
+  walks clean at exactly 30, Nordic 120 IX10282 truncates with window_note); the DEFAULT-SEGMENT
+  TRAP (MAIN_MARKET without segment answers ONLY Large Cap — segment required, FIRST_NORTH takes
+  none); assetClass=SHARES mandatory on the instrument cards (400 10001 without; the star family
+  needs none); the 42-KEY SUPERSET ROW law (all four screeners answer ONE row shape — 23
+  quote/volume columns stripped, the red line; strikePrice/couponRate/contractSize/expirationDate/
+  totalExpenseRatio are instrument TERMS, kept) + the SUMMARY STRIP as a LIVE KEY CENSUS (probe
+  n09b: todayHighLow/fiftyTwoWeekHighLow/yearHighLow/openingPrice/volume/noOfTrades +
+  sharePriceChange{Week,Month,3Month,6Month,Year,YTD}×6 + priceNotation stripped — the leak family
+  caught in-batch by the probe-body key census, never shipped); mfn.se is a CONTENT-NEGOTIATION
+  reversal (the probe-day HTML-parse plan killed live same-day: canonical paths answer the JSON
+  Feed spec to Accept: application/json and HTML to browsers — the SDK pins the JSON face, shape
+  drift raises; robots bans URL SUFFIXES only — bare canonical paths carry none; unknown slug = 200
+  empty-items soft-404, unknown article path = honest 404); the five-venue census Σ=1,112 (Main
+  255+238+210+0 + First North 409); rate-limits v1.64; offline nails tests/test_flat_0377.py +
+  tests/test_nasdaq_nordic.py + tests/test_se_mfn.py; live-probed end-to-end 2026-11-24
+  tmp/probe-e20/; see changelog entry 114)
+→ **0.3.78, 322 faces** (company +the E21 thirteen: `ca_tmx_directory_search` /
+`ca_tmx_recent_listings` / `ca_tmx_delisted` / `ca_tmx_suspended` (www.tsx.com
+/json/company-directory/* keyless JSON) + `ca_tmx_company_profile` /
+`ca_tmx_short_interest` / `ca_tmx_insider_transactions` / `ca_tmx_insider_activities` /
+`ca_tmx_index_constituents` / `ca_tmx_wsh_events` / `ca_tmx_filings` /
+`ca_tmx_dividends` / `ca_tmx_instrument_search` (app-money.tmx.com Apollo GraphQL
+POST — ONE provider `ca-tmx` over TWO hosts, absolute-path ops, the
+hk_hkex/edgar_xbrl/gb_lse precedent; **the E10 AWS WAF deferral CLOSED** — the
+2026-11-18 JS challenge keyed on EXIT-IP REPUTATION WINDOWS, not headers:
+2026-11-23 + 2026-11-27 egresses clean 14/14, dual-stack urllib bare-UA passes
+BOTH hosts, NO curl pin (the nasdaq-nordic contrast); directory prefix law
+NAME-OR-SYMBOL, rows company-level multi-instrument (.U/AB, 17/140 tsx "a");
+recent/delisted ROLLING ~12-week windows NO pagination, suspended PRESENT-STATE
+register; profile 41-field selection — the quote block STRIPPED AT THE QUERY
+LEVEL (word-level, priceToBook/priceToCashFlow kept); insiders monthDuration
+1..120 (the SEDI ceiling ≈ ten years) + the three-window aggregate; ^TSX 215
+members + keyData ratio card; WSH data.quote.data event LIST with MM/DD/YYYY
+dates verbatim; filings METADATA-ONLY (urlToPdf → app.quotemedia.com, robots
+bans /data/); dividends page 1..500/batch 1..100; instrument search
+cross-exchange incl. US; company 132→145, CA pure deepening 37 held,
+providers 188→189; rate-limits v1.65; offline nails tests/test_flat_0378.py +
+tests/test_ca_tmx.py; live-probed end-to-end 2026-11-27 tmp/probe-e21/; see
+changelog entry 115)
 ## 10. The ask verb (P2 design boundary, not implemented)
 
 - Input `{question, domain, scope_filters?}`; output `{answer, evidence_rows:[row cursor anchors], coverage_assertion, refused?}`.

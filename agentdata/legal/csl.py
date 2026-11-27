@@ -43,6 +43,8 @@ def rows_from_csv(text):
     """CSV raw text → object rows (header-driven). Returns [] when there is no data row."""
     if not text:
         return []
+    # remarks 列偶发超长（SDN 关系人链）；默认 131072 限值会炸整个 parse — 放宽到 4MB
+    csv.field_size_limit(4 * 1024 * 1024)
     reader = csv.reader(io.StringIO(text))
     try:
         head = next(reader)

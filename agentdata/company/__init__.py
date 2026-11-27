@@ -1,5 +1,5 @@
 """company domain package — provider adapters flat layout (one source per file) + faces/cli (0.2.6 per-domain reorg)."""
-from . import (at_wiener, au_asx, br_bacen, br_bndes, ca_cse, ca_osb, cf, ch_six_fqs, ch_six_onot,  # noqa: F401
+from . import (at_wiener, au_asx, br_bacen, br_bndes, ca_cse, ca_osb, ca_tmx, cf, ch_six_fqs, ch_six_onot,  # noqa: F401
                ch_zefix, chi_bacp,
                co_rues, cz_ares, de_inso, de_register, de_xetra, edgar_arch, edgar_cik, edgar_fts, edgar_ownership,
                edgar_xbrl,
@@ -7,7 +7,8 @@ from . import (at_wiener, au_asx, br_bacen, br_bndes, ca_cse, ca_osb, cf, ch_six
                fr_inpi,
                fr_recherche, fr_regafi, fts, gb_fca, gb_lse, gg_gfsc, gleif, hk_hkex, hk_hkexdi, in_sebi_intm, it_borsa,
                je_jfsc, jp_fsa, jp_jplatpat, jp_jpx, kr_hometax, kr_kipris, kr_krx, kz_gbd_ul, lacity,
-               no_brreg, nyc_dcwp, nz_nzx, nzco, ror, ru_cbr_credit, sg_datagovsg, ted, tr_bddk,
+               nasdaq_nordic,
+               no_brreg, nyc_dcwp, nz_nzx, nzco, ror, ru_cbr_credit, se_mfn, sg_datagovsg, ted, tr_bddk,
                tr_kap, tr_spk_borsa, tx_tdlr, usaspending, vies, wa_doh)
 # 0.3.43 rider: jp_fsa was missing from this eager-import list (0.3.42) — the attribute only
 # resolved in processes where a test had imported the submodule directly; a fresh interpreter
@@ -91,3 +92,20 @@ from . import (at_wiener, au_asx, br_bacen, br_bndes, ca_cse, ca_osb, cf, ch_six
 # summaries/trade-summaries/tmv/tns ticks/OHLCV bars) are MARKET-DATA — licensed goods,
 # deliberately out (the red line); everything in the module is company-axis identity/index/
 # issuer/disclosure data.
+# 0.3.77: nasdaq_nordic added in alphabetical slot (lacity < nasdaq_nordic < no_brreg — 'a'<'o')
+# and se_mfn (ru_cbr_credit < se_mfn < sg_datagovsg — r < s, 'se' < 'sg') — E20: the Nasdaq
+# Nordic four-venue screener family
+# (api.nasdaq.com/api/nordic — ALL ops transport='curl', the first load-bearing curl-channel
+# batch: the JA3 gate blocks python TLS, curl UA-only passes, probe-e20 ctrl.sh dual-stack proof)
+# + the MFN.se disclosure wire (se_mfn — server-rendered HTML only, machine feeds robots-banned;
+# SE joins the jurisdiction set 36→37). Quote columns strip at the face layer (red line); the
+# NewsWeb API stays egress-blocked (ECONNRESET re-certified 2026-11-24) — out, do not force.
+# 0.3.78: ca_tmx added in alphabetical slot (ca_osb < ca_tmx < cf) — E21: the TMX Canada directory
+# + GraphQL gateway family, ONE provider id over TWO hosts (www.tsx.com /json/company-directory/*
+# keyless JSON + app-money.tmx.com Apollo GraphQL POST — absolute-path ops, the hk_hkex/
+# edgar_xbrl/gb_lse precedent). The E10 deferral is CLOSED: the 2026-11-18 AWS WAF JS challenge
+# keyed on EXIT-IP REPUTATION WINDOWS, not headers or stacks (2026-11-23 and 2026-11-27 egress
+# both answered clean 14/14; dual-stack urllib passes bare-UA — NO curl pin, the nasdaq-nordic
+# contrast). Red line: the gateway's quote block is stripped at the QUERY level (the 41-field
+# profile selection never asks prices/volumes/ranges) and the filings face is metadata-only
+# (urlToPdf lands on app.quotemedia.com, robots bans /data/ — pointer kept, never fetched).

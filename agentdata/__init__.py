@@ -29,6 +29,6 @@ Upstream parameter names verbatim + our defaults.
 from .client import Client
 from .errors import SdkError
 
-__version__ = "0.3.76"  # version bumps with each release; per-batch narratives live in the internal ledger (MAPPING.md batch window + mapping/<domain>.md booklets) and MR descriptions (not exported)
+__version__ = "0.3.78"  # version bumps with each release; per-batch narratives live in the internal ledger (MAPPING.md batch window + mapping/<domain>.md booklets) and MR descriptions (not exported)
 
 __all__ = ["Client", "SdkError", "__version__"]

@@ -171,6 +171,120 @@ def register(v, g):
                            help="Security type exact, case-insensitive (Equity / Debenture / ETF)")
     f_cselist.add_argument("--tier", type=int, default=None, help="Tier exact (2 or 1)")
     f_cselist.add_argument("--limit", type=int, default=None, help="Display slice (the FULL filtered total always rides result.total)")
+    # —— 0.3.78 E21 TMX Canada directory + GraphQL gateway (dictionary slot: ca_cse_listed <
+    # ca_tmx_* < ch_six_fqs_search; ONE provider id over TWO hosts — www.tsx.com directory JSON
+    # keyless + app-money.tmx.com Apollo GraphQL POST; dual-stack urllib passes bare-UA, no curl
+    # pin; E10's AWS WAF deferral closed — exit-IP reputation windows, not headers) ——
+    f_tmxprof = v.add_parser("ca_tmx_company_profile", parents=[g()],
+                             help="TMX issuer master card (app-money GraphQL; 41-field selection)",
+                             description="One TMX ticker's issuer card: identity/exchange, sector/"
+                                         "industry, market cap, PE/dividend family (frequency/yield/"
+                                         "amount/ex-date/pay-date/3y/5y), beta/eps/ROE/ROA/debt-"
+                                         "equity, share base, long description, contacts, employees. "
+                                         "RED LINE AT THE QUERY LEVEL: the upstream 48-field card "
+                                         "includes a quote block (price/volume/day range/moving "
+                                         "averages/52-week/alpha/vwap) that is never asked — market "
+                                         "data stays out of the request itself. GraphQL null → "
+                                         "found=false (never fabricated)")
+    f_tmxprof.add_argument("--symbol", required=True, help="TMX ticker (RY, BIP.UN form; uppercased)")
+    f_tmxdel = v.add_parser("ca_tmx_delisted", parents=[g()],
+                            help="TMX delisting event window (rolling ~12 weeks, no pagination)",
+                            description="The delisting event window for one board (rows: name/"
+                                        "symbol/epoch date). EVENT-WINDOW LAW: a rolling ~12-week "
+                                        "window with NO pagination (?page= is ignored upstream, "
+                                        "byte-identical rows) — sweep monthly; there is no deep "
+                                        "backfill through this door")
+    f_tmxdel.add_argument("--exchange", default="tsx", help="Board code (tsx | tsxv; default tsx)")
+    f_tmxdir = v.add_parser("ca_tmx_directory_search", parents=[g()],
+                            help="TMX listed-company directory prefix search (www.tsx.com keyless JSON)",
+                            description="Name/symbol prefix search over one board's listed-company "
+                                        "directory (company-level rows {symbol, name, instruments:[…]} — "
+                                        "one parent may carry several instrument children: .U USD "
+                                        "variants, AB share classes). PREFIX LAW: the match is NAME "
+                                        "OR SYMBOL — a single-letter scan carries ~10% name-only "
+                                        "rows; dedup on symbol for a universe census. The envelope "
+                                        "carries last_updated (epoch census instant) + length (the "
+                                        "authoritative count)")
+    f_tmxdir.add_argument("--exchange", default="tsx", help="Board code (tsx | tsxv; default tsx)")
+    f_tmxdir.add_argument("--q", required=True, help="Name/symbol prefix, 1-40 chars, no path separator (e.g. a, bank)")
+    f_tmxdiv = v.add_parser("ca_tmx_dividends", parents=[g()],
+                            help="TMX dividend history, paginated (app-money GraphQL)",
+                            description="Dividend history rows (exDate/amount/currency/payableDate/"
+                                        "declarationDate/recordDate); page forward while "
+                                        "has_next_page")
+    f_tmxdiv.add_argument("--symbol", required=True, help="TMX ticker (e.g. RY)")
+    f_tmxdiv.add_argument("--page", type=int, default=1, help="1-based page (default 1)")
+    f_tmxdiv.add_argument("--batch", type=int, default=10, help="Rows per page (1-100, default 10)")
+    f_tmxfil = v.add_parser("ca_tmx_filings", parents=[g()],
+                            help="TMX regulatory-filings register — METADATA ONLY (app-money GraphQL)",
+                            description="Filing register rows (filingDate/description/name/size/"
+                                        "urlToPdf). METADATA-ONLY LAW: urlToPdf lands on app."
+                                        "quotemedia.com whose robots (Disallow: / with an Allow "
+                                        "whitelist not covering /data/) bans the PDF content — the "
+                                        "pointer value rides verbatim, never fetched")
+    f_tmxfil.add_argument("--symbol", required=True, help="TMX ticker (e.g. RY)")
+    f_tmxfil.add_argument("--limit", type=int, default=10, help="Rows back (1-50, default 10)")
+    f_tmxidx = v.add_parser("ca_tmx_index_constituents", parents=[g()],
+                            help="TMX index constituents + keyData (app-money GraphQL; ^TSX = 215 members)",
+                            description="One index's constituent list (symbol/quotedMarketValue/"
+                                        "longName/weight/exchange) + the keyData card (adjMarketCap/"
+                                        "numConstituents/peRatio/divYield…). Index symbols carry the "
+                                        "caret (^TSX). Constituent identity + weights only — no index "
+                                        "price history (red line)")
+    f_tmxidx.add_argument("--index-symbol", dest="index_symbol", required=True, help="Caret index form (e.g. ^TSX)")
+    f_tmxinsa = v.add_parser("ca_tmx_insider_activities", parents=[g()],
+                             help="TMX insider AGGREGATES over 3/6/12-month windows (app-money GraphQL)",
+                             description="The SEDI aggregated view: per-insider buy/sell aggregates "
+                                         "(name/trades/shares/sharesHeld/tradeValue) over three "
+                                         "period windows (threeMonths/sixMonths/twelveMonths) + an "
+                                         "activitySummary net per period (buyShares/soldShares/"
+                                         "netActivity/totalShares). The per-transaction ledger is "
+                                         "ca_tmx_insider_transactions")
+    f_tmxinsa.add_argument("--symbol", required=True, help="TMX ticker (e.g. RY)")
+    f_tmxinst = v.add_parser("ca_tmx_insider_transactions", parents=[g()],
+                             help="TMX SEDI insider transaction ledger (app-money GraphQL; depth 1-120 months)",
+                             description="One raw row per insider transaction (filer/relationship/"
+                                         "securitydesignation/transactionTypeCode/marketvalue/"
+                                         "filingdate…). DEPTH LAW: month_duration controls history "
+                                         "depth — 12 ≈ ~480 rows, 120 ≈ 4,177 rows ≈ ten years (the "
+                                         "SEDI ceiling); clamped 1..120")
+    f_tmxinst.add_argument("--symbol", required=True, help="TMX ticker (e.g. RY)")
+    f_tmxinst.add_argument("--month-duration", dest="month_duration", type=int, default=12,
+                           help="History depth in months (1-120, default 12)")
+    f_tmxinsr = v.add_parser("ca_tmx_instrument_search", parents=[g()],
+                             help="TMX cross-exchange instrument resolver (app-money GraphQL)",
+                             description="Keywords search across instruments (symbol/name/exchange/"
+                                         "instrumentType equity|etf) — spans the US cross-listings "
+                                         "(A:US NYE forms) that the CA-only directory search never "
+                                         "sees")
+    f_tmxinsr.add_argument("--keywords", required=True, help="Keywords (1-80 chars, e.g. bank)")
+    f_tmxrec = v.add_parser("ca_tmx_recent_listings", parents=[g()],
+                            help="TMX new-listing event window (rolling, no pagination)",
+                            description="The new-listing event window for one board (rows: name/"
+                                        "symbol/epoch date). EVENT-WINDOW LAW: a rolling window with "
+                                        "NO pagination — sweep monthly; there is no deep backfill "
+                                        "through this door")
+    f_tmxrec.add_argument("--exchange", default="tsx", help="Board code (tsx | tsxv; default tsx)")
+    f_tmxsi = v.add_parser("ca_tmx_short_interest", parents=[g()],
+                           help="TMX biweekly short-interest record (app-money GraphQL)",
+                           description="One short-interest record: SHORT_INTEREST shares / "
+                                       "SHORTINTERESTPCT / days-to-cover 10|30|90 / BUSINESS_DATE "
+                                       "settlement instant. GraphQL null → found=false (biweekly "
+                                       "series, sparse for small caps)")
+    f_tmxsi.add_argument("--symbol", required=True, help="TMX ticker (e.g. RY)")
+    f_tmxsus = v.add_parser("ca_tmx_suspended", parents=[g()],
+                            help="TMX suspension present-state register (name/symbol only)",
+                            description="The suspension register for one board — PRESENT-STATE only "
+                                        "(name/symbol rows, no dates): a snapshot, not an event "
+                                        "stream (the TMX analogue of nasdaq_nordic_trading_halt)")
+    f_tmxsus.add_argument("--exchange", default="tsx", help="Board code (tsx | tsxv; default tsx)")
+    f_tmxwsh = v.add_parser("ca_tmx_wsh_events", parents=[g()],
+                            help="TMX corporate-events calendar (Wall Street Horizon sourced; app-money GraphQL)",
+                            description="Corporate events: EAD earnings announcement / ECC conference "
+                                        "call / CON status, ISIN aboard for the registry join. SHAPE "
+                                        "LAW: data.quote.data is the event LIST; event_date is "
+                                        "MM/DD/YYYY verbatim (US order, never reformatted)")
+    f_tmxwsh.add_argument("--symbol", required=True, help="TMX ticker (e.g. RY)")
     # —— 0.3.68 E10 developed-economy exchange faces (dictionary slots: ch_six_fqs < ch_zefix;
     # ca_tmx deferred 2026-11-18 pm — tsx.com flipped to an AWS WAF JS challenge, probe-e10 p2c-p2e) ——
     f_six = v.add_parser("ch_six_fqs_search", parents=[g()],
@@ -1441,6 +1555,112 @@ def register(v, g):
                       help="Row offset (upstream param: $offset; >=0 — Socrata deep-offset friendly)")
     f_la.add_argument("--order", default=None,
                       help="Sort column [ASC|DESC] (upstream param: $order; rejects NULLS — e.g. location_start_date DESC)")
+    # —— 0.3.77 E20 Nasdaq Nordic exchange family + MFN.se disclosure wire (dictionary slots:
+    # lacity < nasdaq_nordic_* < no_brreg and ru_cbr < se_mfn_* < sg_datagovsg; api.nasdaq.com/
+    # api/nordic keyless screener — ALL ops transport='curl', the first load-bearing curl-channel
+    # batch: the JA3 gate blocks python TLS while curl UA-only passes (probe-e20 ctrl.sh dual-stack
+    # proof); the quote columns strip at the face layer (red line); mfn.se rides the HTML canonical
+    # path only — robots bans the machine feeds; NewsWeb stays egress-blocked, do not force) ——
+    f_nncomp = v.add_parser("nasdaq_nordic_company_details", parents=[g()],
+                            help="Morningstar company profile by orderbookId (narrative + style/employees/website)",
+                            description="The issuer's own Morningstar narrative card: companyProfile "
+                                        "(self-description), stockStyle, fiscalYearEnd, employees, "
+                                        "website. Keys on the TX orderbookId (the join key — never the "
+                                        "ISIN/ticker). An unknown id answers a 200 Drupal shell, not "
+                                        "404 — surfaced as found=false (the star shell law)")
+    f_nncomp.add_argument("--instrument-id", dest="instrument_id", required=True,
+                          help="TX orderbookId (e.g. TX2195 = Maersk A; from nasdaq_nordic_universe/lookup)")
+    f_nnetf = v.add_parser("nasdaq_nordic_etf", parents=[g()],
+                           help="Nordic ETP board (ETF category — the true enumeration; 32 funds probe day)",
+                           description="The ETP screener under its REAL category value ETF — the "
+                                       "nordicApiSettings default 'ETP' answers 400 (the "
+                                       "settings-default distortion law). One page, pagination "
+                                       "block rides; identity columns only, the quote strip is "
+                                       "deliberate (red line)")
+    f_nnfund = v.add_parser("nasdaq_nordic_fundamentals", parents=[g()],
+                            help="Morningstar key-stats card by orderbookId (PE/PB/PS/margins/ROE/debt — nine ratios)",
+                            description="The fundamentals card the Nordic family is alone in "
+                                        "having: Price/Earning TTM, Price/Book, Price/Sales, Rev "
+                                        "Growth, EPS Growth, Operating/Net Margin, ROE, "
+                                        "Debt/Equity — verbatim metric/value rows (Maersk TX2195 "
+                                        "PE 10.59 probe day). An unknown id answers the 200 "
+                                        "Drupal shell — found=false (the star shell law)")
+    f_nnfund.add_argument("--instrument-id", dest="instrument_id", required=True,
+                          help="TX orderbookId (e.g. TX2195; from nasdaq_nordic_universe/lookup)")
+    f_nnidx = v.add_parser("nasdaq_nordic_index_members", parents=[g()],
+                           help="Index constituents by IX orderbookId (OMXS30 IX447 = exactly 30)",
+                           description="One index's member list keyed on the IX orderbookId from "
+                                       "nasdaq_nordic_indexes (OMXS30 = IX447 with exactly 30 "
+                                       "members). THE WINDOW LAW: the upstream returns the FIRST "
+                                       "100 members and IGNORES offset/size — larger boards "
+                                       "(Nordic 120 IX10282) truncate here with no pagination "
+                                       "surface; a beyond-100 reach is a documented cap, never a "
+                                       "coverage claim")
+    f_nnidx.add_argument("--index-id", dest="index_id", required=True,
+                         help="IX orderbookId (e.g. IX447 = OMXS30; from nasdaq_nordic_indexes)")
+    f_nniidx = v.add_parser("nasdaq_nordic_indexes", parents=[g()],
+                            help="Nordic index board (86 indexes, IX-prefixed ids — the index_members enumeration source)",
+                            description="The screener's index board: 86 indexes probe day, "
+                                        "IX-prefixed orderbookIds with ICB GI/PI classification "
+                                        "families; rows carry the index identity only (quote "
+                                        "columns stripped). Feed the IX ids to "
+                                        "nasdaq_nordic_index_members")
+    f_nninfo = v.add_parser("nasdaq_nordic_instrument_info", parents=[g()],
+                            help="Instrument master card by orderbookId (symbol/name/exchange/segment/ISIN/currency)",
+                            description="The qdHeader master card: symbol, companyName, exchange "
+                                        "(Nasdaq Copenhagen/Stockholm/Helsinki/Iceland), segment, "
+                                        "marketStatus, ISIN, currency. assetClass=SHARES is "
+                                        "MANDATORY upstream (400 10001 'Mandatory field missing' "
+                                        "without it — the face always sends it). The embedded "
+                                        "quote blocks (primaryData/bid/ask/52-week) are market "
+                                        "data and are stripped (red line)")
+    f_nninfo.add_argument("--instrument-id", dest="instrument_id", required=True,
+                          help="TX orderbookId (e.g. TX2195; from nasdaq_nordic_universe/lookup)")
+    f_nnsumm = v.add_parser("nasdaq_nordic_instrument_summary", parents=[g()],
+                            help="Share-base card by orderbookId (shares outstanding + series market cap + green flags)",
+                            description="The share-base card: shares outstanding, market-cap-of-"
+                                        "share-series, ISIN, green-equity flags, liquidity flags "
+                                        "(Maersk TX2195: 9,586,488 shares, DKK 188.6bn series cap "
+                                        "probe day). assetClass=SHARES mandatory upstream. The "
+                                        "day-range/52-week/volume price blocks are market data "
+                                        "and are stripped (red line)")
+    f_nnsumm.add_argument("--instrument-id", dest="instrument_id", required=True,
+                          help="TX orderbookId (e.g. TX2195; from nasdaq_nordic_universe/lookup)")
+    f_nnlkp = v.add_parser("nasdaq_nordic_lookup", parents=[g()],
+                           help="Company/ticker fragment → instruments (grouped; orderbookId is the join key)",
+                           description="The search resolver: data is a LIST of {group, "
+                                       "instruments[]} — one company may list on several "
+                                       "venues/currencies (Ericsson B: ERIC B/SEK + ERIBR/EUR "
+                                       "probe-verified), so the join key is the orderbookId, "
+                                       "never the bare name or ISIN. Unknown query = zero "
+                                       "groups, found=false (honest)")
+    f_nnlkp.add_argument("--q", required=True, help="Company-name or ticker fragment (e.g. Ericsson)")
+    f_nnhalt = v.add_parser("nasdaq_nordic_trading_halt", parents=[g()],
+                            help="Current TRADING_HALT register (present-state screener; 16 instruments probe day)",
+                            description="The knocked-out screener under category=TRADING_HALT — "
+                                        "the Nordic analogue of TMX suspended / Euronext "
+                                        "Newsboard: a PRESENT-STATE register, not an event "
+                                        "stream (probe day 16 rows; the count moves daily). Row "
+                                        "quote columns arrive empty and are stripped regardless")
+    f_nnuniv = v.add_parser("nasdaq_nordic_universe", parents=[g()],
+                            help="Nordic listed-company census (CPH/STO/HEL/ICE one anchor; 1,112 probe day)",
+                            description="The screener census across Copenhagen/Stockholm/Helsinki/"
+                                        "Iceland in one call: ISIN/orderbookId/symbol/sector/"
+                                        "currency/green flags per row (probe day 1,112 total: "
+                                        "Main 255+238+210+0 by cap segment + First North 409). "
+                                        "THE DEFAULT-SEGMENT TRAP: MAIN_MARKET without segment "
+                                        "answers ONLY Large Cap — spell the segment; FIRST_NORTH "
+                                        "takes none (no cap split on the growth board). market "
+                                        "narrows to one venue or absent = the merged book "
+                                        "(lowercase country codes 400). The upstream's quote "
+                                        "columns are stripped at the face layer (red line)")
+    f_nnuniv.add_argument("--category", default="MAIN_MARKET", choices=["MAIN_MARKET", "FIRST_NORTH"],
+                          help="Screener category (default MAIN_MARKET)")
+    f_nnuniv.add_argument("--segment", default=None,
+                          choices=["LARGE_CAP", "MID_CAP", "SMALL_CAP", "SPAC"],
+                          help="Cap segment — REQUIRED-in-practice for MAIN_MARKET (absent = only Large Cap); illegal for FIRST_NORTH")
+    f_nnuniv.add_argument("--market", default=None, choices=["CPH", "STO", "HEL", "ICE"],
+                          help="Venue filter (absent = the merged Nordic book)")
     f12 = v.add_parser("no_brreg_enheter", parents=[g()],
                        help="Norwegian registry master record (Enhetsregisteret; --navn search XOR --organisasjonsnummer single)",
                        description="Brønnøysund Enhetsregisteret: navn search with HAL pagination (page/size, 0-based) or orgnr single record; navn is the Norwegian upstream param (?name= 400s)")
@@ -1587,6 +1807,48 @@ def register(v, g):
     f_ruc.add_argument("--limit", type=int, default=20,
                        help="Rows to return (local payload wall 1-100, default 20; total_matched echoes the full count)")
 
+    # —— 0.3.77 E20 MFN.se disclosure wire (dictionary slot: ru_cbr_credit < se_mfn_* < sg_datagovsg —
+    # the canonical paths negotiate to the JSON Feed under the SDK's Accept; author isins/leis/tickers
+    # ride per entry; no machine-feed URL is ever touched — the robots ban is on URL suffixes) ——
+    f_mfna = v.add_parser("se_mfn_article", parents=[g()],
+                          help="MFN disclosure full card — single-item JSON feed (UTC date + issuer isins/leis/tickers + body)",
+                          description="One disclosure's full card: content.publish_date (UTC, "
+                                      "the authority), title, the issuer card (slug/name/isins/"
+                                      "leis/tickers), subjects (multi-issuer disclosures), "
+                                      "properties (lang/tags/type/scopes) and the body text+html "
+                                      "verbatim. An unknown path answers the honest 404 → "
+                                      "found=false; a 200 feed with zero items is the same miss")
+    f_mfna.add_argument("--path", required=True,
+                        help="Article path verbatim from se_mfn_wire/issuer_feed entries (/channel/a/issuer/title-uuid8)")
+    f_mfnf = v.add_parser("se_mfn_issuer_feed", parents=[g()],
+                          help="One issuer's MFN feed, 48 entries per offset page (deep history by offset stepping)",
+                          description="The per-issuer announcement feed: 48 entries per page, "
+                                      "offset-paginated to the full archive (Ambu p1 2026-11 → "
+                                      "p2 2025-12→ seamless probe day). An unknown slug answers "
+                                      "the SOFT-404 (200, empty-items feed) — returned honestly "
+                                      "empty. Each entry's content.publish_date is the UTC "
+                                      "authority")
+    f_mfnf.add_argument("--slug", required=True,
+                        help="MFN issuer slug ([a-z0-9-], e.g. ambu — NOT the stock symbol; from se_mfn_wire entries)")
+    f_mfnf.add_argument("--offset", type=int, default=0,
+                        help="Pagination offset (48 entries per page; step by len(entries) to walk the archive)")
+    f_mfnw = v.add_parser("se_mfn_wire", parents=[g()],
+                          help="MFN.se full disclosure stream for one market (48 entries/page, SE/DK/FI/NO issuers)",
+                          description="The MFN.se news + IR wire — the aggregated announcement/"
+                                      "PDMR stream for Nordic issuers (the harvestable "
+                                      "representative of the exchange-line disclosure family; "
+                                      "the NewsWeb API stays egress-blocked). THE STREAM-"
+                                      "SEGMENT LAW: /all/s 301s to /all/s/nordic — an explicit "
+                                      "market always rides. THE NEGOTIATION LAW: the canonical "
+                                      "path answers the JSON Feed under the SDK's Accept (live "
+                                      "reversal of the HTML-parse plan) — entries carry path/"
+                                      "date(UTC)/title/issuer(slug/name/isins/leis/tickers)/"
+                                      "subjects/lang/tags/type/scopes/channel; the feed carries "
+                                      "no quote metadata at all (the HTML page's tooltip quotes "
+                                      "never enter the JSON face)")
+    f_mfnw.add_argument("--market", default="nordic",
+                        choices=["nordic", "sweden", "denmark", "finland", "norway"],
+                        help="Stream market segment (default nordic)")
     # —— 0.3.46 SG data.gov.sg open-data platform (dictionary slot: sg_datagovsg between sec_* and
     # ted_*; _download sorts before _datasets — '_' < 's'; the ACRA register of record rides the
     # national platform as bulk CSV) ——
@@ -1970,6 +2232,20 @@ FLAT = {
     "ca_cse_listed": lambda a: {"symbol": a.symbol, "name": a.name, "sector": a.sector,
                                 "status": a.status, "security_type": a.security_type,
                                 "tier": a.tier, "limit": a.limit},
+    # 0.3.78 E21 TMX Canada directory + GraphQL gateway (slot: ca_cse_listed < ca_tmx_* < ch_six_fqs_search)
+    "ca_tmx_company_profile": lambda a: {"symbol": a.symbol},
+    "ca_tmx_delisted": lambda a: {"exchange": a.exchange},
+    "ca_tmx_directory_search": lambda a: {"exchange": a.exchange, "q": a.q},
+    "ca_tmx_dividends": lambda a: {"symbol": a.symbol, "page": a.page, "batch": a.batch},
+    "ca_tmx_filings": lambda a: {"symbol": a.symbol, "limit": a.limit},
+    "ca_tmx_index_constituents": lambda a: {"index_symbol": a.index_symbol},
+    "ca_tmx_insider_activities": lambda a: {"symbol": a.symbol},
+    "ca_tmx_insider_transactions": lambda a: {"symbol": a.symbol, "month_duration": a.month_duration},
+    "ca_tmx_instrument_search": lambda a: {"keywords": a.keywords},
+    "ca_tmx_recent_listings": lambda a: {"exchange": a.exchange},
+    "ca_tmx_short_interest": lambda a: {"symbol": a.symbol},
+    "ca_tmx_suspended": lambda a: {"exchange": a.exchange},
+    "ca_tmx_wsh_events": lambda a: {"symbol": a.symbol},
     # 0.3.68 E10 developed-economy exchange faces (six)
     "ch_six_fqs_search": lambda a: {"segment": a.segment, "columns": a.columns,
                                     "order_by": a.order_by, "page": a.page, "pagesize": a.pagesize},
@@ -2162,6 +2438,22 @@ FLAT = {
     # 0.3.49 US city-license trio (dictionary slot: lacity between kz_gbd_ul and no_brreg — 'k'<'l'<'n')
     "lacity_registrations": lambda a: {"where": a.where, "limit": a.limit, "offset": a.offset,
                                        "order": a.order},
+    # 0.3.77 E20 Nasdaq Nordic exchange family (dictionary slot: lacity_registrations <
+    # nasdaq_nordic_* < no_brreg_enheter — 'l'<'n'; ALL ops transport='curl' — the first
+    # load-bearing curl-channel batch, the JA3 gate blocks python TLS while curl passes;
+    # ten faces in dictionary order: company_details < etf < fundamentals < index_members
+    # < indexes < instrument_info < instrument_summary < lookup < trading_halt < universe)
+    "nasdaq_nordic_company_details": lambda a: {"instrument_id": a.instrument_id},
+    "nasdaq_nordic_etf": lambda a: {},
+    "nasdaq_nordic_fundamentals": lambda a: {"instrument_id": a.instrument_id},
+    "nasdaq_nordic_index_members": lambda a: {"index_id": a.index_id},
+    "nasdaq_nordic_indexes": lambda a: {},
+    "nasdaq_nordic_instrument_info": lambda a: {"instrument_id": a.instrument_id},
+    "nasdaq_nordic_instrument_summary": lambda a: {"instrument_id": a.instrument_id},
+    "nasdaq_nordic_lookup": lambda a: {"q": a.q},
+    "nasdaq_nordic_trading_halt": lambda a: {},
+    "nasdaq_nordic_universe": lambda a: {"category": a.category, "segment": a.segment,
+                                         "market": a.market},
     "no_brreg_enheter": lambda a: {"navn": a.navn, "organisasjonsnummer": a.organisasjonsnummer,
                           "page": a.page, "size": a.size},
     "no_brreg_roller": lambda a: {"organisasjonsnummer": a.organisasjonsnummer},
@@ -2185,6 +2477,12 @@ FLAT = {
     # 0.3.37 RU CBR credit-organisations face (dictionary slot: ru_cbr between ror and sg)
     "ru_cbr_credit_orgs": lambda a: {"name": a.name, "status": a.status, "ogrn": a.ogrn,
                                      "limit": a.limit},
+    # 0.3.77 E20 MFN.se disclosure wire (dictionary slot: ru_cbr_credit_orgs < se_mfn_* <
+    # sg_datagovsg — r<s, 'se'<'sg'; server-rendered HTML only, machine feeds robots-banned;
+    # SE joins the jurisdiction set — three faces in dictionary order: article < issuer_feed < wire)
+    "se_mfn_article": lambda a: {"path": a.path},
+    "se_mfn_issuer_feed": lambda a: {"slug": a.slug, "offset": a.offset},
+    "se_mfn_wire": lambda a: {"market": a.market},
     # 0.3.46 SG data.gov.sg open-data platform (dictionary slot: sg_datagovsg between ru_cbr and ted_*; _download sorts before _datasets — '_' < 's')
     "sg_datagovsg_dataset_download": lambda a: {"dataset_id": a.id},
     "sg_datagovsg_datasets": lambda a: {"page": a.page, "q": a.q, "agency": a.agency,
@@ -2258,6 +2556,20 @@ COUNTRY = {
     # 0.3.71 E13 CSE (slot: ca_ccaa_records < ca_cse_company < ca_cse_listed < ch_six_fqs_search)
     "ca_cse_company": "CA",
     "ca_cse_listed": "CA",
+    # 0.3.78 E21 TMX Canada directory + GraphQL gateway (slot: ca_cse_listed < ca_tmx_* < ch_six_fqs_search)
+    "ca_tmx_company_profile": "CA",
+    "ca_tmx_delisted": "CA",
+    "ca_tmx_directory_search": "CA",
+    "ca_tmx_dividends": "CA",
+    "ca_tmx_filings": "CA",
+    "ca_tmx_index_constituents": "CA",
+    "ca_tmx_insider_activities": "CA",
+    "ca_tmx_insider_transactions": "CA",
+    "ca_tmx_instrument_search": "CA",
+    "ca_tmx_recent_listings": "CA",
+    "ca_tmx_short_interest": "CA",
+    "ca_tmx_suspended": "CA",
+    "ca_tmx_wsh_events": "CA",
     # 0.3.68 E10 developed-economy exchange faces (six)
     "ch_six_fqs_search": "CH",
     "ch_six_notice_detail": "CH",
@@ -2355,6 +2667,19 @@ COUNTRY = {
     "kr_krx_listed": "KR",
     "kz_gbd_ul_companies": "KZ",
     "lacity_registrations": "US",
+    # 0.3.77 E20 Nasdaq Nordic exchange family (slot: lacity < nasdaq_nordic_* < no_brreg;
+    # the four venues CPH/STO/HEL/IS are one pan-Nordic anchor — stamped EU per the
+    # eu_euronext multi-venue precedent, NOT per-venue country codes)
+    "nasdaq_nordic_company_details": "EU",
+    "nasdaq_nordic_etf": "EU",
+    "nasdaq_nordic_fundamentals": "EU",
+    "nasdaq_nordic_index_members": "EU",
+    "nasdaq_nordic_indexes": "EU",
+    "nasdaq_nordic_instrument_info": "EU",
+    "nasdaq_nordic_instrument_summary": "EU",
+    "nasdaq_nordic_lookup": "EU",
+    "nasdaq_nordic_trading_halt": "EU",
+    "nasdaq_nordic_universe": "EU",
     "no_brreg_enheter": "NO",
     "no_brreg_roller": "NO",
     "nyc_dcwp_licenses": "US",
@@ -2365,6 +2690,12 @@ COUNTRY = {
     "nzco_directors": "NZ",
     "ror_organizations": "GLOBAL",
     "ru_cbr_credit_orgs": "RU",
+    # 0.3.77 E20 MFN.se disclosure wire (slot: ru_cbr_credit_orgs < se_mfn_* < sg_datagovsg;
+    # the source is Modular Finance's Swedish platform — SE joins the jurisdiction set 36→37,
+    # the wire face covers SE/DK/FI/NO issuers but stamps the SOURCE's jurisdiction)
+    "se_mfn_article": "SE",
+    "se_mfn_issuer_feed": "SE",
+    "se_mfn_wire": "SE",
     "sg_datagovsg_dataset_download": "SG",
     "sg_datagovsg_datasets": "SG",
     "ted_notices_search": "EU",
